@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { CaptureBar } from '@/components/CaptureBar';
 import { AppNav } from '@/components/app/AppNav';
 import { AppShell } from '@/components/app/AppShell';
 import { CurrentAppNav } from '@/components/app/CurrentAppNav';
@@ -13,6 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <CurrentAppNav />
         </Suspense>
       }
+      capture={<CaptureBar />}
     >
       {children}
     </AppShell>

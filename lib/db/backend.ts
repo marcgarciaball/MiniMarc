@@ -12,6 +12,8 @@ export interface Where {
   notNull?: string[];
   /** Columna de timestamp < valor ISO. */
   lt?: Record<string, string>;
+  /** Columna de timestamp >= valor ISO. */
+  gte?: Record<string, string>;
 }
 
 /** Backend mínimo sobre el que se construyen los repositorios. */
@@ -35,6 +37,7 @@ function applyWhere<Q extends Record<string, any>>(q: Q, where: Where = {}): Q {
   for (const k of where.isNull ?? []) q = q.is(k, null);
   for (const k of where.notNull ?? []) q = q.not(k, 'is', null);
   for (const [k, v] of Object.entries(where.lt ?? {})) q = q.lt(k, v);
+  for (const [k, v] of Object.entries(where.gte ?? {})) q = q.gte(k, v);
   return q;
 }
 

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   createApiToken,
+  listApiTokens,
   revokeApiToken,
   verifyApiToken,
   TOKEN_PREFIX,
@@ -11,13 +12,19 @@ import {
 } from '@/lib/auth/tokens';
 
 function memoryStore() {
-  const rows: TokenRow[] = [];
+  const rows: (TokenRow & { created_at: string })[] = [];
   let n = 0;
   const store: TokenStore = {
     async insert(row) {
       const id = `t${++n}`;
-      rows.push({ id, ...row, revoked_at: null });
+      rows.push({ id, ...row, revoked_at: null, created_at: new Date(Date.UTC(2026, 9, 21, 10, n)).toISOString() });
       return { id };
+    },
+    async list(userId) {
+      return rows
+        .filter((r) => r.user_id === userId)
+        .map((r) => ({ id: r.id, name: r.name, createdAt: r.created_at, revokedAt: r.revoked_at }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
     async findByHash(hash) {
       return rows.find((r) => r.token_hash === hash) ?? null;
@@ -113,5 +120,24 @@ describe('verifyApiToken', () => {
       store: { ...deps.store, findByHash: async () => Promise.reject(new Error('db down')) },
     };
     await expect(verifyApiToken(`Bearer ${TOKEN_PREFIX}${'A'.repeat(43)}`, broken)).rejects.toThrow('db down');
+  });
+});
+
+describe('listApiTokens', () => {
+  it('lista los tokens del usuario (nombre, fecha, revocado) sin hash ni token, el más nuevo primero', async () => {
+    const { deps } = setup();
+    const siri = await createApiToken('Siri', deps);
+    const ext = await createApiToken('Extensión', deps);
+    await createApiToken('Ajeno', { ...deps, userId: async () => 'otro' });
+    await revokeApiToken(siri.id, deps);
+
+    const list = await listApiTokens(deps);
+    expect(list.map((t) => [t.name, t.revokedAt === null])).toEqual([
+      ['Extensión', true],
+      ['Siri', false],
+    ]);
+    expect(list[0]).toEqual({ id: ext.id, name: 'Extensión', createdAt: expect.any(String), revokedAt: null });
+    expect(JSON.stringify(list)).not.toContain(ext.token);
+    expect(JSON.stringify(list)).not.toContain(sha256(ext.token));
   });
 });

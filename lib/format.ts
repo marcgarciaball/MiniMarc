@@ -45,3 +45,24 @@ export const TYPE_LABELS: Record<Item['type'], string> = {
   compra: 'Compra',
   regalo: 'Regalo',
 };
+
+/**
+ * Where a captured item went, as the Bandeja shows it: "Tareas · Personal", "Ideas",
+ * "Regalo · Ainhoa", "Sin clasificar"… A task without area counts as Personal.
+ */
+export function destinationLabel(
+  item: Pick<Item, 'type' | 'area' | 'needsReview' | 'personId'>,
+  personName?: string,
+): string {
+  if (item.needsReview) return 'Sin clasificar';
+  switch (item.type) {
+    case 'tarea':
+      return `Tareas · ${item.area === 'trabajo' ? 'Trabajo' : 'Personal'}`;
+    case 'idea':
+      return 'Ideas';
+    case 'compra':
+      return 'Compras';
+    case 'regalo':
+      return personName ? `Regalo · ${personName}` : 'Regalos';
+  }
+}

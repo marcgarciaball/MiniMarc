@@ -498,3 +498,186 @@
   font-family: ui-monospace, "SF Mono", monospace;
   font-size: 15px;
 }
+
+/* ---------- CaptureBar ---------- */
+/*
+ * iPhone: a glass capsule floating right above the tab bar (and above the keyboard while it is
+ * open; CaptureBar sets --capture-keyboard from visualViewport). Desktop: the first thing in the column.
+ */
+.app-shell {
+  --capture-height: 50px;
+  --capture-gap: 8px;
+}
+
+.app-capture {
+  position: fixed;
+  left: calc(var(--gutter) + var(--safe-left));
+  right: calc(var(--gutter) + var(--safe-right));
+  bottom: calc(max(12px, calc(var(--safe-bottom) - 12px)) + var(--tabbar-height) + var(--capture-gap));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--capture-height);
+  padding: 0 4px 0 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+}
+
+.app-capture[data-keyboard] {
+  bottom: calc(var(--capture-keyboard) + var(--capture-gap));
+}
+
+.app-capture__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  /* ≥ 16px, or iOS zooms the page on focus. */
+  font-size: 17px;
+  letter-spacing: -0.41px;
+  outline: none;
+}
+
+.app-capture__input::placeholder {
+  color: var(--label-tertiary);
+}
+
+.app-capture__area {
+  flex: none;
+  min-height: var(--touch-target);
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  color: var(--label-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.24px;
+  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
+}
+
+.app-capture__area[aria-pressed="true"] {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+}
+
+.app-capture__send {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+}
+
+.app-capture__send svg {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-tile);
+  color: #ffffff;
+}
+
+.app-capture__send:disabled svg {
+  background: var(--fill);
+  color: var(--label-tertiary);
+}
+
+/* Room for the capture bar under the content, and toasts above it. */
+@media (max-width: 899px) {
+  .app-shell[data-capture] .app-main.ui-tabbar-inset {
+    padding-bottom: calc(
+      var(--tabbar-height) + max(12px, calc(var(--safe-bottom) - 12px)) + var(--capture-height) + var(--capture-gap) + 24px
+    );
+  }
+
+  .app-shell[data-capture] .ui-toast-region {
+    bottom: calc(
+      var(--tabbar-height) + max(12px, calc(var(--safe-bottom) - 12px)) + var(--capture-height) + var(--capture-gap) + 12px
+    );
+  }
+}
+
+@media (min-width: 900px) {
+  .app-capture,
+  .app-capture[data-keyboard] {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    margin: 0 var(--gutter) 12px;
+  }
+
+  .app-sidebar__capture {
+    color: var(--accent);
+    font-weight: 600;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-capture {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--bg-elevated);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-capture__area {
+    transition: none;
+  }
+}
+
+/* ---------- Bandeja ---------- */
+.app-inbox-row__move {
+  flex: none;
+  margin-right: 6px;
+  font-size: 15px;
+  letter-spacing: -0.24px;
+}
+
+/* ---------- Tokens ---------- */
+.app-token {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.app-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 20px calc(var(--gutter) + var(--safe-left));
+}
+
+.app-chip {
+  position: relative;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--fill);
+  color: var(--label);
+  font-size: 15px;
+  letter-spacing: -0.24px;
+}
+
+/* 36px visual, 44pt target. */
+.app-chip::after {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+.app-chip[aria-pressed="true"] {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+  font-weight: 600;
+}

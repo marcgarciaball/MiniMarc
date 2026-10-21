@@ -13,8 +13,13 @@ const TOKEN_RE = /^ap_[A-Za-z0-9_-]{43}$/;
 
 export type TokenRow = { id: string; user_id: string; name: string; token_hash: string; revoked_at: string | null };
 
+/** What Ajustes shows: never the token nor its hash. */
+export type ApiTokenInfo = { id: string; name: string; createdAt: string; revokedAt: string | null };
+
 export interface TokenStore {
   insert(row: { user_id: string; name: string; token_hash: string }): Promise<{ id: string }>;
+  /** The user's tokens, newest first. */
+  list(userId: string): Promise<ApiTokenInfo[]>;
   findByHash(hash: string): Promise<TokenRow | null>;
   /** Marks the token revoked, only if it belongs to `userId`. */
   revoke(id: string, userId: string, at: string): Promise<void>;
@@ -36,6 +41,20 @@ export function supabaseTokenStore(db = createAdminClient()): TokenStore {
       const { data, error } = await db.from('api_tokens').insert(row).select('id').single();
       if (error) throw new Error(`insert api_tokens: ${error.message}`);
       return { id: String(data.id) };
+    },
+    async list(userId) {
+      const { data, error } = await db
+        .from('api_tokens')
+        .select('id, name, created_at, revoked_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw new Error(`select api_tokens: ${error.message}`);
+      return (data ?? []).map((r) => ({
+        id: String(r.id),
+        name: String(r.name),
+        createdAt: String(r.created_at),
+        revokedAt: r.revoked_at == null ? null : String(r.revoked_at),
+      }));
     },
     async findByHash(hash) {
       const { data, error } = await db
@@ -90,6 +109,12 @@ export async function verifyApiToken(authHeader: string | null, deps?: TokenDeps
   const b = Buffer.from(hash, 'hex');
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   return { userId: row.user_id, tokenId: row.id };
+}
+
+/** The signed-in user's tokens (name, creation date, revoked or not), newest first. */
+export async function listApiTokens(deps?: TokenDeps): Promise<ApiTokenInfo[]> {
+  const d = deps ?? (await defaultDeps());
+  return d.store.list(await d.userId());
 }
 
 /** Revokes one of the signed-in user's tokens (a no-op for someone else's). */

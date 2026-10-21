@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { SignOutButton } from '@/components/ajustes/SignOutButton';
+import { TokensSection } from '@/components/ajustes/TokensSection';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
+import { madridToday } from '@/lib/actions/today';
+import { listApiTokens } from '@/lib/auth/tokens';
 import { requireUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Ajustes' };
@@ -42,6 +45,10 @@ export default function AjustesPage() {
         <Row href="/ajustes/iphone" title="Guía completa" />
       </InsetList>
 
+      <Suspense fallback={<TokensSection tokens={null} today="" />}>
+        <Tokens />
+      </Suspense>
+
       <InsetList header="Cuenta">
         <Suspense fallback={<Row title="Correo" />}>
           <Email />
@@ -55,4 +62,11 @@ export default function AjustesPage() {
 async function Email() {
   const user = await requireUser();
   return <Row title="Correo" detail={user.email} />;
+}
+
+async function Tokens() {
+  // The session first: it makes this a request-time render (and redirects without one).
+  await requireUser();
+  const tokens = await listApiTokens();
+  return <TokensSection tokens={tokens} today={madridToday()} />;
 }

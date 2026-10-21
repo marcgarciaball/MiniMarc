@@ -215,6 +215,29 @@ export async function listSinClasificar(deps: ActionDeps, area?: Area): Promise<
   return area ? all.filter((i) => (i.area ?? 'personal') === area) : all;
 }
 
+/** The Bandeja shows what came in during this window. */
+export const RECENT_HOURS = 24;
+/** The Papelera keeps soft-deleted items this long; the hourly job (Tarea 16) purges the rest. */
+export const TRASH_DAYS = 30;
+
+/**
+ * Bandeja "Recién añadido": everything created in the last 24 h (any status, not deleted),
+ * newest first, split so Personal and Trabajo are never mixed. No area counts as Personal.
+ */
+export async function listRecent(deps: ActionDeps, now: Date): Promise<Record<Area, Item[]>> {
+  const createdSince = new Date(now.getTime() - RECENT_HOURS * 60 * 60 * 1000).toISOString();
+  const all = await deps.items.listItems({ createdSince });
+  return {
+    personal: all.filter((i) => i.area !== 'trabajo'),
+    trabajo: all.filter((i) => i.area === 'trabajo'),
+  };
+}
+
+/** Papelera: items deleted in the last 30 days, most recently deleted first. */
+export async function listPapelera(deps: ActionDeps): Promise<Item[]> {
+  return deps.items.listDeleted(TRASH_DAYS);
+}
+
 export interface RegalosGroups {
   people: { person: Person; items: Item[] }[];
   /** Gifts with no person (or whose person no longer exists). */

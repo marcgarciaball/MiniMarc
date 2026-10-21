@@ -34,6 +34,8 @@ export interface ItemFilter {
   area?: Area;
   status?: ItemStatus;
   needsReview?: boolean;
+  /** Only items created at or after this ISO instant (Bandeja "Recién añadido"). */
+  createdSince?: string;
 }
 
 export interface Person {

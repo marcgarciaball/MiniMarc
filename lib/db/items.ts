@@ -8,8 +8,12 @@ export interface ItemsRepo {
   updateItem(id: string, patch: ItemPatch): Promise<Item>;
   softDeleteItem(id: string): Promise<void>;
   restoreItem(id: string): Promise<void>;
+  /** Soft-deleted items deleted within the last `days` days, most recently deleted first (Papelera). */
+  listDeleted(days: number): Promise<Item[]>;
   purgeDeletedOlderThan(days: number): Promise<number>;
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Correspondencia única camelCase (Item) ↔ snake_case (columna). */
 const COLUMNS = {
@@ -82,7 +86,8 @@ export function createItemsRepo(
         status: f.status,
         needsReview: f.needsReview,
       });
-      const rows = await backend.select('items', { eq, isNull: ['deleted_at'] });
+      const gte = f.createdSince ? { created_at: f.createdSince } : undefined;
+      const rows = await backend.select('items', { eq, isNull: ['deleted_at'], gte });
       return rows
         .map(rowToItem)
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
@@ -100,8 +105,16 @@ export function createItemsRepo(
       await backend.update('items', id, { deleted_at: null });
     },
 
+    async listDeleted(days) {
+      const since = new Date(now().getTime() - days * DAY_MS).toISOString();
+      const rows = await backend.select('items', { notNull: ['deleted_at'], gte: { deleted_at: since } });
+      return rows
+        .map(rowToItem)
+        .sort((a, b) => Date.parse(b.deletedAt!) - Date.parse(a.deletedAt!));
+    },
+
     async purgeDeletedOlderThan(days) {
-      const cutoff = new Date(now().getTime() - days * 24 * 60 * 60 * 1000);
+      const cutoff = new Date(now().getTime() - days * DAY_MS);
       return backend.remove('items', { notNull: ['deleted_at'], lt: { deleted_at: cutoff.toISOString() } });
     },
   };

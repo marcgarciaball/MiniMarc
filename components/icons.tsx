@@ -147,6 +147,14 @@ export function PlusIcon() {
   );
 }
 
+export function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line} strokeWidth={2.2}>
+      <path d="M12 19V5M6 11l6-6 6 6" />
+    </svg>
+  );
+}
+
 export function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...line} strokeWidth={2.2}>

@@ -223,3 +223,37 @@ describe('regalos', () => {
     await expect(actions.updatePerson(deps, ana.id, form({ name: 'Ana', birthday: '1990-13-40' }))).rejects.toThrow();
   });
 });
+
+describe('Bandeja y Papelera (Tarea 11)', () => {
+  it('listRecent: lo creado en las últimas 24 h, sin eliminados, separado en Personal y Trabajo, lo último primero', async () => {
+    let now = new Date('2026-10-20T09:00:00Z');
+    const backend = createMemoryBackend({ now: () => now });
+    const d: ActionDeps = { items: createItemsRepo(backend, { now: () => now }), people: createPeopleRepo(backend) };
+    await d.items.createItem({ type: 'idea', title: 'Hace 25 h' });
+    now = new Date('2026-10-20T11:00:00Z');
+    await d.items.createItem({ type: 'tarea', title: 'Informe', area: 'trabajo' });
+    now = new Date('2026-10-21T08:00:00Z');
+    await d.items.createItem({ type: 'compra', title: 'Leche' });
+    now = new Date('2026-10-21T08:30:00Z');
+    const done = await d.items.createItem({ type: 'tarea', title: 'Hecha', area: 'personal' });
+    await d.items.updateItem(done.id, { status: 'hecho' });
+    now = new Date('2026-10-21T09:00:00Z');
+    await d.items.createItem({ type: 'idea', title: 'Idea de equipo', area: 'trabajo', needsReview: true });
+    const gone = await d.items.createItem({ type: 'idea', title: 'Borrada' });
+    await d.items.softDeleteItem(gone.id);
+
+    const recent = await actions.listRecent(d, new Date('2026-10-21T10:00:00Z'));
+    // Done items stay: the Bandeja is "what came in", whatever happened to it since.
+    expect(recent.personal.map((i) => i.title)).toEqual(['Hecha', 'Leche']);
+    expect(recent.trabajo.map((i) => i.title)).toEqual(['Idea de equipo', 'Informe']);
+  });
+
+  it('listPapelera: los eliminados de los últimos 30 días; restaurar los devuelve a su lista', async () => {
+    const a = await actions.addItem(deps, form({ type: 'compra', title: 'Leche' }));
+    await actions.deleteItem(deps, a.id);
+    expect((await actions.listPapelera(deps)).map((i) => i.title)).toEqual(['Leche']);
+    await actions.undoDelete(deps, a.id);
+    expect(await actions.listPapelera(deps)).toEqual([]);
+    expect((await actions.listByType(deps, 'compra')).map((i) => i.title)).toEqual(['Leche']);
+  });
+});

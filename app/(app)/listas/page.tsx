@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { BagIcon, GiftIcon, IdeaIcon, TrayIcon } from '@/components/icons';
+import { BagIcon, ClockIcon, GiftIcon, IdeaIcon, TrayIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import { listByType, listSinClasificar } from '@/lib/actions/items';
 import { getDeps } from '@/lib/actions/server';
@@ -54,6 +54,7 @@ function Hub({ counts }: { counts: Counts | null }) {
         title="Sin clasificar"
         detail={count(counts?.sinClasificar)}
       />
+      <Row href="/bandeja" leading={tile(<ClockIcon />)} title="Recién añadido" subtitle="Lo capturado en las últimas 24 h" />
     </InsetList>
   );
 }

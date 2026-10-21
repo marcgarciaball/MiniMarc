@@ -4,6 +4,8 @@ import { Glass, TabBar, type TabBarItem } from '@/components/ui';
 import {
   AgendaIcon,
   BagIcon,
+  CaptureIcon,
+  ClockIcon,
   GiftIcon,
   IdeaIcon,
   ListIcon,
@@ -13,10 +15,11 @@ import {
   TrayIcon,
 } from '@/components/icons';
 import { tabFor, type Section } from '@/lib/nav';
+import { CaptureLink } from './CaptureLink';
 
 /*
- * At most 5 tabs. Capturar (Tarea 11) is not a tab: it will be a floating button next to the
- * tab bar (or the sidebar's first action), with CaptureIcon from components/icons.
+ * At most 5 tabs. Capturar is not a tab: on iPhone the CaptureBar floats right above the tab bar;
+ * on desktop the sidebar's first action focuses it. The Bandeja lives under Listas.
  */
 const TABS: TabBarItem[] = [
   { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
@@ -34,6 +37,7 @@ const SIDEBAR: { header?: string; links: SidebarLink[] }[] = [
       { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
       { key: 'agenda', label: 'Agenda', href: '/agenda', icon: <AgendaIcon /> },
       { key: 'tareas', label: 'Tareas', href: '/tareas', icon: <TasksIcon /> },
+      { key: 'bandeja', label: 'Recién añadido', href: '/bandeja', icon: <ClockIcon /> },
     ],
   },
   {
@@ -57,6 +61,12 @@ export function AppNav({ active }: { active: Section | null }) {
     <>
       <Glass as="nav" className="app-sidebar" aria-label="Secciones">
         <p className="app-sidebar__title">Agente</p>
+        <CaptureLink className="app-sidebar__link app-sidebar__capture">
+          <span className="app-sidebar__icon" aria-hidden>
+            <CaptureIcon />
+          </span>
+          Capturar
+        </CaptureLink>
         {SIDEBAR.map((group, i) => (
           <div key={i} className="app-sidebar__group">
             {group.header && <h2 className="app-sidebar__header">{group.header}</h2>}
@@ -81,7 +91,6 @@ export function AppNav({ active }: { active: Section | null }) {
       </Glass>
       <div className="app-tabbar">
         <TabBar items={TABS} active={tabFor(active)} />
-        {/* Tarea 11: the Capturar button goes here, beside the tab bar. */}
       </div>
     </>
   );

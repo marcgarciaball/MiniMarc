@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBirthday, formatDay, formatDue } from '@/lib/format';
+import { destinationLabel, formatBirthday, formatDay, formatDue } from '@/lib/format';
 import { sectionFor, tabFor } from '@/lib/nav';
 import { madridDateTime } from '@/lib/time';
 import { lockAxis, project, swipeOffset, swipeOutcome } from '@/components/ui/swipePhysics';
@@ -38,6 +38,8 @@ describe('navigation sections', () => {
     ['/regalos/abc', 'regalos', 'listas'],
     ['/sin-clasificar', 'sin-clasificar', 'listas'],
     ['/listas', 'listas', 'listas'],
+    ['/bandeja', 'bandeja', 'listas'],
+    ['/bandeja/papelera', 'bandeja', 'listas'],
     ['/login', null, ''],
   ])('%s', (path, section, tab) => {
     expect(sectionFor(path)).toBe(section);
@@ -66,5 +68,21 @@ describe('swipe physics', () => {
     expect(swipeOutcome(60, 1.2, w)).toBe('complete');
     expect(swipeOutcome(200, -3, w)).toBeNull();
     expect(project(1)).toBeCloseTo(99);
+  });
+});
+
+describe('destinationLabel (Bandeja)', () => {
+  const base = { needsReview: false, area: null, personId: null } as const;
+  it.each([
+    [{ ...base, type: 'tarea', area: 'personal' }, undefined, 'Tareas · Personal'],
+    [{ ...base, type: 'tarea', area: null }, undefined, 'Tareas · Personal'],
+    [{ ...base, type: 'tarea', area: 'trabajo' }, undefined, 'Tareas · Trabajo'],
+    [{ ...base, type: 'idea' }, undefined, 'Ideas'],
+    [{ ...base, type: 'compra' }, undefined, 'Compras'],
+    [{ ...base, type: 'regalo', personId: 'p1' }, 'Ainhoa', 'Regalo · Ainhoa'],
+    [{ ...base, type: 'regalo' }, undefined, 'Regalos'],
+    [{ ...base, type: 'tarea', area: 'trabajo', needsReview: true }, undefined, 'Sin clasificar'],
+  ] as const)('caso %#', (item, person, label) => {
+    expect(destinationLabel(item, person)).toBe(label);
   });
 });

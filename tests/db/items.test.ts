@@ -94,6 +94,48 @@ describe('items repo', () => {
   });
 });
 
+describe('items repo · Bandeja y Papelera (Tarea 11)', () => {
+  it('listItems({createdSince}) devuelve solo lo creado desde ese instante, sin eliminados, lo último primero', async () => {
+    const start = now;
+    now = new Date(start.getTime() - 25 * 60 * 60 * 1000);
+    await items.createItem({ type: 'idea', title: 'ayer de más' });
+    now = new Date(start.getTime() - 23 * 60 * 60 * 1000);
+    const a = await items.createItem({ type: 'idea', title: 'hace 23 h' });
+    now = new Date(start.getTime() - 60 * 1000);
+    const b = await items.createItem({ type: 'compra', title: 'hace 1 min' });
+    const gone = await items.createItem({ type: 'compra', title: 'borrado' });
+    await items.softDeleteItem(gone.id);
+    now = start;
+
+    const since = new Date(start.getTime() - DAY).toISOString();
+    const recent = await items.listItems({ createdSince: since });
+    expect(recent.map((i) => i.id)).toEqual([b.id, a.id]);
+    // Se combina con el resto de filtros.
+    expect((await items.listItems({ createdSince: since, type: 'idea' })).map((i) => i.id)).toEqual([a.id]);
+  });
+
+  it('listDeleted(30) devuelve los eliminados en los últimos 30 días, el último borrado primero', async () => {
+    const old = await items.createItem({ type: 'idea', title: 'vieja' });
+    const first = await items.createItem({ type: 'idea', title: 'primero' });
+    const second = await items.createItem({ type: 'idea', title: 'segundo' });
+    await items.createItem({ type: 'idea', title: 'viva' });
+    const start = now;
+    now = new Date(start.getTime() - 31 * DAY);
+    await items.softDeleteItem(old.id);
+    now = new Date(start.getTime() - 2 * DAY);
+    await items.softDeleteItem(first.id);
+    now = new Date(start.getTime() - DAY);
+    await items.softDeleteItem(second.id);
+    now = start;
+
+    const trash = await items.listDeleted(30);
+    expect(trash.map((i) => i.title)).toEqual(['segundo', 'primero']);
+    expect(trash[0].deletedAt).toBe(new Date(start.getTime() - DAY).toISOString());
+    await items.restoreItem(second.id);
+    expect((await items.listDeleted(30)).map((i) => i.title)).toEqual(['primero']);
+  });
+});
+
 describe('people repo', () => {
   it('upsertPersonByName no duplica (insensible a mayúsculas y espacios)', async () => {
     const a = await people.upsertPersonByName('Ana');
