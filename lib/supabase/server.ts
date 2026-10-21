@@ -2,10 +2,14 @@ import { createServerClient } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
 
 /** Supabase client bound to the request cookies (Server Components, Route Handlers, Server Actions). */
 export async function createClient() {
+  // The auth client reads the clock (Date.now) while loading the session; with cacheComponents
+  // that must happen at request time, never during prerender.
+  await connection();
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
