@@ -34,7 +34,8 @@
   margin: 0 auto;
 }
 
-.login [role="alert"] {
+.login [role="alert"],
+.login__note {
   color: var(--label);
   font-size: 15px;
   line-height: 20px;

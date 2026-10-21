@@ -9,13 +9,20 @@ const ERRORS: Record<string, string> = {
   credenciales: 'No se pudo guardar el acceso a Google Calendar. Inténtalo de nuevo.',
 };
 
-async function LoginError({ searchParams }: { searchParams: SearchParams }) {
-  const { error } = await searchParams;
+async function LoginActions({ searchParams }: { searchParams: SearchParams }) {
+  const { error, reconsent } = await searchParams;
   const message = error ? (ERRORS[error] ?? ERRORS.auth) : null;
-  return message ? <p role="alert">{message}</p> : null;
+  const askConsent = reconsent === '1';
+  return (
+    <>
+      {askConsent && <p className="login__note">Google necesita confirmar el acceso a tu calendario.</p>}
+      <LoginButton reconsent={askConsent} />
+      {message && <p role="alert">{message}</p>}
+    </>
+  );
 }
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; reconsent?: string }>;
 
 export default function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   return (
@@ -25,9 +32,8 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
         <p className="login__lead">Tareas, ideas, compras y regalos en un solo sitio.</p>
       </div>
       <div className="login__actions">
-        <LoginButton />
-        <Suspense fallback={null}>
-          <LoginError searchParams={searchParams} />
+        <Suspense fallback={<LoginButton />}>
+          <LoginActions searchParams={searchParams} />
         </Suspense>
         <Link href="/privacidad" className="login__privacy">
           Privacidad

@@ -18,6 +18,10 @@ function deps(over: Partial<CallbackDeps> = {}): CallbackDeps & { calls: string[
     saveCredentials: vi.fn(async () => {
       calls.push('save');
     }),
+    hasStoredRefreshToken: vi.fn(async () => {
+      calls.push('hasStored');
+      return true;
+    }),
     ...over,
   };
 }
@@ -110,9 +114,51 @@ describe('finishSignIn (/auth/callback)', () => {
     }
   });
 
-  it('sin refresh token de Google → entra igualmente, sin tocar las credenciales guardadas', async () => {
+  it('caso normal → no consulta si había un token guardado', async () => {
+    const d = deps();
+    await finishSignIn(d, 'c');
+    expect(d.hasStoredRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('sin refresh token de Google pero con uno guardado → entra y conserva el guardado', async () => {
     const d = deps({ exchange: async () => ({ userId: 'u1', email: ALLOWED, refreshToken: null }) });
     expect(await finishSignIn(d, 'c')).toBe('/');
+    expect(d.hasStoredRefreshToken).toHaveBeenCalledWith('u1');
     expect(d.saveCredentials).not.toHaveBeenCalled();
+    expect(d.signOut).not.toHaveBeenCalled();
+  });
+
+  it('sin refresh token de Google ni guardado → /login?reconsent=1 para pedir el consentimiento', async () => {
+    const d = deps({
+      exchange: async () => ({ userId: 'u1', email: ALLOWED, refreshToken: null }),
+      hasStoredRefreshToken: vi.fn(async () => false),
+    });
+    expect(await finishSignIn(d, 'c')).toBe('/login?reconsent=1');
+    expect(d.saveCredentials).not.toHaveBeenCalled();
+  });
+
+  it('correo no permitido sin refresh token → no_autorizado, nunca reconsent', async () => {
+    const d = deps({
+      exchange: async () => ({ userId: 'u2', email: 'otro@example.com', refreshToken: null }),
+      hasStoredRefreshToken: vi.fn(async () => false),
+    });
+    expect(await finishSignIn(d, 'c')).toBe('/login?error=no_autorizado');
+    expect(d.hasStoredRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('si falla la consulta del token guardado → entra (Calendar pedirá volver a entrar si hace falta) y lo registra', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const d = deps({
+        exchange: async () => ({ userId: 'u1', email: ALLOWED, refreshToken: null }),
+        hasStoredRefreshToken: async () => {
+          throw Object.assign(new Error('timeout'), { code: '57014', refresh_token: 'rt-secreto' });
+        },
+      });
+      expect(await finishSignIn(d, 'c')).toBe('/');
+      expect(spy).toHaveBeenCalledWith('[auth/callback] loadCredentials failed', { code: '57014', message: 'timeout' });
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

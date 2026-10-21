@@ -11,6 +11,8 @@ export interface CallbackDeps {
   signOut: () => Promise<void>;
   /** Stores Google's refresh token (service role only; see 0002_single_user.sql). Throws on failure. */
   saveCredentials: (userId: string, refreshToken: string) => Promise<void>;
+  /** True if a Google refresh token is already stored for `userId` (service role). Throws on failure. */
+  hasStoredRefreshToken: (userId: string) => Promise<boolean>;
 }
 
 const SAFE_FIELDS = ['code', 'message', 'details', 'hint', 'status'] as const;
@@ -29,7 +31,7 @@ export function safeError(err: unknown): Partial<Record<(typeof SAFE_FIELDS)[num
 }
 
 /** One line in the server logs (Vercel) per callback failure, without secrets. */
-export function logCallbackError(step: 'exchange' | 'saveCredentials', err: unknown): void {
+export function logCallbackError(step: 'exchange' | 'saveCredentials' | 'loadCredentials', err: unknown): void {
   console.error(`[auth/callback] ${step} failed`, safeError(err));
 }
 
@@ -44,8 +46,9 @@ export async function finishSignIn(deps: CallbackDeps, code: string | null): Pro
   }
 
   // Supabase does not persist Google's refresh token; keep it for Calendar.
-  // Without one (Google only sends it with prompt=consent) the existing row, if any, stays;
-  // Tarea 7/8 show "Reconectar Google" when there is no credentials row at all.
+  // Login asks Google with prompt=select_account, so a refresh token only comes on the first
+  // consent (or with ?reconsent=1). Without one, the stored token stays; if none is stored,
+  // /login?reconsent=1 asks again with prompt=consent.
   if (session.refreshToken) {
     try {
       await deps.saveCredentials(session.userId, session.refreshToken);
@@ -55,6 +58,14 @@ export async function finishSignIn(deps: CallbackDeps, code: string | null): Pro
       await deps.signOut();
       return '/login?error=credenciales';
     }
+    return '/';
+  }
+
+  try {
+    if (!(await deps.hasStoredRefreshToken(session.userId))) return '/login?reconsent=1';
+  } catch (err) {
+    // Can't tell: let Marc in; Calendar screens offer "Volver a entrar con Google" if needed.
+    logCallbackError('loadCredentials', err);
   }
   return '/';
 }

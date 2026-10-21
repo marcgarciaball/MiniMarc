@@ -30,6 +30,15 @@ export async function GET(request: NextRequest) {
           );
         if (error) throw error;
       },
+      async hasStoredRefreshToken(userId) {
+        const { data, error } = await createAdminClient()
+          .from('google_credentials')
+          .select('refresh_token')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (error) throw error;
+        return Boolean(data?.refresh_token);
+      },
     },
     request.nextUrl.searchParams.get('code'),
   );
