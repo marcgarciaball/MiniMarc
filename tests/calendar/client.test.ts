@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CALENDAR_TIMEOUT_MS,
   CalendarError,
   calendarErrorKind,
   createCalendarClient,
@@ -8,6 +9,8 @@ import {
   type CalendarApi,
   type CalendarGateway,
 } from '@/lib/calendar/client';
+import { taskSyncHook } from '@/lib/calendar/taskSync';
+import type { Item } from '@/lib/db/types';
 import { madridToUtc } from '@/lib/time';
 
 type Call = { method: string; params: Record<string, unknown> };
@@ -142,6 +145,50 @@ describe('createCalendarClient: errores', () => {
   it('acepta el código numérico antiguo de googleapis (err.code)', () => {
     expect(calendarErrorKind(Object.assign(new Error('x'), { code: 401 }))).toBe('auth');
     expect(calendarErrorKind(Object.assign(new Error('x'), { code: '502' }))).toBe('unavailable');
+  });
+});
+
+describe('createCalendarClient: tiempo de espera (M-2)', () => {
+  /** A Google call that never answers. */
+  const hangingApi = () => {
+    const never = () => new Promise<never>(() => {});
+    return {
+      events: { insert: never, patch: never, delete: never, list: never },
+      calendarList: { list: never },
+      calendars: { insert: never },
+    } as unknown as CalendarApi;
+  };
+
+  it('por defecto espera unos 8 s por llamada', () => {
+    expect(CALENDAR_TIMEOUT_MS).toBe(8000);
+  });
+
+  it.each([
+    ['createEvent', (gw: CalendarGateway) => gw.createEvent('c', { title: 't', startsAt: new Date() })],
+    ['updateEvent', (gw: CalendarGateway) => gw.updateEvent('c', 'e', { title: 't', startsAt: new Date() })],
+    ['deleteEvent', (gw: CalendarGateway) => gw.deleteEvent('c', 'e')],
+    ['listEvents', (gw: CalendarGateway) => gw.listEvents({ from: new Date(), to: new Date() })],
+    ['ensureCalendar', (gw: CalendarGateway) => gw.ensureCalendar('Tareas')],
+  ])('%s: una llamada colgada acaba en CalendarError unavailable', async (_n, op) => {
+    const gw = createCalendarClient(null, { api: hangingApi(), timeoutMs: 20 });
+    const err = await op(gw).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CalendarError);
+    expect((err as CalendarError).kind).toBe('unavailable');
+  });
+
+  it('una tarea con hora cuya llamada se cuelga se guarda con calendar_unavailable', async () => {
+    const gw = createCalendarClient(null, { api: hangingApi(), timeoutMs: 20 });
+    const r = await taskSyncHook(async () => gw)({
+      type: 'tarea',
+      status: 'pendiente',
+      deletedAt: null,
+      title: 'Llamar',
+      notes: null,
+      dueAt: '2026-10-22T15:00:00.000Z',
+      hasTime: true,
+      calendarEventId: null,
+    } as Item);
+    expect(r).toMatchObject({ eventId: null, error: 'calendar_unavailable' });
   });
 });
 

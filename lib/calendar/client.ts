@@ -98,6 +98,28 @@ async function call<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+// ---------- Timeout ----------
+
+/** Longest wait for one Google API request; Siri gives up soon after, so a hang must not stall a capture. */
+export const CALENDAR_TIMEOUT_MS = 8000;
+
+/** Rejects with CalendarError('unavailable') if `request` takes longer than `ms`. */
+function withDeadline<T>(request: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new CalendarError('unavailable', 'Calendar no responde (tiempo de espera agotado)')), ms);
+    request.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
 // ---------- Reminders ----------
 
 /** Appointments and timed tasks always warn 180 and 60 minutes before, as a popup. */
@@ -140,15 +162,22 @@ const isOwned = (c: calendar_v3.Schema$CalendarListEntry, name: CalendarName) =>
 /**
  * Gateway over the Calendar API. `auth` is an OAuth2 client holding Marc's refresh token
  * (see getCalendarGateway in lib/calendar/server.ts); `opts.api` replaces the API in tests.
+ * Every request times out after `opts.timeoutMs` (8 s): gaxios aborts it, and the deadline
+ * turns a hang into CalendarError('unavailable') → `calendar_unavailable`.
  */
-export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarApi } = {}): CalendarGateway {
-  const api: CalendarApi = opts.api ?? calendarApi({ version: 'v3', auth: auth ?? undefined });
+export function createCalendarClient(
+  auth: Auth | null,
+  opts: { api?: CalendarApi; timeoutMs?: number } = {},
+): CalendarGateway {
+  const timeoutMs = opts.timeoutMs ?? CALENDAR_TIMEOUT_MS;
+  const api: CalendarApi = opts.api ?? calendarApi({ version: 'v3', auth: auth ?? undefined, timeout: timeoutMs });
+  const timed = <T>(request: Promise<T>) => withDeadline(request, timeoutMs);
 
   async function listCalendars(): Promise<calendar_v3.Schema$CalendarListEntry[]> {
     const items: calendar_v3.Schema$CalendarListEntry[] = [];
     let pageToken: string | undefined;
     do {
-      const { data } = await api.calendarList.list({ pageToken });
+      const { data } = await timed(api.calendarList.list({ pageToken }));
       items.push(...(data.items ?? []));
       pageToken = data.nextPageToken ?? undefined;
     } while (pageToken);
@@ -159,15 +188,17 @@ export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarAp
     const out: CalendarEvent[] = [];
     let pageToken: string | undefined;
     do {
-      const { data } = await api.events.list({
-        calendarId,
-        timeMin: from.toISOString(),
-        timeMax: to.toISOString(),
-        singleEvents: true,
-        orderBy: 'startTime',
-        maxResults: 250,
-        pageToken,
-      });
+      const { data } = await timed(
+        api.events.list({
+          calendarId,
+          timeMin: from.toISOString(),
+          timeMax: to.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: 250,
+          pageToken,
+        }),
+      );
       for (const ev of data.items ?? []) {
         const startsAt = eventTime(ev.start);
         if (!ev.id || ev.status === 'cancelled' || !startsAt) continue;
@@ -188,19 +219,19 @@ export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarAp
   return {
     createEvent: (calendarId, e) =>
       call(async () => {
-        const { data } = await api.events.insert({ calendarId, requestBody: eventBody(e) });
+        const { data } = await timed(api.events.insert({ calendarId, requestBody: eventBody(e) }));
         if (!data.id) throw new CalendarError('unavailable', 'Calendar no devolvió el id del evento');
         return data.id;
       }),
 
     updateEvent: (calendarId, eventId, e) =>
       call(async () => {
-        await api.events.patch({ calendarId, eventId, requestBody: eventBody(e) });
+        await timed(api.events.patch({ calendarId, eventId, requestBody: eventBody(e) }));
       }),
 
     deleteEvent: (calendarId, eventId) =>
       call(async () => {
-        await api.events.delete({ calendarId, eventId });
+        await timed(api.events.delete({ calendarId, eventId }));
       }),
 
     listEvents: ({ from, to }) =>
@@ -216,7 +247,7 @@ export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarAp
       call(async () => {
         const existing = (await listCalendars()).find((c) => isOwned(c, name));
         if (existing?.id) return existing.id;
-        const { data } = await api.calendars.insert({ requestBody: { summary: name, timeZone: DEFAULT_TZ } });
+        const { data } = await timed(api.calendars.insert({ requestBody: { summary: name, timeZone: DEFAULT_TZ } }));
         if (!data.id) throw new CalendarError('unavailable', 'Calendar no devolvió el id del calendario');
         return data.id;
       }),
