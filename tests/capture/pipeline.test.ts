@@ -2,14 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import type { AiProvider } from '@/lib/ai/provider';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
-import {
-  captureText,
-  createCaptureDedup,
-  EmptyCaptureError,
-  TITLE_MAX,
-  type CaptureDeps,
-} from '@/lib/capture/pipeline';
-import { createItemsRepo } from '@/lib/db/items';
+import { captureText, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
+import { createItemsRepo, type ItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
 
@@ -93,8 +87,9 @@ function fakeCalendar(opts: { createError?: unknown; loadError?: unknown } = {})
 }
 
 function setup(ai: AiProvider, cal = fakeCalendar(), now = NOW) {
-  const db = createMemoryBackend({ now: () => now });
-  const items = createItemsRepo(db);
+  const clock = { now };
+  const db = createMemoryBackend({ now: () => clock.now });
+  const items = createItemsRepo(db, { now: () => clock.now });
   const people = createPeopleRepo(db);
   const deps: CaptureDeps = {
     ai,
@@ -103,10 +98,25 @@ function setup(ai: AiProvider, cal = fakeCalendar(), now = NOW) {
     calendar: cal.calendar,
     now,
     tz: 'Europe/Madrid',
-    dedup: createCaptureDedup(),
-    userId: 'user-marc',
   };
-  return { db, items, people, deps, created: cal.created };
+  /** Moves both the pipeline's and the database's clock (a later request). */
+  const at = (ms: number): CaptureDeps => {
+    clock.now = new Date(now.getTime() + ms);
+    return { ...deps, now: clock.now };
+  };
+  return { db, items, people, deps, at, created: cal.created };
+}
+
+/** createItem fails on the listed calls (1-based); every other call goes through. */
+function failingOn(items: ItemsRepo, calls: number[]): ItemsRepo {
+  let n = 0;
+  return {
+    ...items,
+    async createItem(input) {
+      if (calls.includes(++n)) throw new Error('db down');
+      return items.createItem(input);
+    },
+  };
 }
 
 describe('captureText: entrada vacía', () => {
@@ -386,42 +396,159 @@ describe('captureText: tareas con hora', () => {
   });
 });
 
-describe('captureText: duplicados', () => {
-  it('el mismo texto dos veces en < 30 s no se duplica y devuelve el resultado anterior', async () => {
-    const { ai } = aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]);
-    const { db, deps } = setup(ai);
-    const first = await captureText({ text: 'Comprar leche', origin: 'siri' }, deps);
-    const again = await captureText(
-      { text: '  comprar   LECHE ', origin: 'siri' },
-      { ...deps, now: new Date(NOW.getTime() + 29_000) },
+describe('captureText: texto original (I-2)', () => {
+  it('cada elemento creado guarda el texto original completo en sourceText', async () => {
+    const text = 'llamar a mamá, comprar leche y idea: app de recetas';
+    const { deps } = setup(
+      aiReturning([
+        { kind: 'tarea', title: 'Llamar a mamá', confidence: 0.9 },
+        { kind: 'compra', title: 'Leche', confidence: 0.95 },
+        { kind: 'idea', title: 'App de recetas', confidence: 0.4 },
+      ]).ai,
     );
-    expect(again).toEqual(first);
-    expect(db.tables.items).toHaveLength(1);
+    const res = await captureText({ text: `  ${text} `, origin: 'siri' }, deps);
+    expect(res.items.map((i) => i.sourceText)).toEqual([text, text, text]);
   });
 
-  it('dos peticiones simultáneas iguales comparten un único guardado', async () => {
-    const { db, deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
-    const [a, b] = await Promise.all([
-      captureText({ text: 'comprar leche', origin: 'siri' }, deps),
-      captureText({ text: 'comprar leche', origin: 'siri' }, deps),
+  it('también en Trabajo, en Sin clasificar y en una cita que Calendar no aceptó', async () => {
+    const work = setup(aiForbidden().ai);
+    const [w] = (await captureText({ text: 'informe Acme', area: 'trabajo', origin: 'siri' }, work.deps)).items;
+    expect(w.sourceText).toBe('informe Acme');
+
+    const failed = setup(aiThrowing());
+    const [f] = (await captureText({ text: 'algo raro', origin: 'siri' }, failed.deps)).items;
+    expect(f.sourceText).toBe('algo raro');
+
+    const cal = fakeCalendar({ createError: Object.assign(new Error('Backend Error'), { status: 503 }) });
+    const cita = setup(
+      aiReturning([{ kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
+      cal,
+    );
+    const [c] = (await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, cita.deps)).items;
+    expect(c.sourceText).toBe('dentista mañana a las 5');
+  });
+});
+
+describe('captureText: fallo parcial (I-1)', () => {
+  const three: ModelItem[] = [
+    { kind: 'compra', title: 'Leche', confidence: 0.9 },
+    { kind: 'tarea', title: 'Llamar a mamá', confidence: 0.9 },
+    { kind: 'idea', title: 'App de recetas', confidence: 0.9 },
+  ];
+  const text = 'comprar leche, llamar a mamá e idea: app de recetas';
+
+  it('si falla un elemento, guarda los demás y además el texto entero en Sin clasificar', async () => {
+    const { db, deps } = setup(aiReturning(three).ai);
+    const res = await captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [2]) });
+    expect(res.items.map((i) => [i.type, i.title, i.needsReview])).toEqual([
+      ['compra', 'Leche', false],
+      ['idea', 'App de recetas', false],
+      ['tarea', text, true],
     ]);
-    expect(a).toEqual(b);
+    expect(res.items[2]).toMatchObject({ area: null, sourceText: text, origin: 'siri' });
+    expect(db.tables.items).toHaveLength(3);
+  });
+
+  it('con una cita ya en Calendar, devuelve la cita y el texto en Sin clasificar', async () => {
+    const cal = fakeCalendar();
+    const { deps } = setup(
+      aiReturning([
+        { kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 },
+        { kind: 'compra', title: 'Leche', confidence: 0.9 },
+      ]).ai,
+      cal,
+    );
+    const res = await captureText({ text: 'dentista mañana a las 5 y comprar leche', origin: 'siri' }, {
+      ...deps,
+      items: failingOn(deps.items, [1]),
+    });
+    expect(res.eventIds).toEqual(['ev-1']);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0]).toMatchObject({ title: 'dentista mañana a las 5 y comprar leche', needsReview: true });
+  });
+
+  it('un reintento en < 30 s no duplica ni citas ni elementos', async () => {
+    const cal = fakeCalendar();
+    const { db, deps, at } = setup(
+      aiReturning([
+        { kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 },
+        { kind: 'compra', title: 'Leche', confidence: 0.9 },
+        { kind: 'idea', title: 'App de recetas', confidence: 0.9 },
+      ]).ai,
+      cal,
+    );
+    const input = { text: 'dentista mañana a las 5, comprar leche e idea: app', origin: 'siri' as const };
+    const first = await captureText(input, { ...deps, items: failingOn(deps.items, [2]) });
+    expect(first.items).toHaveLength(2);
+    const retry = await captureText(input, at(20_000));
+    expect(cal.created).toHaveLength(1);
+    expect(db.tables.items).toHaveLength(2);
+    expect(retry.items.map((i) => i.id).sort()).toEqual(first.items.map((i) => i.id).sort());
+  });
+
+  it('si no se guarda nada en absoluto, lanza (el endpoint responde 500)', async () => {
+    const { db, deps } = setup(aiReturning(three).ai);
+    await expect(
+      captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [1, 2, 3, 4]) }),
+    ).rejects.toThrow('db down');
+    expect(db.tables.items).toHaveLength(0);
+  });
+
+  it('si falla un elemento y también el Sin clasificar, devuelve lo que sí se guardó', async () => {
+    const { deps } = setup(aiReturning(three).ai);
+    const res = await captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [2, 4]) });
+    expect(res.items.map((i) => i.title)).toEqual(['Leche', 'App de recetas']);
+  });
+});
+
+describe('captureText: duplicados (en la base de datos)', () => {
+  it('el mismo texto normalizado en < 30 s devuelve lo guardado y no crea nada ni llama a la IA', async () => {
+    const { ai, prompts } = aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]);
+    const { db, deps, at } = setup(ai);
+    const first = await captureText({ text: 'Comprar leche', origin: 'siri' }, deps);
+    const again = await captureText({ text: '  comprar   LECHE ', origin: 'siri' }, at(29_000));
+    expect(again).toEqual(first);
+    expect(db.tables.items).toHaveLength(1);
+    expect(prompts).toHaveLength(1);
+  });
+
+  it('funciona entre instancias: solo comparten la base de datos', async () => {
+    const { db, deps, at } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    await captureText({ text: 'comprar leche', origin: 'siri' }, deps);
+    const other: CaptureDeps = { ...at(5_000), items: createItemsRepo(db), people: createPeopleRepo(db) };
+    await captureText({ text: 'comprar leche', origin: 'extension' }, other);
     expect(db.tables.items).toHaveLength(1);
   });
 
   it('pasados 30 s, el mismo texto se guarda otra vez', async () => {
-    const { db, deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const { db, deps, at } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
     await captureText({ text: 'comprar leche', origin: 'siri' }, deps);
-    await captureText({ text: 'comprar leche', origin: 'siri' }, { ...deps, now: new Date(NOW.getTime() + 30_000) });
+    await captureText({ text: 'comprar leche', origin: 'siri' }, at(30_000));
     expect(db.tables.items).toHaveLength(2);
   });
 
-  it('el mismo texto con otra área, u otro usuario, no es un duplicado', async () => {
+  it('el mismo texto con otra área no es un duplicado', async () => {
     const { db, deps } = setup(aiReturning([{ kind: 'tarea', title: 'Informe', confidence: 0.9 }]).ai);
     await captureText({ text: 'informe', origin: 'siri' }, deps);
     await captureText({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
-    await captureText({ text: 'informe', origin: 'siri' }, { ...deps, userId: 'otro' });
-    expect(db.tables.items).toHaveLength(3);
+    await captureText({ text: 'informe', origin: 'siri' }, deps);
+    await captureText({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
+    expect(db.tables.items.map((r) => r.area)).toEqual(['personal', 'trabajo']);
+  });
+
+  it('un elemento ya eliminado no cuenta como duplicado', async () => {
+    const { db, deps, items } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const [first] = (await captureText({ text: 'comprar leche', origin: 'siri' }, deps)).items;
+    await items.softDeleteItem(first.id);
+    await captureText({ text: 'comprar leche', origin: 'siri' }, deps);
+    expect(db.tables.items).toHaveLength(2);
+  });
+
+  it('un elemento creado a mano con el mismo título no cuenta como duplicado', async () => {
+    const { db, deps, items } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    await items.createItem({ type: 'compra', title: 'comprar leche' });
+    await captureText({ text: 'comprar leche', origin: 'siri' }, deps);
+    expect(db.tables.items).toHaveLength(2);
   });
 
   it('si el guardado falla, un reintento inmediato no se descarta como duplicado', async () => {
@@ -429,6 +556,13 @@ describe('captureText: duplicados', () => {
     const broken = { ...deps, items: { ...deps.items, createItem: async () => Promise.reject(new Error('db down')) } };
     await expect(captureText({ text: 'comprar leche', origin: 'siri' }, broken)).rejects.toThrow('db down');
     await captureText({ text: 'comprar leche', origin: 'siri' }, deps);
+    expect(db.tables.items).toHaveLength(1);
+  });
+
+  it('si la búsqueda de duplicados falla, la captura se guarda igual', async () => {
+    const { db, deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const items = { ...deps.items, listRecentCaptures: async () => Promise.reject(new Error('db down')) };
+    await captureText({ text: 'comprar leche', origin: 'siri' }, { ...deps, items });
     expect(db.tables.items).toHaveLength(1);
   });
 });

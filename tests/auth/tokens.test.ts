@@ -75,7 +75,7 @@ describe('verifyApiToken', () => {
   it('un token válido devuelve su usuario y su id', async () => {
     const { deps } = setup();
     const { id, token } = await createApiToken('iPhone', deps);
-    await expect(verifyApiToken(`Bearer ${token}`, deps)).resolves.toEqual({ userId: 'user-marc', tokenId: id });
+    await expect(verifyApiToken(`Bearer ${token}`, deps)).resolves.toEqual({ userId: 'user-marc', tokenId: id, name: 'iPhone' });
   });
 
   it('un token revocado falla', async () => {

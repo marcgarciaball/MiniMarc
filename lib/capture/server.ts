@@ -19,7 +19,6 @@ export const captureRouteDeps: CaptureRouteDeps = {
       calendar: () => calendarGatewayFor(userId),
       now: new Date(),
       tz: process.env.APP_TZ || DEFAULT_TZ,
-      userId,
     };
   },
 };

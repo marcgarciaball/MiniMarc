@@ -136,6 +136,29 @@ describe('items repo · Bandeja y Papelera (Tarea 11)', () => {
   });
 });
 
+describe('items repo · texto original (fase 2+3, I-2)', () => {
+  it('guarda sourceText y por defecto es null', async () => {
+    const a = await items.createItem({ type: 'compra', title: 'Leche', sourceText: 'comprar leche y pan' });
+    const b = await items.createItem({ type: 'idea', title: 'B' });
+    expect(a.sourceText).toBe('comprar leche y pan');
+    expect(b.sourceText).toBeNull();
+    expect((await items.listItems({ type: 'compra' }))[0].sourceText).toBe('comprar leche y pan');
+  });
+
+  it('listRecentCaptures(since) devuelve solo capturas (con sourceText) desde ese instante y sin eliminados', async () => {
+    const old = await items.createItem({ type: 'idea', title: 'Vieja', sourceText: 'vieja' });
+    now = new Date(now.getTime() + 60_000);
+    const since = now.toISOString();
+    const fresh = await items.createItem({ type: 'idea', title: 'Nueva', sourceText: 'nueva' });
+    await items.createItem({ type: 'idea', title: 'Manual' });
+    const gone = await items.createItem({ type: 'idea', title: 'Borrada', sourceText: 'borrada' });
+    await items.softDeleteItem(gone.id);
+    const recent = await items.listRecentCaptures(since);
+    expect(recent.map((i) => i.id)).toEqual([fresh.id]);
+    expect(recent.map((i) => i.id)).not.toContain(old.id);
+  });
+});
+
 describe('people repo', () => {
   it('upsertPersonByName no duplica (insensible a mayúsculas y espacios)', async () => {
     const a = await people.upsertPersonByName('Ana');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { destinationLabel, formatBirthday, formatDay, formatDue } from '@/lib/format';
+import { destinationLabel, formatBirthday, formatDay, formatDue, originalText } from '@/lib/format';
 import { sectionFor, tabFor } from '@/lib/nav';
 import { madridDateTime } from '@/lib/time';
 import { lockAxis, project, swipeOffset, swipeOutcome } from '@/components/ui/swipePhysics';
@@ -84,5 +84,16 @@ describe('destinationLabel (Bandeja)', () => {
     [{ ...base, type: 'tarea', area: 'trabajo', needsReview: true }, undefined, 'Sin clasificar'],
   ] as const)('caso %#', (item, person, label) => {
     expect(destinationLabel(item, person)).toBe(label);
+  });
+});
+
+describe('originalText (hoja de edición, "Texto original")', () => {
+  it.each([
+    [{ title: 'Leche', sourceText: 'comprar leche y llamar a mamá' }, 'comprar leche y llamar a mamá'],
+    [{ title: 'comprar leche', sourceText: 'comprar leche' }, null],
+    [{ title: 'Leche', sourceText: null }, null],
+    [{ title: 'Leche', sourceText: '   ' }, null],
+  ] as const)('caso %#', (item, shown) => {
+    expect(originalText(item)).toBe(shown);
   });
 });

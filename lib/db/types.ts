@@ -19,6 +19,8 @@ export interface Item {
   confidence: number | null;
   calendarEventId: string | null;
   syncError: string | null;
+  /** The whole captured text (Siri, extension, web) this item came from; null if made by hand. */
+  sourceText: string | null;
   createdAt: string;
   deletedAt: string | null;
 }

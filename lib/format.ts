@@ -66,3 +66,10 @@ export function destinationLabel(
       return personName ? `Regalo · ${personName}` : 'Regalos';
   }
 }
+
+/** The captured text to show as "Texto original" in the edit sheet, only when it says more than the title. */
+export function originalText(item: Pick<Item, 'title' | 'sourceText'>): string | null {
+  const source = item.sourceText?.trim();
+  if (!source || source === item.title.trim()) return null;
+  return source;
+}

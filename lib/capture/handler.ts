@@ -58,6 +58,11 @@ export function captureMessage(res: CaptureResult): string {
   return `Guardado en ${list}`;
 }
 
+/** A token whose name contains "trabajo" (any case) is a work token. */
+export function isWorkToken(token: VerifiedToken): boolean {
+  return token.name.toLowerCase().includes('trabajo');
+}
+
 export async function handleCapture(req: Request, deps: CaptureRouteDeps): Promise<Response> {
   const cors = corsHeaders(req);
   const reply = (status: number, body: unknown) => Response.json(body, { status, headers: cors });
@@ -79,8 +84,11 @@ export async function handleCapture(req: Request, deps: CaptureRouteDeps): Promi
         message: tooLong ? `El texto supera los ${MAX_CAPTURE_LENGTH} caracteres` : 'Petición no válida',
       });
     }
-    const { text, area, origin } = parsed.data;
+    const { text, origin } = parsed.data;
     if (!text.trim()) return reply(400, { message: 'El texto está vacío' });
+    // A work token ("Siri trabajo") always captures to Trabajo, whatever the body says, so a
+    // misconfigured Shortcut can never send work text to the AI.
+    const area = isWorkToken(owner) ? 'trabajo' : parsed.data.area;
 
     const result = await captureText({ text, area, origin }, await deps.captureDeps(owner.userId));
     return reply(200, {

@@ -6,6 +6,7 @@ import { editPatchFromForm, newItemFormError } from '@/lib/actions/forms';
 import type { MovePatch } from '@/lib/actions/items';
 import type { ActionResult } from '@/lib/actions/result';
 import type { Area, Item, ItemType, Person } from '@/lib/db/types';
+import { originalText } from '@/lib/format';
 import { madridDateTime } from '@/lib/time';
 
 export type NewItemDefaults = { type: ItemType; area?: Area; personId?: string; label: string };
@@ -83,6 +84,7 @@ function ItemForm(props: ItemFormProps) {
   // Blocks a second submit (double tap, Enter) before `pending` re-renders the button.
   const inFlight = useRef(false);
   const due = item?.dueAt ? madridDateTime(new Date(item.dueAt)) : null;
+  const source = item ? originalText(item) : null;
 
   // onSubmit, not <form action>: React resets an action form's fields when the action ends,
   // which would wipe the typed text on failure.
@@ -135,6 +137,12 @@ function ItemForm(props: ItemFormProps) {
           rows={2}
         />
       </InsetList>
+
+      {source && (
+        <InsetList header="Texto original">
+          <p className="app-source-text">{source}</p>
+        </InsetList>
+      )}
 
       {item && (
         <InsetList header="Lista">

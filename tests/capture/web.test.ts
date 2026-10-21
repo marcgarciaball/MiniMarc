@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
 import type { CalendarGateway } from '@/lib/calendar/client';
-import { captureText, createCaptureDedup, type CaptureDeps } from '@/lib/capture/pipeline';
+import { captureText, type CaptureDeps } from '@/lib/capture/pipeline';
 import { captureFromWeb, type WebCaptureDeps } from '@/lib/capture/web';
 import { createItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
@@ -53,8 +53,6 @@ function setup(ai: AiProvider = aiForbidden()) {
       throw new Error('no calendar in this test');
     },
     now: NOW,
-    dedup: createCaptureDedup(),
-    userId: 'user-marc',
   };
   const deps: WebCaptureDeps = { captureDeps: async () => captureDeps };
   return { items, deps };

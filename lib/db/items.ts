@@ -10,6 +10,8 @@ export interface ItemsRepo {
   restoreItem(id: string): Promise<void>;
   /** Soft-deleted items deleted within the last `days` days, most recently deleted first (Papelera). */
   listDeleted(days: number): Promise<Item[]>;
+  /** Undeleted items made by a capture (with sourceText) created at or after `since` (capture dedup). */
+  listRecentCaptures(since: string): Promise<Item[]>;
   purgeDeletedOlderThan(days: number): Promise<number>;
 }
 
@@ -31,6 +33,7 @@ const COLUMNS = {
   confidence: 'confidence',
   calendarEventId: 'calendar_event_id',
   syncError: 'sync_error',
+  sourceText: 'source_text',
   createdAt: 'created_at',
   deletedAt: 'deleted_at',
 } as const satisfies Record<keyof Item, string>;
@@ -74,6 +77,7 @@ export function createItemsRepo(
         confidence: null,
         calendarEventId: null,
         syncError: null,
+        sourceText: null,
         ...input,
       };
       return rowToItem(await backend.insert('items', itemToRow(full)));
@@ -111,6 +115,15 @@ export function createItemsRepo(
       return rows
         .map(rowToItem)
         .sort((a, b) => Date.parse(b.deletedAt!) - Date.parse(a.deletedAt!));
+    },
+
+    async listRecentCaptures(since) {
+      const rows = await backend.select('items', {
+        isNull: ['deleted_at'],
+        notNull: ['source_text'],
+        gte: { created_at: since },
+      });
+      return rows.map(rowToItem);
     },
 
     async purgeDeletedOlderThan(days) {

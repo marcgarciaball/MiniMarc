@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
 import type { CalendarGateway } from '@/lib/calendar/client';
 import { captureMessage, captureOptions, handleCapture, type CaptureRouteDeps } from '@/lib/capture/handler';
-import { createCaptureDedup, type CaptureDeps } from '@/lib/capture/pipeline';
+import type { CaptureDeps } from '@/lib/capture/pipeline';
 import { createItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
@@ -36,12 +36,15 @@ const gw: CalendarGateway = {
   },
 };
 
-function setup(ai: AiProvider = aiReturning([{ kind: 'tarea', title: 'Llamar a mamá', confidence: 0.9 }])) {
+function setup(
+  ai: AiProvider = aiReturning([{ kind: 'tarea', title: 'Llamar a mamá', confidence: 0.9 }]),
+  tokenName = 'Siri',
+) {
   const db = createMemoryBackend();
   const built: string[] = [];
   const deps: CaptureRouteDeps = {
     async verify(h) {
-      return h === `Bearer ${TOKEN}` ? { userId: 'user-marc', tokenId: 't1' } : null;
+      return h === `Bearer ${TOKEN}` ? { userId: 'user-marc', tokenId: 't1', name: tokenName } : null;
     },
     async captureDeps(userId): Promise<CaptureDeps> {
       built.push(userId);
@@ -51,8 +54,6 @@ function setup(ai: AiProvider = aiReturning([{ kind: 'tarea', title: 'Llamar a m
         people: createPeopleRepo(db),
         calendar: async () => gw,
         now: new Date('2026-10-21T08:00:00.000Z'),
-        dedup: createCaptureDedup(),
-        userId,
       };
     },
   };
@@ -155,6 +156,57 @@ describe('POST /api/capture', () => {
     const res = await handleCapture(post({ text: 'algo' }), broken);
     expect(res.status).toBe(500);
     expect((await res.json()).message).toBe('No se ha podido guardar. Inténtalo de nuevo.');
+  });
+
+  it('200 si falla un elemento de varios: guarda el resto y el texto en Sin clasificar', async () => {
+    const ai = aiReturning([
+      { kind: 'compra', title: 'Leche', confidence: 0.9 },
+      { kind: 'idea', title: 'App de recetas', confidence: 0.9 },
+    ]);
+    const { db, deps } = setup(ai);
+    const partial: CaptureRouteDeps = {
+      ...deps,
+      async captureDeps(u) {
+        const d = await deps.captureDeps(u);
+        let n = 0;
+        const createItem: typeof d.items.createItem = async (input) => {
+          if (++n === 2) throw new Error('db down');
+          return d.items.createItem(input);
+        };
+        return { ...d, items: { ...d.items, createItem } };
+      },
+    };
+    const res = await handleCapture(post({ text: 'comprar leche e idea: app de recetas' }), partial);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items.map((i: Item) => i.title)).toEqual(['Leche', 'comprar leche e idea: app de recetas']);
+    expect(body.message).toBe('Guardado en Compras y Sin clasificar');
+    expect(db.tables.items).toHaveLength(2);
+  });
+
+  it.each(['Siri trabajo', 'TRABAJO', 'Atajo Trabajo iPhone'])(
+    'un token llamado "%s" fuerza el área Trabajo y nunca llama a la IA',
+    async (name) => {
+      const ai: AiProvider = {
+        async generateJson() {
+          throw new Error('AI must not be called');
+        },
+        async generateText() {
+          throw new Error('AI must not be called');
+        },
+      };
+      const { db, deps } = setup(ai, name);
+      const res = await handleCapture(post({ text: 'revisar contrato Acme' }), deps);
+      expect(res.status).toBe(200);
+      expect((await res.json()).message).toBe('Guardado en Tareas · Trabajo');
+      expect(db.tables.items[0]).toMatchObject({ area: 'trabajo', needs_review: false });
+    },
+  );
+
+  it('un token sin "trabajo" en el nombre respeta el cuerpo', async () => {
+    const { db, deps } = setup(undefined, 'Siri personal');
+    await handleCapture(post({ text: 'llamar a mamá' }), deps);
+    expect(db.tables.items[0].area).toBe('personal');
   });
 
   it('500 (no 401) si no se puede comprobar el token', async () => {

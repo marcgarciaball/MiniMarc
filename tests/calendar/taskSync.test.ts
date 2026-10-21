@@ -62,6 +62,7 @@ function task(overrides: Partial<Item> = {}): Item {
     confidence: null,
     calendarEventId: null,
     syncError: null,
+    sourceText: null,
     createdAt: '2026-10-21T10:00:00.000Z',
     deletedAt: null,
     ...overrides,

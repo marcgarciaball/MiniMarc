@@ -15,7 +15,7 @@ import { DEFAULT_TZ } from '@/lib/time';
 export async function captureFromWeb(formData: FormData): Promise<ActionResult<core.WebCapture>> {
   const result = await core.captureFromWeb(formData, {
     async captureDeps() {
-      const user = await requireUser();
+      await requireUser();
       const client = await createClient();
       return {
         ai: createGeminiProvider(),
@@ -24,7 +24,6 @@ export async function captureFromWeb(formData: FormData): Promise<ActionResult<c
         calendar: () => getCalendarGateway(),
         now: new Date(),
         tz: process.env.APP_TZ || DEFAULT_TZ,
-        userId: user.id,
       };
     },
     rethrow: unstable_rethrow,

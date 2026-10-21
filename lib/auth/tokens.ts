@@ -31,7 +31,8 @@ export interface TokenDeps {
   userId: () => Promise<string>;
 }
 
-export type VerifiedToken = { userId: string; tokenId: string };
+/** The token's owner, its id and its name ("Siri trabajo" forces the Trabajo area, see handleCapture). */
+export type VerifiedToken = { userId: string; tokenId: string; name: string };
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -108,7 +109,7 @@ export async function verifyApiToken(authHeader: string | null, deps?: TokenDeps
   const a = Buffer.from(row.token_hash, 'hex');
   const b = Buffer.from(hash, 'hex');
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return { userId: row.user_id, tokenId: row.id };
+  return { userId: row.user_id, tokenId: row.id, name: row.name };
 }
 
 /** The signed-in user's tokens (name, creation date, revoked or not), newest first. */

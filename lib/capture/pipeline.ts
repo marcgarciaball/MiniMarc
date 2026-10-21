@@ -1,10 +1,11 @@
 /**
  * Capture pipeline: whatever Marc dictates (Siri, extension, web) becomes items or citas.
- * Rule zero: the text is never lost. Any AI failure saves it as "Sin clasificar"; a Calendar
- * failure saves the cita as an item with `syncError`. Trabajo text never reaches the AI.
+ * Rule zero: the text is never lost. Every item keeps the whole text in `sourceText`; any AI
+ * failure saves it as "Sin clasificar"; a Calendar failure saves the cita as an item with
+ * `syncError`; if one of several items fails to save, the whole text is also saved as
+ * "Sin clasificar". Trabajo text never reaches the AI.
  * Pure: everything comes in through `deps` (tests use the memory backend and fakes).
  */
-import { createHash } from 'node:crypto';
 import { createCita } from '@/lib/actions/events';
 import { SYNC_UNAVAILABLE } from '@/lib/actions/items';
 import { classify, type Classification } from '@/lib/ai/classify';
@@ -35,10 +36,6 @@ export interface CaptureDeps {
   now: Date;
   /** Defaults to Europe/Madrid. */
   tz?: string;
-  /** Defaults to a process-wide store (see createCaptureDedup). */
-  dedup?: CaptureDedup;
-  /** Scopes the dedup key; the route passes the token's owner. */
-  userId?: string;
 }
 
 /** Empty or whitespace-only text: nothing is saved (the endpoint answers 400). */
@@ -51,28 +48,33 @@ export class EmptyCaptureError extends Error {
 
 // ---------- Dedup ----------
 
-/**
- * Recent captures by user + normalized text + area, so a Shortcut retry within 30 s returns the
- * first result instead of saving twice. Stores the promise, so simultaneous duplicates share one
- * save; a failed save is forgotten so a retry goes through. In memory: on serverless it only
- * catches retries that land on the same warm instance (best effort).
- */
-export interface CaptureDedup {
-  entries: Map<string, { at: number; result: Promise<CaptureResult> }>;
-}
-
-export function createCaptureDedup(): CaptureDedup {
-  return { entries: new Map() };
-}
-
-const sharedDedup = createCaptureDedup();
-
 export function normalizeCapture(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-function dedupKey(userId: string, text: string, area: string): string {
-  return createHash('sha256').update(`${userId}\n${area}\n${normalizeCapture(text)}`).digest('hex');
+/**
+ * A capture with the same normalized text and area saved less than 30 s ago (and not deleted):
+ * its items, so a Shortcut retry or a re-dictation returns them instead of saving twice. Looked
+ * up in the database, so it works across serverless instances. The repo is already scoped to
+ * the user. If the lookup fails, the capture goes ahead (better a duplicate than a loss).
+ */
+async function recentDuplicate(text: string, input: CaptureInput, deps: CaptureDeps): Promise<Item[]> {
+  const now = deps.now.getTime();
+  const key = normalizeCapture(text);
+  const trabajo = input.area === 'trabajo';
+  try {
+    const recent = await deps.items.listRecentCaptures(new Date(now - DEDUP_WINDOW_MS).toISOString());
+    return recent
+      .filter(
+        (i) =>
+          now - Date.parse(i.createdAt) < DEDUP_WINDOW_MS &&
+          (i.area === 'trabajo') === trabajo &&
+          normalizeCapture(i.sourceText ?? '') === key,
+      )
+      .sort((x, y) => Date.parse(x.createdAt) - Date.parse(y.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 // ---------- Pipeline ----------
@@ -81,20 +83,10 @@ export async function captureText(input: CaptureInput, deps: CaptureDeps): Promi
   const text = input.text.trim();
   if (!text) throw new EmptyCaptureError();
 
-  const dedup = deps.dedup ?? sharedDedup;
-  const now = deps.now.getTime();
-  for (const [k, e] of dedup.entries) if (now - e.at >= DEDUP_WINDOW_MS) dedup.entries.delete(k);
+  const existing = await recentDuplicate(text, input, deps);
+  if (existing.length > 0) return { items: existing, eventIds: [] };
 
-  const key = dedupKey(deps.userId ?? '', text, input.area ?? '');
-  const previous = dedup.entries.get(key);
-  if (previous) return previous.result;
-
-  const result = run(text, input, deps);
-  dedup.entries.set(key, { at: now, result });
-  result.catch(() => {
-    if (dedup.entries.get(key)?.result === result) dedup.entries.delete(key);
-  });
-  return result;
+  return run(text, input, deps);
 }
 
 async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promise<CaptureResult> {
@@ -102,7 +94,8 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
 
   // Trabajo never goes to the AI: one work task with the text as is.
   if (input.area === 'trabajo') {
-    return { items: [await deps.items.createItem({ ...textFields(text), type: 'tarea', area: 'trabajo', origin })], eventIds: [] };
+    const item = await deps.items.createItem({ ...textFields(text), type: 'tarea', area: 'trabajo', origin, sourceText: text });
+    return { items: [item], eventIds: [] };
   }
 
   let classified: Classification[] = [];
@@ -112,33 +105,56 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
   } catch {
     // ClassifyError (timeout, daily cap, invalid JSON) or anything else: fall through to "Sin clasificar".
   }
+  const unclassified = (): NewItem => ({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text });
   if (classified.length === 0) {
-    const item = await deps.items.createItem({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin });
-    return { items: [item], eventIds: [] };
+    return { items: [await deps.items.createItem(unclassified())], eventIds: [] };
   }
 
+  // Each element is saved on its own: one failure does not undo or block the others.
   const out: CaptureResult = { items: [], eventIds: [] };
+  let failure: unknown = null;
   for (const c of classified) {
-    const confident = c.confidence >= MIN_CONFIDENCE;
-
-    if (c.kind === 'cita' && confident && c.startsAt && c.hasTime) {
-      const event = { title: c.title, startsAt: new Date(c.startsAt), ...(c.notes && { description: c.notes }) };
-      const r = await createCita({ calendar: deps.calendar }, event);
-      if (r.ok) {
-        out.eventIds.push(r.eventId);
-        continue;
-      }
-      // Calendar failed: keep the cita as an item to review, with the error visible.
-      out.items.push(await deps.items.createItem({ ...fromClassification(c, origin), needsReview: true, syncError: r.error }));
-      continue;
+    try {
+      await saveClassified(c, text, input, deps, out);
+    } catch (err) {
+      failure ??= err;
     }
-
-    const fields: NewItem = { ...fromClassification(c, origin), needsReview: !confident };
-    if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
-    const item = await deps.items.createItem(fields);
-    out.items.push(await syncTimedTask(deps, item));
   }
+  if (failure === null) return out;
+
+  // Something was not saved: the whole text also goes to "Sin clasificar", so nothing is lost.
+  try {
+    out.items.push(await deps.items.createItem(unclassified()));
+  } catch {
+    // Keep whatever was saved; only a capture that saved nothing at all fails.
+  }
+  if (out.items.length === 0 && out.eventIds.length === 0) throw failure;
   return out;
+}
+
+/** Saves one classified element into `out`: a cita in Calendar, or an item. Throws if the item insert fails. */
+async function saveClassified(c: Classification, text: string, input: CaptureInput, deps: CaptureDeps, out: CaptureResult) {
+  const { origin } = input;
+  const confident = c.confidence >= MIN_CONFIDENCE;
+
+  if (c.kind === 'cita' && confident && c.startsAt && c.hasTime) {
+    const event = { title: c.title, startsAt: new Date(c.startsAt), ...(c.notes && { description: c.notes }) };
+    const r = await createCita({ calendar: deps.calendar }, event);
+    if (r.ok) {
+      out.eventIds.push(r.eventId);
+      return;
+    }
+    // Calendar failed: keep the cita as an item to review, with the error visible.
+    out.items.push(
+      await deps.items.createItem({ ...fromClassification(c, origin), needsReview: true, syncError: r.error, sourceText: text }),
+    );
+    return;
+  }
+
+  const fields: NewItem = { ...fromClassification(c, origin), needsReview: !confident, sourceText: text };
+  if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
+  const item = await deps.items.createItem(fields);
+  out.items.push(await syncTimedTask(deps, item));
 }
 
 /** Title (max 200 chars) from the original text; a longer text is kept whole in `notes`. */

@@ -43,3 +43,18 @@ describe('0002_single_user.sql', () => {
     expect(s).not.toMatch(/grant [^;]* on private\.app_config/);
   });
 });
+
+describe('0003_source_text.sql', () => {
+  const s = sql('0003_source_text.sql');
+
+  it('añade items.source_text como texto opcional', () => {
+    expect(s).toMatch(/alter table public\.items\s+add column if not exists source_text text;/);
+    expect(s).not.toMatch(/source_text text not null/);
+  });
+
+  it('indexa la búsqueda de duplicados: usuario y fecha, solo capturas no eliminadas', () => {
+    expect(s).toMatch(
+      /create index if not exists items_recent_captures_idx\s+on public\.items \(user_id, created_at desc\)\s+where deleted_at is null and source_text is not null;/,
+    );
+  });
+});
