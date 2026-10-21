@@ -55,3 +55,13 @@ export function madridToUtc(dateStr: string, time: string, tz: string = DEFAULT_
   const guess = wall - offsetMs(new Date(wall), tz);
   return new Date(wall - offsetMs(new Date(guess), tz));
 }
+
+/** "miércoles, 21 de octubre": long Spanish date in the given zone (Madrid by default). */
+export function formatLongDate(d: Date, tz: string = DEFAULT_TZ): string {
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: tz,
+  }).format(d);
+}

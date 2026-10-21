@@ -16,12 +16,15 @@
 
 .login__intro .ui-large-title {
   padding: 0;
+  font-size: 64px;
 }
 
 .login__lead {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--label-secondary);
-  font-size: 17px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-style: italic;
 }
 
 .login__actions {
@@ -35,6 +38,7 @@
 
 .login [role="alert"] {
   color: var(--accent);
-  font-size: 15px;
+  font-family: var(--font-hand);
+  font-size: 20px;
   text-align: center;
 }

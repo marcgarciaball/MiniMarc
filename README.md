@@ -13,6 +13,6 @@ npm test                     # vitest run
 
 ## Diseño
 
-Paleta de neutros cálidos tipo papel (`#f2eee8` / `#0f0e0c`) con un único acento arcilla (`#b04e26` claro, `#e07a4c` oscuro): un tono natural y terroso que se lee como iOS sin caer en los morados y azules típicos de las apps de IA.
+Estilo "boceto conceptual" sobre estructura iOS: tinta casi negra sobre papel crema (`#f3eee3`; en oscuro, tiza `#ede6d8` sobre carbón `#1e1d1a`) con trazos dibujados a mano y una sola tinta plana verde (`#137538` claro, `#4fbf78` oscuro): el verde de imprenta del cartel de referencia, que contrasta AA sobre el papel y se lee como "hecho" o "activo" sin parecer una app de IA.
 
-Tokens en `styles/tokens.css`, componentes en `components/ui`, catálogo en `/dev/design`. Vista estática sin servidor: `npx tsx scripts/render-design-preview.tsx` → `docs/design/preview.html`.
+Fuentes (OFL, autoalojadas en `public/fonts`): Amatic SC (títulos), Caveat (anotaciones) e Instrument Serif (acentos); el texto usa la fuente del sistema. Tokens en `styles/tokens.css`, componentes en `components/ui`, catálogo en `/dev/design`. Vista estática sin servidor: `npx tsx scripts/render-design-preview.tsx` → `docs/design/preview.html`.

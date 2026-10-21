@@ -6,7 +6,7 @@ export type GlassProps = HTMLAttributes<HTMLElement> & {
   children?: ReactNode;
 };
 
-/** Translucent iOS material: blurs and tints whatever scrolls behind it. */
+/** Opaque paper surface with grain (formerly glass; name kept for importers). */
 export function Glass({ as: Tag = 'div', ref, className, children, ...rest }: GlassProps) {
   return (
     // HTMLDivElement is the narrowest of the allowed tags, so this ref fits all of them.

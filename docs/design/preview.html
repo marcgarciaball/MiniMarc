@@ -7,23 +7,35 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f0e0c">
 <title>Sistema visual · Agente Personal</title>
 <style>
+
+@font-face { font-family: "Amatic SC"; font-weight: 700; font-display: swap; src: url("../../public/fonts/AmaticSC-Bold-latin.woff2") format("woff2"); }
+@font-face { font-family: "Caveat"; font-weight: 400 700; font-display: swap; src: url("../../public/fonts/Caveat-Variable-latin.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: normal; font-display: swap; src: url("../../public/fonts/InstrumentSerif-Regular-latin.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: italic; font-display: swap; src: url("../../public/fonts/InstrumentSerif-Italic-latin.woff2") format("woff2"); }
 /* styles/tokens.css */
 /*
- * Design tokens. Light by default; dark via `prefers-color-scheme`,
- * and either mode can be forced on any subtree with `data-theme`.
- * Palette: warm paper neutrals + one accent ("arcilla", terracotta).
+ * Design tokens: "boceto conceptual" over an iOS structure.
+ * Ink on cream paper (light) / chalk on charcoal paper (dark), one green spot ink.
+ * Light by default; dark via `prefers-color-scheme`; `data-theme` forces either on any subtree.
+ * The url() tokens are hand-drawn strokes (line tile and 9-slice box) and paper grain,
+ * drawn once as irregular SVG paths; the ink colour is baked in, hence one per theme.
  */
 
 :root {
   --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
     "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Set by next/font/local in app/fonts.ts (or by the static preview). */
+  --font-display: var(--font-amatic, "Amatic SC"), "Marker Felt", var(--font-text);
+  --font-hand: var(--font-caveat, "Caveat"), "Bradley Hand", var(--font-text);
+  --font-serif: var(--font-instrument, "Instrument Serif"), "New York", Georgia, serif;
 
   --radius-continuous: 12px;
   --radius-sheet: 14px;
-  --hairline-width: 0.5px;
+  --hairline-width: 1px;
+  --sketch-line-size: 240px 6px;
 
   --navbar-height: 44px;
-  --tabbar-height: 49px;
+  --tabbar-height: 52px;
   --touch-target: 44px;
 
   --safe-top: env(safe-area-inset-top, 0px);
@@ -32,7 +44,6 @@
   --safe-left: env(safe-area-inset-left, 0px);
   --gutter: 16px;
 
-  --glass-filter: saturate(180%) blur(20px);
   /* iOS sheet curve */
   --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-sheet: 420ms;
@@ -42,62 +53,69 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f2eee8;
-  --bg-elevated: #fffcf8;
-  --bg-sheet: #f2eee8;
-  --surface-glass: rgba(249, 246, 241, 0.72);
-  --hairline: rgba(60, 45, 30, 0.22);
-  --label: #1d1a16;
-  --label-secondary: rgba(60, 50, 40, 0.64);
-  --label-tertiary: rgba(60, 50, 40, 0.34);
-  --fill: rgba(120, 100, 80, 0.18);
-  --fill-pressed: rgba(60, 45, 30, 0.08);
-  --accent: #b04e26;
-  --on-accent: #ffffff;
-  --backdrop: rgba(30, 22, 15, 0.28);
-  --shadow-soft: 0 1px 2px rgba(40, 28, 18, 0.05), 0 8px 24px rgba(40, 28, 18, 0.06);
+  --bg: #f3eee3;
+  --bg-elevated: #f3eee3;
+  --bg-sheet: #ece6d9;
+  /* Opaque paper (the "Glass" surface); name kept for compatibility. */
+  --surface-glass: #f3eee3;
+  --hairline: rgba(27, 26, 23, 0.55);
+  --label: #1b1a17;
+  --label-secondary: #5c564c;
+  --label-tertiary: #857e72;
+  --fill: transparent;
+  --fill-pressed: rgba(27, 26, 23, 0.06);
+  --accent: #137538;
+  --on-accent: #f3eee3;
+  --backdrop: rgba(27, 26, 23, 0.22);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%231b1a17' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
+  --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%231b1a17' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f0e0c;
-  --bg-elevated: #1c1a17;
-  --bg-sheet: #171513;
-  --surface-glass: rgba(27, 25, 22, 0.72);
-  --hairline: rgba(255, 240, 220, 0.16);
-  --label: #f4efe8;
-  --label-secondary: rgba(240, 228, 214, 0.62);
-  --label-tertiary: rgba(240, 228, 214, 0.3);
-  --fill: rgba(200, 180, 160, 0.24);
-  --fill-pressed: rgba(255, 240, 220, 0.08);
-  --accent: #e07a4c;
-  --on-accent: #1f120b;
-  --backdrop: rgba(0, 0, 0, 0.5);
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --bg: #1e1d1a;
+  --bg-elevated: #1e1d1a;
+  --bg-sheet: #262421;
+  --surface-glass: #1e1d1a;
+  --hairline: rgba(237, 230, 216, 0.5);
+  --label: #ede6d8;
+  --label-secondary: #aaa293;
+  --label-tertiary: #7d766a;
+  --fill: transparent;
+  --fill-pressed: rgba(237, 230, 216, 0.07);
+  --accent: #4fbf78;
+  --on-accent: #1e1d1a;
+  --backdrop: rgba(0, 0, 0, 0.4);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%23ede6d8' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
+  --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23ede6d8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #0f0e0c;
-    --bg-elevated: #1c1a17;
-    --bg-sheet: #171513;
-    --surface-glass: rgba(27, 25, 22, 0.72);
-    --hairline: rgba(255, 240, 220, 0.16);
-    --label: #f4efe8;
-    --label-secondary: rgba(240, 228, 214, 0.62);
-    --label-tertiary: rgba(240, 228, 214, 0.3);
-    --fill: rgba(200, 180, 160, 0.24);
-    --fill-pressed: rgba(255, 240, 220, 0.08);
-    --accent: #e07a4c;
-    --on-accent: #1f120b;
-    --backdrop: rgba(0, 0, 0, 0.5);
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --bg: #1e1d1a;
+    --bg-elevated: #1e1d1a;
+    --bg-sheet: #262421;
+    --surface-glass: #1e1d1a;
+    --hairline: rgba(237, 230, 216, 0.5);
+    --label: #ede6d8;
+    --label-secondary: #aaa293;
+    --label-tertiary: #7d766a;
+    --fill: transparent;
+    --fill-pressed: rgba(237, 230, 216, 0.07);
+    --accent: #4fbf78;
+    --on-accent: #1e1d1a;
+    --backdrop: rgba(0, 0, 0, 0.4);
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%23ede6d8' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
+    --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23ede6d8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
   }
 }
 
 [data-theme] {
-  background: var(--bg);
+  background: var(--bg) var(--grain);
   color: var(--label);
 }
 
@@ -118,7 +136,7 @@ html {
 
 body {
   min-height: 100%;
-  background: var(--bg);
+  background: var(--bg) var(--grain);
   color: var(--label);
   font-family: var(--font-text);
   font-size: 17px;
@@ -147,19 +165,15 @@ button {
 }
 
 /* components/ui/ui.css */
-/* iOS-style primitives. Every class is prefixed `ui-`. Values come from styles/tokens.css. */
+/*
+ * iOS structure, "boceto conceptual" skin: ink on paper, hand-drawn strokes, one green spot ink.
+ * Every class is prefixed `ui-`. Values come from styles/tokens.css. No shadows, no blur.
+ */
 
-/* ---------- Glass ---------- */
+/* ---------- Glass (paper surface; name kept) ---------- */
 .ui-glass {
-  background: var(--surface-glass);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .ui-glass {
-    background: var(--bg-elevated);
-  }
+  background-color: var(--surface-glass);
+  background-image: var(--grain);
 }
 
 /* ---------- NavBar ---------- */
@@ -170,17 +184,15 @@ button {
   padding-top: var(--safe-top);
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
-  border-bottom: var(--hairline-width) solid var(--hairline);
-  transition:
-    background-color var(--duration-fast) linear,
-    border-color var(--duration-fast) linear;
+  background-image: var(--sketch-line), var(--grain);
+  background-position: left bottom, 0 0;
+  background-repeat: repeat-x, repeat;
+  background-size: var(--sketch-line-size), auto;
 }
 
 .ui-navbar[data-collapsed="false"] {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-bottom-color: transparent;
+  background-color: transparent;
+  background-image: none;
 }
 
 .ui-navbar__row {
@@ -188,7 +200,7 @@ button {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   min-height: var(--navbar-height);
-  padding: 0 8px;
+  padding: 0 8px 2px;
 }
 
 .ui-navbar__leading {
@@ -202,8 +214,10 @@ button {
 }
 
 .ui-navbar__title {
-  font-size: 17px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -214,7 +228,7 @@ button {
   opacity: 0;
 }
 
-/* Text button for bars (NavBar, Sheet header). */
+/* Text button for bars (NavBar, Sheet header): handwritten, in spot ink. */
 .ui-bar-button {
   display: inline-flex;
   align-items: center;
@@ -223,7 +237,9 @@ button {
   min-width: var(--touch-target);
   padding: 0 8px;
   color: var(--accent);
-  font-size: 17px;
+  font-family: var(--font-hand);
+  font-size: 21px;
+  font-weight: 500;
 }
 
 .ui-bar-button:active {
@@ -231,14 +247,15 @@ button {
 }
 
 .ui-bar-button--strong {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* ---------- LargeTitle ---------- */
 .ui-large-title {
-  padding: 2px calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
-  font-size: 34px;
-  line-height: 41px;
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 6px calc(var(--gutter) + var(--safe-left));
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -251,27 +268,31 @@ button {
   bottom: 0;
   z-index: 20;
   display: flex;
-  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
-  border-top: var(--hairline-width) solid var(--hairline);
+  padding: 2px var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background-image: var(--sketch-line), var(--grain);
+  background-position: left top, 0 0;
+  background-repeat: repeat-x, repeat;
+  background-size: var(--sketch-line-size), auto;
 }
 
 .ui-tabbar__item {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   min-height: var(--tabbar-height);
   padding-top: 4px;
-  color: var(--label-tertiary);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  color: var(--label-secondary);
+  font-family: var(--font-hand);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.1;
 }
 
 .ui-tabbar__item[aria-current="page"] {
-  color: var(--accent);
+  color: var(--label);
 }
 
 .ui-tabbar__icon {
@@ -287,34 +308,42 @@ button {
   height: 26px;
 }
 
+/* Hand-drawn underline under the current tab, in spot ink. */
+.ui-tabbar__mark {
+  width: 34px;
+  height: 6px;
+  margin-top: -1px;
+  color: var(--accent);
+}
+
 /* ---------- InsetList ---------- */
 .ui-inset-list {
   padding: 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
-  margin-bottom: 35px;
+  margin-bottom: 30px;
 }
 
 .ui-inset-list__header {
-  padding: 0 16px 7px;
+  padding: 0 14px 2px;
   color: var(--label-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-family: var(--font-hand);
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
+/* Hand-drawn box: 9-slice of a wobbly rounded rectangle. */
 .ui-inset-list__group {
-  overflow: hidden;
-  border-radius: var(--radius-continuous);
-  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-image: var(--sketch-box) 20 / 14px / 2px stretch;
   list-style: none;
 }
 
 .ui-inset-list__footer {
-  padding: 7px 16px 0;
+  padding: 6px 14px 0;
   color: var(--label-secondary);
-  font-size: 13px;
-  line-height: 18px;
+  font-family: var(--font-hand);
+  font-size: 18px;
+  line-height: 1.2;
 }
 
 /* ---------- Row ---------- */
@@ -324,7 +353,7 @@ button {
   gap: 12px;
   width: 100%;
   min-height: var(--touch-target);
-  padding-left: 16px;
+  padding-left: 14px;
   text-align: left;
   position: relative;
 }
@@ -345,7 +374,7 @@ button.ui-row:active {
   flex: none;
   align-items: center;
   justify-content: center;
-  min-width: 29px;
+  min-width: 26px;
 }
 
 .ui-row__body {
@@ -355,12 +384,12 @@ button.ui-row:active {
   align-self: stretch;
   align-items: center;
   gap: 8px;
-  padding: 11px 16px 11px 0;
+  padding: 11px 14px 11px 0;
 }
 
-/* Separator inset to the text, like iOS. */
+/* Hand-drawn separator inset to the text, like iOS. */
 .ui-inset-list__group > li + li .ui-row__body {
-  box-shadow: inset 0 var(--hairline-width) 0 var(--hairline);
+  background: var(--sketch-line) left -3px / var(--sketch-line-size) repeat-x;
 }
 
 .ui-row__text {
@@ -386,6 +415,9 @@ button.ui-row:active {
 .ui-row__detail {
   flex: none;
   color: var(--label-secondary);
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-style: italic;
 }
 
 .ui-row__trailing {
@@ -396,26 +428,24 @@ button.ui-row:active {
 
 .ui-row__chevron {
   flex: none;
-  width: 8px;
-  height: 14px;
-  color: var(--label-tertiary);
+  width: 9px;
+  height: 15px;
+  color: var(--label-secondary);
 }
 
-/* Square icon tile for Row.leading */
+/* Ink line icon for Row.leading (no coloured tile in this style). */
 .ui-icon-tile {
   display: flex;
-  width: 29px;
-  height: 29px;
+  width: 26px;
+  height: 26px;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
-  background: var(--accent);
-  color: var(--on-accent);
+  color: var(--label);
 }
 
 .ui-icon-tile svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 /* ---------- Switch ---------- */
@@ -424,9 +454,7 @@ button.ui-row:active {
   flex: none;
   width: 51px;
   height: 31px;
-  border-radius: 999px;
-  background: var(--fill);
-  transition: background-color 250ms var(--ease-ios);
+  color: var(--label);
 }
 
 /* Extends the hit area to 44pt without changing layout. */
@@ -436,13 +464,28 @@ button.ui-row:active {
   inset: -7px -4px;
 }
 
-.ui-switch[aria-checked="true"] {
-  background: var(--accent);
+.ui-switch:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
-.ui-switch:disabled {
-  opacity: 0.5;
-  cursor: default;
+.ui-switch__track {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ui-switch__track path {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  transition: fill 250ms var(--ease-ios);
+}
+
+.ui-switch[aria-checked="true"] .ui-switch__track path {
+  fill: var(--accent);
 }
 
 .ui-switch__thumb {
@@ -451,12 +494,13 @@ button.ui-row:active {
   left: 2px;
   width: 27px;
   height: 27px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow:
-    0 3px 8px rgba(0, 0, 0, 0.15),
-    0 3px 1px rgba(0, 0, 0, 0.06);
   transition: transform 250ms var(--ease-ios);
+}
+
+.ui-switch__thumb path {
+  fill: var(--bg);
+  stroke: currentColor;
+  stroke-width: 1.5;
 }
 
 .ui-switch[aria-checked="true"] .ui-switch__thumb {
@@ -489,9 +533,12 @@ button.ui-row:active {
   flex-direction: column;
   max-height: calc(100% - var(--safe-top) - 12px);
   padding-bottom: var(--safe-bottom);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  background: var(--bg-sheet);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid transparent;
+  /* Bottom edge of the drawn box is pushed off-screen. */
+  border-image: var(--sketch-box) 20 / 16px / 1px 1px 40px 1px stretch;
+  border-radius: 12px 12px 0 0;
+  background-color: var(--bg-sheet);
+  background-image: var(--grain);
   transform: translateY(100%);
   transition: transform var(--duration-sheet) var(--ease-ios);
   touch-action: none;
@@ -508,16 +555,15 @@ button.ui-row:active {
 .ui-sheet__grabber {
   display: flex;
   justify-content: center;
-  padding-top: 5px;
+  padding-top: 6px;
   cursor: grab;
 }
 
 .ui-sheet__grabber::before {
   content: "";
-  width: 36px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--label-tertiary);
+  width: 40px;
+  height: 8px;
+  background: var(--sketch-line) center / 160px 8px no-repeat;
 }
 
 .ui-sheet__header {
@@ -529,8 +575,9 @@ button.ui-row:active {
 }
 
 .ui-sheet__title {
-  font-size: 17px;
-  font-weight: 600;
+  font-family: var(--font-serif);
+  font-size: 23px;
+  font-weight: 400;
 }
 
 .ui-sheet__body {
@@ -540,18 +587,21 @@ button.ui-row:active {
   touch-action: pan-y;
 }
 
-/* ---------- Filled button (used by login) ---------- */
+/* ---------- Filled button (login): flat spot ink, hand-lettered ---------- */
 .ui-button {
   display: flex;
   width: 100%;
-  min-height: 50px;
+  min-height: 52px;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-continuous);
+  border: 1px solid transparent;
+  border-image: var(--sketch-box) 20 / 14px / 2px stretch;
+  border-radius: 12px;
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 17px;
-  font-weight: 600;
+  font-family: var(--font-hand);
+  font-size: 24px;
+  font-weight: 700;
 }
 
 .ui-button:active {
@@ -564,9 +614,8 @@ button.ui-row:active {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-navbar,
   .ui-navbar__title,
-  .ui-switch,
+  .ui-switch__track path,
   .ui-switch__thumb,
   .ui-sheet,
   .ui-sheet-backdrop,
@@ -589,13 +638,16 @@ button.ui-row:active {
 }
 
 .dd-intro h1 {
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: 44px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .dd-intro p {
   color: var(--label-secondary);
-  font-size: 15px;
+  font-family: var(--font-hand);
+  font-size: 20px;
 }
 
 .dd-panels {
@@ -614,15 +666,16 @@ button.ui-row:active {
 }
 
 .dd-panel--forced {
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
+  border: 1px solid transparent;
+  border-image: var(--sketch-box) 20 / 16px / 2px stretch;
+  background-image: var(--grain);
 }
 
 .dd-panel__label {
   color: var(--label-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-family: var(--font-hand);
+  font-size: 22px;
+  font-weight: 500;
 }
 
 /* Simulated iPhone 15/16 screen: safe areas are faked so bars sit where they would. */
@@ -635,9 +688,10 @@ button.ui-row:active {
   overflow: hidden;
   contain: layout paint; /* makes position: fixed bars and sheets stay inside the frame */
   border-radius: 48px;
-  background: var(--bg);
+  background: var(--bg) var(--grain);
   color: var(--label);
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline), var(--shadow-soft);
+  outline: 1.5px solid var(--label);
+  outline-offset: -1.5px;
 }
 
 .dd-frame--short {
@@ -662,42 +716,39 @@ button.ui-row:active {
 }
 
 .dd-date {
-  margin: -6px 0 20px;
+  margin: 0 0 22px;
   padding: 0 calc(var(--gutter) + var(--safe-left));
   color: var(--label-secondary);
-  font-size: 15px;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-style: italic;
 }
 
 .dd-spacer {
   height: 24px;
 }
 
-.dd-glass-demo {
-  position: relative;
-  padding: 16px;
-  overflow: hidden;
-}
-
-.dd-glass-demo p {
-  color: var(--accent);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.dd-glass-demo__pane {
-  position: absolute;
-  top: 24px;
-  right: 16px;
-  bottom: 24px;
-  left: 45%;
+.dd-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-continuous);
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
-  font-size: 15px;
-  font-weight: 600;
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+  color: var(--label);
+}
+
+.dd-empty .ui-inset-list__header {
+  align-self: stretch;
+}
+
+.dd-sketch {
+  width: 200px;
+  height: auto;
+}
+
+.dd-empty p {
+  color: var(--label-secondary);
+  font-family: var(--font-hand);
+  font-size: 20px;
 }
 
 /* On a phone the automatic frame fills the screen and uses the real safe areas. */
@@ -720,8 +771,9 @@ button.ui-row:active {
   .dd-panel {
     width: 100%;
     padding: 0;
+    border: 0;
+    border-image: none;
     border-radius: 0;
-    box-shadow: none;
   }
 
   .dd-panel__label {
@@ -734,13 +786,13 @@ button.ui-row:active {
     width: 100%;
     height: 100dvh;
     border-radius: 0;
-    box-shadow: none;
+    outline: 0;
   }
 }
 
 </style>
 </head>
 <body>
-<main class="dd-page"><header class="dd-intro"><h1>Sistema visual</h1><p>Componentes de components/ui en modo automático, claro y oscuro.</p></header><div class="dd-panels"><section class="dd-panel"><h2 class="dd-panel__label">Automático</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">martes, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M10 20.5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Material</h2><ul class="ui-inset-list__group"><li><div class="dd-glass-demo"><p aria-hidden="true">Llamar al dentista · Revisar presupuesto · Comprar pilas · Regalo para Laura</p><div class="ui-glass dd-glass-demo__pane">Vidrio</div></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></rect><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Hoy</a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="4.75" cy="6.5" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="12" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="17.5" r="1.1" fill="currentColor"></circle></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.75" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 8v8M8 12h8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><circle cx="9" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section><section class="dd-panel dd-panel--forced" data-theme="light"><h2 class="dd-panel__label">Claro</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">martes, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M10 20.5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Material</h2><ul class="ui-inset-list__group"><li><div class="dd-glass-demo"><p aria-hidden="true">Llamar al dentista · Revisar presupuesto · Comprar pilas · Regalo para Laura</p><div class="ui-glass dd-glass-demo__pane">Vidrio</div></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></rect><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Hoy</a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="4.75" cy="6.5" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="12" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="17.5" r="1.1" fill="currentColor"></circle></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.75" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 8v8M8 12h8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><circle cx="9" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section><section class="dd-panel dd-panel--forced" data-theme="dark"><h2 class="dd-panel__label">Oscuro</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">martes, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M10 20.5h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Material</h2><ul class="ui-inset-list__group"><li><div class="dd-glass-demo"><p aria-hidden="true">Llamar al dentista · Revisar presupuesto · Comprar pilas · Regalo para Laura</p><div class="ui-glass dd-glass-demo__pane">Vidrio</div></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></rect><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Hoy</a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="4.75" cy="6.5" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="12" r="1.1" fill="currentColor"></circle><circle cx="4.75" cy="17.5" r="1.1" fill="currentColor"></circle></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.75" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><path d="M12 8v8M8 12h8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle><circle cx="9" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></circle></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="color:var(--label-tertiary)"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.5"></circle></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 8 14" aria-hidden="true"><path d="M1 1l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><span class="ui-switch__thumb"></span></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section></div></main>
+<main class="dd-page"><header class="dd-intro"><h1>Sistema visual</h1><p>Componentes de components/ui en modo automático, claro y oscuro.</p></header><div class="dd-panels"><section class="dd-panel"><h2 class="dd-panel__label">Automático</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">miércoles, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16.8C6.4 15.4 6.2 13.2 6.3 11.2C6.4 7.6 8.8 5.1 12.1 5C15.4 5.1 17.6 7.6 17.7 11.1C17.8 13.3 17.6 15.4 18.6 16.9C14.4 17.3 9.6 17.1 5.2 17.1"></path><path d="M10.2 19.6C11.2 20.6 12.9 20.5 13.8 19.4M12 3.3C12 3.9 12.1 4.4 12 5"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.2 3.6C16.9 3.5 20.4 7.1 20.3 12C20.2 16.8 16.7 20.3 11.9 20.2C7.2 20.1 3.7 16.7 3.8 11.8C3.9 7.1 7.4 3.7 13.2 3.9"></path><path d="M12 7.4C12.1 9 11.9 10.6 12.1 12.2C13.2 12.9 14.4 13.6 15.4 14.4"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><section class="dd-empty"><h2 class="ui-inset-list__header">Sin clasificar</h2><svg class="dd-sketch" viewBox="0 0 220 140" role="img" aria-label="Mano escribiendo en una libreta" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 34C60 30 104 31 142 28C144 58 146 92 147 124C110 126 64 127 26 129C24 97 23 66 22 34Z"></path><path d="M30 31C30 64 32 97 34 128" stroke-opacity="0.5"></path><path d="M42 50C70 49 100 48 128 46M43 66C66 65 96 64 129 62M44 82C70 81 92 80 108 79M45 98C60 97 74 97 86 96" stroke-opacity="0.55"></path><path d="M88 96C91 92 93 99 96 94C98 90 100 98 103 93C105 90 107 97 110 93"></path><path d="M112 92L170 40C173 37 178 38 180 41C182 44 181 48 178 50L120 101Z"></path><path d="M112 92L108 106L120 101"></path><path d="M109.5 101.5L108 106L112.5 104.6" fill="currentColor"></path><path d="M166 44C169 46 172 49 174 53"></path><path style="fill:var(--bg)" d="M220 70C205 64 188 56 176 54C166 53 152 60 140 68C134 72 133 79 139 80C146 80 152 76 158 73C150 80 140 86 134 90C130 93 132 99 138 98C150 95 162 90 172 90C178 98 184 104 192 106C202 110 212 112 220 113"></path><path d="M172 90C176 86 181 84 187 86M178 97C182 94 187 93 192 95M139 74C141 73 143 73 144 75"></path></svg><p>Nada por revisar.</p></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 5.2C10 4.8 14.5 5.1 18 4.9C19.6 5 20.4 6 20.3 7.6C20.5 11 20.1 15 20.4 18.4C20.3 19.8 19.4 20.6 17.8 20.5C14 20.2 10 20.7 6.2 20.4C4.6 20.4 3.7 19.5 3.8 18C4 14.5 3.6 10.6 3.9 7.4C4 6 5 5.2 7.4 5.3"></path><path d="M3.9 9.6C9 9.2 15 9.9 20.3 9.4M8.2 3.1C8.1 4.2 8.3 5.6 8.1 6.6M15.9 3C16 4.1 15.8 5.4 16 6.5"></path><path d="M8 14.2C9 14.1 10.2 14.3 11 14.1"></path></svg></span>Hoy<svg class="ui-tabbar__mark" viewBox="0 0 34 6" aria-hidden="true"><path d="M2 3.6C9 2.4 18 3.9 32 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.8 6.6C12.5 6.2 16.5 6.8 20.3 6.4M8.7 12.2C12 11.8 16.8 12.4 19.6 12M8.9 17.6C12.4 17.3 15.6 17.8 18.8 17.5"></path><path d="M4.2 6.4l.9.3M4.1 12.1l.9.2M4.3 17.5l.8.3" stroke-width="2.4"></path></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.3 3.4C17.2 3.3 20.8 7 20.6 12.1C20.4 17.2 16.8 20.6 11.8 20.5C7 20.4 3.4 16.8 3.5 11.8C3.6 7 7.2 3.5 13.4 3.7"></path><path d="M12.1 8.1C12 10.7 12.2 13.4 11.9 16M8 12.1C10.7 11.9 13.4 12.2 16.1 11.9"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7.2C6.8 6.9 9.9 7.3 12.9 7M17.2 7.1C18.3 7 19.3 7.2 20.3 7M3.9 17C5 16.9 6 17.1 6.9 16.9M11.1 17.1C14.2 16.8 17.2 17.2 20.2 16.9"></path><path d="M15 4.9C16.3 4.8 17.2 5.8 17.1 7.1C17 8.4 16 9.2 14.8 9.1C13.6 9 12.8 8 12.9 6.8C13 5.7 13.9 4.9 15.6 5"></path><path d="M9 14.9C10.3 14.8 11.2 15.8 11.1 17.1C11 18.4 10 19.2 8.8 19.1C7.6 19 6.8 18 6.9 16.8C7 15.7 7.9 14.9 9.6 15"></path></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section><section class="dd-panel dd-panel--forced" data-theme="light"><h2 class="dd-panel__label">Claro</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">miércoles, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16.8C6.4 15.4 6.2 13.2 6.3 11.2C6.4 7.6 8.8 5.1 12.1 5C15.4 5.1 17.6 7.6 17.7 11.1C17.8 13.3 17.6 15.4 18.6 16.9C14.4 17.3 9.6 17.1 5.2 17.1"></path><path d="M10.2 19.6C11.2 20.6 12.9 20.5 13.8 19.4M12 3.3C12 3.9 12.1 4.4 12 5"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.2 3.6C16.9 3.5 20.4 7.1 20.3 12C20.2 16.8 16.7 20.3 11.9 20.2C7.2 20.1 3.7 16.7 3.8 11.8C3.9 7.1 7.4 3.7 13.2 3.9"></path><path d="M12 7.4C12.1 9 11.9 10.6 12.1 12.2C13.2 12.9 14.4 13.6 15.4 14.4"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><section class="dd-empty"><h2 class="ui-inset-list__header">Sin clasificar</h2><svg class="dd-sketch" viewBox="0 0 220 140" role="img" aria-label="Mano escribiendo en una libreta" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 34C60 30 104 31 142 28C144 58 146 92 147 124C110 126 64 127 26 129C24 97 23 66 22 34Z"></path><path d="M30 31C30 64 32 97 34 128" stroke-opacity="0.5"></path><path d="M42 50C70 49 100 48 128 46M43 66C66 65 96 64 129 62M44 82C70 81 92 80 108 79M45 98C60 97 74 97 86 96" stroke-opacity="0.55"></path><path d="M88 96C91 92 93 99 96 94C98 90 100 98 103 93C105 90 107 97 110 93"></path><path d="M112 92L170 40C173 37 178 38 180 41C182 44 181 48 178 50L120 101Z"></path><path d="M112 92L108 106L120 101"></path><path d="M109.5 101.5L108 106L112.5 104.6" fill="currentColor"></path><path d="M166 44C169 46 172 49 174 53"></path><path style="fill:var(--bg)" d="M220 70C205 64 188 56 176 54C166 53 152 60 140 68C134 72 133 79 139 80C146 80 152 76 158 73C150 80 140 86 134 90C130 93 132 99 138 98C150 95 162 90 172 90C178 98 184 104 192 106C202 110 212 112 220 113"></path><path d="M172 90C176 86 181 84 187 86M178 97C182 94 187 93 192 95M139 74C141 73 143 73 144 75"></path></svg><p>Nada por revisar.</p></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 5.2C10 4.8 14.5 5.1 18 4.9C19.6 5 20.4 6 20.3 7.6C20.5 11 20.1 15 20.4 18.4C20.3 19.8 19.4 20.6 17.8 20.5C14 20.2 10 20.7 6.2 20.4C4.6 20.4 3.7 19.5 3.8 18C4 14.5 3.6 10.6 3.9 7.4C4 6 5 5.2 7.4 5.3"></path><path d="M3.9 9.6C9 9.2 15 9.9 20.3 9.4M8.2 3.1C8.1 4.2 8.3 5.6 8.1 6.6M15.9 3C16 4.1 15.8 5.4 16 6.5"></path><path d="M8 14.2C9 14.1 10.2 14.3 11 14.1"></path></svg></span>Hoy<svg class="ui-tabbar__mark" viewBox="0 0 34 6" aria-hidden="true"><path d="M2 3.6C9 2.4 18 3.9 32 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.8 6.6C12.5 6.2 16.5 6.8 20.3 6.4M8.7 12.2C12 11.8 16.8 12.4 19.6 12M8.9 17.6C12.4 17.3 15.6 17.8 18.8 17.5"></path><path d="M4.2 6.4l.9.3M4.1 12.1l.9.2M4.3 17.5l.8.3" stroke-width="2.4"></path></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.3 3.4C17.2 3.3 20.8 7 20.6 12.1C20.4 17.2 16.8 20.6 11.8 20.5C7 20.4 3.4 16.8 3.5 11.8C3.6 7 7.2 3.5 13.4 3.7"></path><path d="M12.1 8.1C12 10.7 12.2 13.4 11.9 16M8 12.1C10.7 11.9 13.4 12.2 16.1 11.9"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7.2C6.8 6.9 9.9 7.3 12.9 7M17.2 7.1C18.3 7 19.3 7.2 20.3 7M3.9 17C5 16.9 6 17.1 6.9 16.9M11.1 17.1C14.2 16.8 17.2 17.2 20.2 16.9"></path><path d="M15 4.9C16.3 4.8 17.2 5.8 17.1 7.1C17 8.4 16 9.2 14.8 9.1C13.6 9 12.8 8 12.9 6.8C13 5.7 13.9 4.9 15.6 5"></path><path d="M9 14.9C10.3 14.8 11.2 15.8 11.1 17.1C11 18.4 10 19.2 8.8 19.1C7.6 19 6.8 18 6.9 16.8C7 15.7 7.9 14.9 9.6 15"></path></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section><section class="dd-panel dd-panel--forced" data-theme="dark"><h2 class="dd-panel__label">Oscuro</h2><div class="dd-frame"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="false"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="true">Hoy</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Editar</button></div></div></header><h1 class="ui-large-title">Hoy</h1><p class="dd-date">miércoles, 21 de octubre</p><section class="ui-inset-list"><h2 class="ui-inset-list__header">Pendiente</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Llamar al dentista</span><span class="ui-row__subtitle">Personal</span></span><span class="ui-row__detail">10:00</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Revisar presupuesto Q4</span><span class="ui-row__subtitle">Trabajo</span></span><span class="ui-row__detail">12:30</span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Comprar pilas AA</span><span class="ui-row__subtitle">Compra</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Regalo para Laura</span><span class="ui-row__subtitle">Regalo · antes del 2 nov</span></span></span></div></li></ul></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Avisos</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.6 16.8C6.4 15.4 6.2 13.2 6.3 11.2C6.4 7.6 8.8 5.1 12.1 5C15.4 5.1 17.6 7.6 17.7 11.1C17.8 13.3 17.6 15.4 18.6 16.9C14.4 17.3 9.6 17.1 5.2 17.1"></path><path d="M10.2 19.6C11.2 20.6 12.9 20.5 13.8 19.4M12 3.3C12 3.9 12.1 4.4 12 5"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Notificaciones</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="true" aria-label="Notificaciones" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li><li><a class="ui-row" href="#resumen"><span class="ui-row__leading"><span class="ui-icon-tile"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.2 3.6C16.9 3.5 20.4 7.1 20.3 12C20.2 16.8 16.7 20.3 11.9 20.2C7.2 20.1 3.7 16.7 3.8 11.8C3.9 7.1 7.4 3.7 13.2 3.9"></path><path d="M12 7.4C12.1 9 11.9 10.6 12.1 12.2C13.2 12.9 14.4 13.6 15.4 14.4"></path></svg></span></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Resumen diario</span></span><span class="ui-row__detail">8:00</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#zona"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Zona horaria</span></span><span class="ui-row__detail">Madrid</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Incluir trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Incluir trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Los avisos llegan 3 h y 1 h antes de cada cita.</p></section><section class="ui-inset-list"><h2 class="ui-inset-list__header">Ideas</h2><ul class="ui-inset-list__group"><li><a class="ui-row" href="#idea-1"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Ordenar fotos del viaje a Lisboa</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-2"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Probar receta de lentejas</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li><li><a class="ui-row" href="#idea-3"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Leer sobre jardines verticales</span></span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></a></li></ul></section><section class="dd-empty"><h2 class="ui-inset-list__header">Sin clasificar</h2><svg class="dd-sketch" viewBox="0 0 220 140" role="img" aria-label="Mano escribiendo en una libreta" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 34C60 30 104 31 142 28C144 58 146 92 147 124C110 126 64 127 26 129C24 97 23 66 22 34Z"></path><path d="M30 31C30 64 32 97 34 128" stroke-opacity="0.5"></path><path d="M42 50C70 49 100 48 128 46M43 66C66 65 96 64 129 62M44 82C70 81 92 80 108 79M45 98C60 97 74 97 86 96" stroke-opacity="0.55"></path><path d="M88 96C91 92 93 99 96 94C98 90 100 98 103 93C105 90 107 97 110 93"></path><path d="M112 92L170 40C173 37 178 38 180 41C182 44 181 48 178 50L120 101Z"></path><path d="M112 92L108 106L120 101"></path><path d="M109.5 101.5L108 106L112.5 104.6" fill="currentColor"></path><path d="M166 44C169 46 172 49 174 53"></path><path style="fill:var(--bg)" d="M220 70C205 64 188 56 176 54C166 53 152 60 140 68C134 72 133 79 139 80C146 80 152 76 158 73C150 80 140 86 134 90C130 93 132 99 138 98C150 95 162 90 172 90C178 98 184 104 192 106C202 110 212 112 220 113"></path><path d="M172 90C176 86 181 84 187 86M178 97C182 94 187 93 192 95M139 74C141 73 143 73 144 75"></path></svg><p>Nada por revisar.</p></section><nav class="ui-glass ui-tabbar" aria-label="Secciones"><a class="ui-tabbar__item" aria-current="page" href="#hoy"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 5.2C10 4.8 14.5 5.1 18 4.9C19.6 5 20.4 6 20.3 7.6C20.5 11 20.1 15 20.4 18.4C20.3 19.8 19.4 20.6 17.8 20.5C14 20.2 10 20.7 6.2 20.4C4.6 20.4 3.7 19.5 3.8 18C4 14.5 3.6 10.6 3.9 7.4C4 6 5 5.2 7.4 5.3"></path><path d="M3.9 9.6C9 9.2 15 9.9 20.3 9.4M8.2 3.1C8.1 4.2 8.3 5.6 8.1 6.6M15.9 3C16 4.1 15.8 5.4 16 6.5"></path><path d="M8 14.2C9 14.1 10.2 14.3 11 14.1"></path></svg></span>Hoy<svg class="ui-tabbar__mark" viewBox="0 0 34 6" aria-hidden="true"><path d="M2 3.6C9 2.4 18 3.9 32 2.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></a><a class="ui-tabbar__item" href="#listas"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8.8 6.6C12.5 6.2 16.5 6.8 20.3 6.4M8.7 12.2C12 11.8 16.8 12.4 19.6 12M8.9 17.6C12.4 17.3 15.6 17.8 18.8 17.5"></path><path d="M4.2 6.4l.9.3M4.1 12.1l.9.2M4.3 17.5l.8.3" stroke-width="2.4"></path></svg></span>Listas</a><a class="ui-tabbar__item" href="#capturar"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12.3 3.4C17.2 3.3 20.8 7 20.6 12.1C20.4 17.2 16.8 20.6 11.8 20.5C7 20.4 3.4 16.8 3.5 11.8C3.6 7 7.2 3.5 13.4 3.7"></path><path d="M12.1 8.1C12 10.7 12.2 13.4 11.9 16M8 12.1C10.7 11.9 13.4 12.2 16.1 11.9"></path></svg></span>Capturar</a><a class="ui-tabbar__item" href="#ajustes"><span class="ui-tabbar__icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.8 7.2C6.8 6.9 9.9 7.3 12.9 7M17.2 7.1C18.3 7 19.3 7.2 20.3 7M3.9 17C5 16.9 6 17.1 6.9 16.9M11.1 17.1C14.2 16.8 17.2 17.2 20.2 16.9"></path><path d="M15 4.9C16.3 4.8 17.2 5.8 17.1 7.1C17 8.4 16 9.2 14.8 9.1C13.6 9 12.8 8 12.9 6.8C13 5.7 13.9 4.9 15.6 5"></path><path d="M9 14.9C10.3 14.8 11.2 15.8 11.1 17.1C11 18.4 10 19.2 8.8 19.1C7.6 19 6.8 18 6.9 16.8C7 15.7 7.9 14.9 9.6 15"></path></svg></span>Ajustes</a></nav></div></div><div class="dd-frame dd-frame--short"><div class="dd-statusbar" aria-hidden="true">9:41</div><div class="dd-scroll"><header class="ui-glass ui-navbar" data-collapsed="true"><div class="ui-navbar__row"><div class="ui-navbar__leading"></div><div class="ui-navbar__title" aria-hidden="false">Compras</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button">Añadir</button></div></div></header><div class="dd-spacer"></div><section class="ui-inset-list"><h2 class="ui-inset-list__header">Supermercado</h2><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Pilas AA</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Café en grano</span></span></span></div></li><li><div class="ui-row"><span class="ui-row__leading"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12.4 2.6C17.8 2.5 21.6 6.4 21.4 12.1C21.2 17.6 17.4 21.5 11.8 21.4C6.4 21.3 2.6 17.5 2.7 11.9C2.8 6.5 6.6 2.5 13.8 2.9"></path></svg></span><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Papel de horno</span></span></span></div></li></ul></section><div class="ui-sheet-backdrop" data-open="true" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-label="Nueva compra" class="ui-sheet" data-open="true" data-dragging="false"><div><div class="ui-sheet__grabber" aria-hidden="true"></div><div class="ui-sheet__header"><div class="ui-navbar__leading"><button type="button" class="ui-bar-button">Cancelar</button></div><div class="ui-sheet__title">Nueva compra</div><div class="ui-navbar__trailing"><button type="button" class="ui-bar-button ui-bar-button--strong">Añadir</button></div></div></div><div class="ui-sheet__body"><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Bombillas E27</span></span></span></div></li></ul></section><section class="ui-inset-list"><ul class="ui-inset-list__group"><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Lista</span></span><span class="ui-row__detail">Supermercado</span><svg class="ui-row__chevron" viewBox="0 0 9 15" aria-hidden="true"><path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></span></div></li><li><div class="ui-row"><span class="ui-row__body"><span class="ui-row__text"><span class="ui-row__title">Trabajo</span></span><span class="ui-row__trailing"><button type="button" role="switch" aria-checked="false" aria-label="Trabajo" class="ui-switch"><svg class="ui-switch__track" viewBox="0 0 51 31" aria-hidden="true"><path d="M15.5 2.2C24 1.6 30 2.6 35.6 2.1C44 2.3 49 8 48.9 15.6C48.7 23.5 43 28.8 35 28.9C27 29.3 22 28.4 15.4 28.9C7.5 28.7 2.1 23 2.2 15.4C2.4 7.8 8 2.5 16.8 2.4"></path></svg><svg class="ui-switch__thumb" viewBox="0 0 27 27" aria-hidden="true"><path d="M13.6 3C20 2.8 24.2 7.4 24 13.8C23.8 20.2 19.6 24.1 13.3 24C7 23.9 2.9 19.6 3.1 13.3C3.3 7.2 7.6 3.1 14.6 3.3"></path></svg></button></span></span></div></li></ul><p class="ui-inset-list__footer">Las compras de Trabajo no se envían a la IA.</p></section></div></div></div></div></section></div></main>
 </body>
 </html>

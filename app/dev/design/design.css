@@ -10,13 +10,16 @@
 }
 
 .dd-intro h1 {
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: 44px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .dd-intro p {
   color: var(--label-secondary);
-  font-size: 15px;
+  font-family: var(--font-hand);
+  font-size: 20px;
 }
 
 .dd-panels {
@@ -35,15 +38,16 @@
 }
 
 .dd-panel--forced {
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
+  border: 1px solid transparent;
+  border-image: var(--sketch-box) 20 / 16px / 2px stretch;
+  background-image: var(--grain);
 }
 
 .dd-panel__label {
   color: var(--label-secondary);
-  font-size: 13px;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-family: var(--font-hand);
+  font-size: 22px;
+  font-weight: 500;
 }
 
 /* Simulated iPhone 15/16 screen: safe areas are faked so bars sit where they would. */
@@ -56,9 +60,10 @@
   overflow: hidden;
   contain: layout paint; /* makes position: fixed bars and sheets stay inside the frame */
   border-radius: 48px;
-  background: var(--bg);
+  background: var(--bg) var(--grain);
   color: var(--label);
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline), var(--shadow-soft);
+  outline: 1.5px solid var(--label);
+  outline-offset: -1.5px;
 }
 
 .dd-frame--short {
@@ -83,42 +88,39 @@
 }
 
 .dd-date {
-  margin: -6px 0 20px;
+  margin: 0 0 22px;
   padding: 0 calc(var(--gutter) + var(--safe-left));
   color: var(--label-secondary);
-  font-size: 15px;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-style: italic;
 }
 
 .dd-spacer {
   height: 24px;
 }
 
-.dd-glass-demo {
-  position: relative;
-  padding: 16px;
-  overflow: hidden;
-}
-
-.dd-glass-demo p {
-  color: var(--accent);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.dd-glass-demo__pane {
-  position: absolute;
-  top: 24px;
-  right: 16px;
-  bottom: 24px;
-  left: 45%;
+.dd-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-continuous);
-  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
-  font-size: 15px;
-  font-weight: 600;
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+  color: var(--label);
+}
+
+.dd-empty .ui-inset-list__header {
+  align-self: stretch;
+}
+
+.dd-sketch {
+  width: 200px;
+  height: auto;
+}
+
+.dd-empty p {
+  color: var(--label-secondary);
+  font-family: var(--font-hand);
+  font-size: 20px;
 }
 
 /* On a phone the automatic frame fills the screen and uses the real safe areas. */
@@ -141,8 +143,9 @@
   .dd-panel {
     width: 100%;
     padding: 0;
+    border: 0;
+    border-image: none;
     border-radius: 0;
-    box-shadow: none;
   }
 
   .dd-panel__label {
@@ -155,6 +158,6 @@
     width: 100%;
     height: 100dvh;
     border-radius: 0;
-    box-shadow: none;
+    outline: 0;
   }
 }

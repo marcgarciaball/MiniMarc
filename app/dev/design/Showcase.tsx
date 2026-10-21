@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Glass, InsetList, LargeTitle, NavBar, Row, Sheet, Switch, TabBar, type TabBarItem } from '@/components/ui';
-import { BellIcon, CaptureIcon, Circle, ClockIcon, ListIcon, SettingsIcon, TodayIcon } from './icons';
+import { InsetList, LargeTitle, NavBar, Row, Sheet, Switch, TabBar, type TabBarItem } from '@/components/ui';
+import { formatLongDate } from '@/lib/time';
+import { BellIcon, CaptureIcon, Circle, ClockIcon, ListIcon, NotebookSketch, SettingsIcon, TodayIcon } from './icons';
 
 type Theme = 'light' | 'dark';
 
@@ -14,7 +15,7 @@ const TABS: TabBarItem[] = [
 ];
 
 /** Every `components/ui` primitive, in automatic, light and dark mode. Shared by /dev/design and the static preview script. */
-export function DesignShowcase() {
+export function DesignShowcase({ today }: { today: Date }) {
   return (
     <main className="dd-page">
       <header className="dd-intro">
@@ -22,20 +23,20 @@ export function DesignShowcase() {
         <p>Componentes de components/ui en modo automático, claro y oscuro.</p>
       </header>
       <div className="dd-panels">
-        <Panel label="Automático" />
-        <Panel label="Claro" theme="light" />
-        <Panel label="Oscuro" theme="dark" />
+        <Panel label="Automático" today={today} />
+        <Panel label="Claro" theme="light" today={today} />
+        <Panel label="Oscuro" theme="dark" today={today} />
       </div>
     </main>
   );
 }
 
-function Panel({ label, theme }: { label: string; theme?: Theme }) {
+function Panel({ label, theme, today }: { label: string; theme?: Theme; today: Date }) {
   return (
     <section className={theme ? 'dd-panel dd-panel--forced' : 'dd-panel'} data-theme={theme}>
       <h2 className="dd-panel__label">{label}</h2>
       <Frame>
-        <TodayScreen />
+        <TodayScreen today={today} />
       </Frame>
       <Frame short>
         <SheetScreen />
@@ -55,7 +56,7 @@ function Frame({ short, children }: { short?: boolean; children: ReactNode }) {
   );
 }
 
-function TodayScreen() {
+function TodayScreen({ today }: { today: Date }) {
   return (
     <>
       <LargeTitle
@@ -66,7 +67,7 @@ function TodayScreen() {
           </button>
         }
       >
-        <p className="dd-date">martes, 21 de octubre</p>
+        <p className="dd-date">{formatLongDate(today)}</p>
         <InsetList header="Pendiente">
           <Row leading={<Circle />} title="Llamar al dentista" subtitle="Personal" detail="10:00" />
           <Row leading={<Circle />} title="Revisar presupuesto Q4" subtitle="Trabajo" detail="12:30" />
@@ -96,17 +97,16 @@ function TodayScreen() {
           <Row title="Zona horaria" detail="Madrid" href="#zona" />
           <Row title="Incluir trabajo" trailing={<Switch label="Incluir trabajo" />} />
         </InsetList>
-        <InsetList header="Material">
-          <div className="dd-glass-demo">
-            <p aria-hidden>Llamar al dentista · Revisar presupuesto · Comprar pilas · Regalo para Laura</p>
-            <Glass className="dd-glass-demo__pane">Vidrio</Glass>
-          </div>
-        </InsetList>
         <InsetList header="Ideas">
           <Row title="Ordenar fotos del viaje a Lisboa" href="#idea-1" />
           <Row title="Probar receta de lentejas" href="#idea-2" />
           <Row title="Leer sobre jardines verticales" href="#idea-3" />
         </InsetList>
+        <section className="dd-empty">
+          <h2 className="ui-inset-list__header">Sin clasificar</h2>
+          <NotebookSketch />
+          <p>Nada por revisar.</p>
+        </section>
       </LargeTitle>
       <TabBar items={TABS} active="hoy" />
     </>

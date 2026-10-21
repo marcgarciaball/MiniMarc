@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import '@/styles/tokens.css';
 import './globals.css';
 import '@/components/ui/ui.css';
+import { fontVariables } from './fonts';
 
 export const metadata: Metadata = {
   title: 'Agente Personal',
@@ -20,14 +21,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f2eee8' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f0e0c' },
+    { media: '(prefers-color-scheme: light)', color: '#f3eee3' },
+    { media: '(prefers-color-scheme: dark)', color: '#1e1d1a' },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="es">
+    <html lang="es" className={fontVariables}>
       <body>{children}</body>
     </html>
   );

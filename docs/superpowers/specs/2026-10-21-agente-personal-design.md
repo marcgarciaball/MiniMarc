@@ -86,9 +86,12 @@ Requisito de Marc: avisos 3 h y 1 h antes aplican a las citas **[Marc]**. Para t
 Estética **100 % iPhone / iOS**: cristalina, minimalista, bonita y *aesthetic*. Debe parecer hecha por un diseñador, **no por una IA**. Marc excluye explícitamente los colores y diseños típicos de IA.
 
 Dirección propuesta **[Mi decisión]**:
-- **Materiales de iOS:** superficies translúcidas con desenfoque de fondo (`backdrop-filter`), bordes finos de 0,5 px, esquinas continuas, sombras muy suaves. Vistas tipo "inset grouped list" de iOS, barras de navegación y pestañas con vidrio.
-- **Tipografía:** pila de sistema (`-apple-system`, SF Pro) para que en iPhone se vea nativa. Jerarquía clara con grandes títulos colapsables, como en las apps de Apple.
-- **Color:** paleta contenida y cálida, de tonos naturales, con un único color de acento. Modo claro y oscuro desde el principio.
+> **Cambio de dirección (2026-10-21) [Marc]:** tras ver la primera versión (vidrio y terracota), Marc la rechaza ("no parece de iPhone") y pide un estilo **"boceto conceptual"**: tinta sobre papel, trazos a mano, tipografía rotulada a mano y una sola tinta plana de color, sobre la **estructura e interacción de iOS**, que se mantienen. Las viñetas de materiales, tipografía y color siguientes sustituyen a las anteriores.
+
+- **Estructura de iOS (se mantiene):** vistas tipo "inset grouped list", barra de navegación con títulos grandes colapsables, barra de pestañas, hojas modales arrastrables, interruptores, zonas seguras y objetivos de 44 pt.
+- **Materiales (boceto conceptual):** papel crema con grano sutil (gris carbón en oscuro), líneas de tinta casi negra con trazo irregular dibujado a mano (bordes, separadores, casillas, interruptores, subrayados), iconos e ilustraciones de línea suelta de un solo grosor. Sin vidrio, sin desenfoque y sin sombras.
+- **Tipografía:** pila de sistema (`-apple-system`, SF Pro) para el texto y las listas, para que se lea nativa en iPhone; títulos grandes en una letra rotulada a mano, etiquetas y anotaciones en letra manuscrita y una serif elegante como acento (fuentes libres autoalojadas).
+- **Color:** tinta sobre papel en escala de grises más una única tinta plana de acento (verde). Modo oscuro como papel carbón con tinta de tiza. Contraste AA para el texto.
 - **Prohibido (anti-objetivos de diseño):** degradados morado-azul, brillos o resplandores de neón, iconos de destellos/estrellas de IA, tarjetas idénticas en cuadrícula con sombra grande, emojis como decoración, fondos con "blobs" borrosos de colores, texto de relleno motivacional.
 - **Movimiento:** transiciones y gestos con física tipo iOS (hojas modales que se arrastran, deslizar para completar/archivar), sin animaciones llamativas.
 - Detalles de PWA: pantalla completa sin barra del navegador, respeta las zonas seguras (notch, barra de inicio), icono y pantalla de arranque cuidados, objetivos táctiles ≥ 44 pt, teclado que no tapa el campo de captura.

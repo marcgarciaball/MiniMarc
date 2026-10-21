@@ -14,7 +14,7 @@ html {
 
 body {
   min-height: 100%;
-  background: var(--bg);
+  background: var(--bg) var(--grain);
   color: var(--label);
   font-family: var(--font-text);
   font-size: 17px;

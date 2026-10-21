@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { DesignShowcase } from '@/app/dev/design/Showcase';
 
 describe('design showcase', () => {
-  const html = renderToStaticMarkup(createElement(DesignShowcase));
+  const html = renderToStaticMarkup(createElement(DesignShowcase, { today: new Date('2026-10-21T10:00:00Z') }));
 
   it('renders automatic, light and dark panels', () => {
     expect(html).toContain('data-theme="light"');
@@ -19,6 +19,10 @@ describe('design showcase', () => {
       expect(count).toBeGreaterThanOrEqual(3);
     },
   );
+
+  it('prints the real weekday for the date', () => {
+    expect(html).toContain('miércoles, 21 de octubre');
+  });
 
   it('marks switches and the open sheet accessibly', () => {
     expect(html).toContain('role="switch"');

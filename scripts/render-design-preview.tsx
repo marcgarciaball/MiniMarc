@@ -12,8 +12,16 @@ import { DesignShowcase } from '@/app/dev/design/Showcase';
 const root = path.resolve(__dirname, '..');
 const CSS_FILES = ['styles/tokens.css', 'app/globals.css', 'components/ui/ui.css', 'app/dev/design/design.css'];
 
-const css = CSS_FILES.map((file) => `/* ${file} */\n${readFileSync(path.join(root, file), 'utf8')}`).join('\n');
-const body = renderToStaticMarkup(<DesignShowcase />);
+// The app loads these with next/font/local (app/fonts.ts); the static file points at public/fonts directly.
+const FONT_FACES = `
+@font-face { font-family: "Amatic SC"; font-weight: 700; font-display: swap; src: url("../../public/fonts/AmaticSC-Bold-latin.woff2") format("woff2"); }
+@font-face { font-family: "Caveat"; font-weight: 400 700; font-display: swap; src: url("../../public/fonts/Caveat-Variable-latin.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: normal; font-display: swap; src: url("../../public/fonts/InstrumentSerif-Regular-latin.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: italic; font-display: swap; src: url("../../public/fonts/InstrumentSerif-Italic-latin.woff2") format("woff2"); }
+`;
+
+const css = FONT_FACES + CSS_FILES.map((file) => `/* ${file} */\n${readFileSync(path.join(root, file), 'utf8')}`).join('\n');
+const body = renderToStaticMarkup(<DesignShowcase today={new Date()} />);
 
 const html = `<!doctype html>
 <html lang="es">
