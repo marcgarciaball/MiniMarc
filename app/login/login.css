@@ -1,0 +1,40 @@
+.login {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + 16px) calc(var(--gutter) + var(--safe-right)) calc(var(--safe-bottom) + 24px)
+    calc(var(--gutter) + var(--safe-left));
+}
+
+.login__intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: 15vh;
+}
+
+.login__intro .ui-large-title {
+  padding: 0;
+}
+
+.login__lead {
+  margin-top: 6px;
+  color: var(--label-secondary);
+  font-size: 17px;
+}
+
+.login__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.login [role="alert"] {
+  color: var(--accent);
+  font-size: 15px;
+  text-align: center;
+}

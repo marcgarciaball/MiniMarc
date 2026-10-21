@@ -26,7 +26,7 @@ export function LoginButton() {
 
   return (
     <>
-      <button type="button" onClick={signIn} disabled={pending}>
+      <button type="button" className="ui-button" onClick={signIn} disabled={pending}>
         Entrar con Google
       </button>
       {failed && <p role="alert">No se pudo iniciar sesión. Inténtalo de nuevo.</p>}

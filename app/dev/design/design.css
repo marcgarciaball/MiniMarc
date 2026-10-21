@@ -1,0 +1,160 @@
+/* Layout of the /dev/design showcase (not part of the design system). */
+
+.dd-page {
+  min-height: 100dvh;
+  padding: 32px;
+}
+
+.dd-intro {
+  margin-bottom: 24px;
+}
+
+.dd-intro h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.dd-intro p {
+  color: var(--label-secondary);
+  font-size: 15px;
+}
+
+.dd-panels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.dd-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  border-radius: 32px;
+}
+
+.dd-panel--forced {
+  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
+}
+
+.dd-panel__label {
+  color: var(--label-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Simulated iPhone 15/16 screen: safe areas are faked so bars sit where they would. */
+.dd-frame {
+  --safe-top: 47px;
+  --safe-bottom: 34px;
+  position: relative;
+  width: 393px;
+  height: 852px;
+  overflow: hidden;
+  contain: layout paint; /* makes position: fixed bars and sheets stay inside the frame */
+  border-radius: 48px;
+  background: var(--bg);
+  color: var(--label);
+  box-shadow: 0 0 0 var(--hairline-width) var(--hairline), var(--shadow-soft);
+}
+
+.dd-frame--short {
+  height: 600px;
+}
+
+.dd-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+}
+
+.dd-statusbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  padding: 16px 0 0 52px;
+  font-size: 17px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.dd-date {
+  margin: -6px 0 20px;
+  padding: 0 calc(var(--gutter) + var(--safe-left));
+  color: var(--label-secondary);
+  font-size: 15px;
+}
+
+.dd-spacer {
+  height: 24px;
+}
+
+.dd-glass-demo {
+  position: relative;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.dd-glass-demo p {
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.dd-glass-demo__pane {
+  position: absolute;
+  top: 24px;
+  right: 16px;
+  bottom: 24px;
+  left: 45%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-continuous);
+  box-shadow: 0 0 0 var(--hairline-width) var(--hairline);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* On a phone the automatic frame fills the screen and uses the real safe areas. */
+@media (max-width: 500px) {
+  .dd-page {
+    padding: 0;
+  }
+
+  .dd-intro,
+  .dd-panel:not(.dd-panel--forced) .dd-panel__label,
+  .dd-statusbar {
+    display: none;
+  }
+
+  .dd-panels,
+  .dd-panel {
+    gap: 0;
+  }
+
+  .dd-panel {
+    width: 100%;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .dd-panel__label {
+    padding: 24px 16px 8px;
+  }
+
+  .dd-frame {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    width: 100%;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

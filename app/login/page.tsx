@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { LoginButton } from './LoginButton';
+import './login.css';
 
 const ERRORS: Record<string, string> = {
   no_autorizado: 'Esta cuenta no tiene acceso.',
@@ -17,12 +18,17 @@ type SearchParams = Promise<{ error?: string }>;
 
 export default function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <main>
-      <h1>Agente Personal</h1>
-      <LoginButton />
-      <Suspense fallback={null}>
-        <LoginError searchParams={searchParams} />
-      </Suspense>
+    <main className="login">
+      <div className="login__intro">
+        <h1 className="ui-large-title">Agente Personal</h1>
+        <p className="login__lead">Tareas, ideas, compras y regalos en un solo sitio.</p>
+      </div>
+      <div className="login__actions">
+        <LoginButton />
+        <Suspense fallback={null}>
+          <LoginError searchParams={searchParams} />
+        </Suspense>
+      </div>
     </main>
   );
 }
