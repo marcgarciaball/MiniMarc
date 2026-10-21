@@ -18,3 +18,27 @@ describe('toMadrid', () => {
     expect(r.date).toBe('2026-03-29');
   });
 });
+
+describe('madridToUtc en los bordes del cambio de hora', () => {
+  it('hueco de primavera (2026-03-29): 02:30 no existe y se adelanta a las 03:30 CEST', () => {
+    const d = madridToUtc('2026-03-29', '02:30');
+    expect(d.toISOString()).toBe('2026-03-29T01:30:00.000Z');
+    expect(toMadrid(d)).toEqual({ date: '2026-03-29', hour: 3 });
+  });
+
+  it('justo antes y después del hueco de primavera', () => {
+    expect(madridToUtc('2026-03-29', '01:59').toISOString()).toBe('2026-03-29T00:59:00.000Z');
+    expect(madridToUtc('2026-03-29', '03:00').toISOString()).toBe('2026-03-29T01:00:00.000Z');
+  });
+
+  it('solape de otoño (2026-10-25): 02:30 ocurre dos veces y se elige la segunda (CET, UTC+1)', () => {
+    const d = madridToUtc('2026-10-25', '02:30');
+    expect(d.toISOString()).toBe('2026-10-25T01:30:00.000Z');
+    expect(toMadrid(d)).toEqual({ date: '2026-10-25', hour: 2 });
+  });
+
+  it('justo antes y después del solape de otoño', () => {
+    expect(madridToUtc('2026-10-25', '01:59').toISOString()).toBe('2026-10-24T23:59:00.000Z');
+    expect(madridToUtc('2026-10-25', '03:00').toISOString()).toBe('2026-10-25T02:00:00.000Z');
+  });
+});
