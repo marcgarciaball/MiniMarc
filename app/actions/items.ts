@@ -43,6 +43,10 @@ export async function undoDelete(id: string): Promise<ActionResult<Item>> {
   return run((deps) => core.undoDelete(deps, id));
 }
 
+export async function retrySync(id: string): Promise<ActionResult<Item>> {
+  return run((deps) => core.retrySync(deps, id));
+}
+
 export async function addPerson(formData: FormData): Promise<ActionResult<Person>> {
   return run((deps) => core.addPerson(deps, formData), ADD_FAILED);
 }

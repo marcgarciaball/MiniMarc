@@ -1,0 +1,258 @@
+/**
+ * Google Calendar behind a small gateway. Only this file talks to the Calendar API; the rest of
+ * the app (task sync, agenda) uses `CalendarGateway`, which tests replace with a fake.
+ * Every API error comes out as a `CalendarError` with a coarse `kind`.
+ */
+import { calendar as calendarApi, type calendar_v3 } from 'googleapis/build/src/apis/calendar';
+import { DEFAULT_TZ, madridToUtc } from '@/lib/time';
+
+export type CalendarName = 'Tareas';
+
+export interface EventInput {
+  title: string;
+  startsAt: Date;
+  /** Defaults to 30 minutes after `startsAt`. */
+  endsAt?: Date;
+  description?: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  startsAt: Date;
+  endsAt: Date;
+  calendarId: string;
+  /** True only with popup reminders at exactly 180 and 60 minutes (others may exist too). */
+  hasRequiredReminders: boolean;
+}
+
+export interface CalendarGateway {
+  createEvent(calendarId: string, e: EventInput): Promise<string>;
+  updateEvent(calendarId: string, eventId: string, e: EventInput): Promise<void>;
+  deleteEvent(calendarId: string, eventId: string): Promise<void>;
+  /** Events from every calendar shown in Google Calendar, sorted by start. */
+  listEvents(range: { from: Date; to: Date }): Promise<CalendarEvent[]>;
+  /** Id of the calendar called `name`, created (in Europe/Madrid) if missing. */
+  ensureCalendar(name: CalendarName): Promise<string>;
+}
+
+/** The part of `google.calendar('v3')` the gateway uses (tests pass a fake). */
+export type CalendarApi = Pick<calendar_v3.Calendar, 'events' | 'calendarList' | 'calendars'>;
+
+type Auth = calendar_v3.Options['auth'];
+
+// ---------- Errors ----------
+
+/** auth: token revoked/expired or no permission (re-login). not_found: 404/410. unavailable: anything else. */
+export type CalendarErrorKind = 'auth' | 'not_found' | 'unavailable';
+
+export class CalendarError extends Error {
+  override name = 'CalendarError';
+  constructor(
+    readonly kind: CalendarErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+type ErrorLike = {
+  message?: unknown;
+  status?: unknown;
+  code?: unknown;
+  errors?: { reason?: string }[];
+  response?: { status?: unknown; data?: { error?: unknown } };
+};
+
+const RATE_LIMIT_REASONS = new Set(['rateLimitExceeded', 'userRateLimitExceeded', 'quotaExceeded', 'dailyLimitExceeded']);
+
+/** Classifies any error thrown by googleapis / google-auth-library (or a CalendarError). */
+export function calendarErrorKind(err: unknown): CalendarErrorKind {
+  if (err instanceof CalendarError) return err.kind;
+  const e = (err ?? {}) as ErrorLike;
+  const data = e.response?.data?.error;
+  const oauthError = typeof data === 'string' ? data : '';
+  const message = typeof e.message === 'string' ? e.message : '';
+  if (/invalid_grant|invalid_client|unauthorized_client|No refresh token/i.test(`${oauthError} ${message}`)) {
+    return 'auth';
+  }
+  const status = [e.status, e.response?.status, e.code].map(Number).find((n) => n >= 100 && n < 600);
+  if (status === 401) return 'auth';
+  if (status === 403) {
+    const reasons = [
+      ...(e.errors ?? []),
+      ...((typeof data === 'object' && data && (data as { errors?: { reason?: string }[] }).errors) || []),
+    ];
+    return reasons.some((r) => r.reason && RATE_LIMIT_REASONS.has(r.reason)) ? 'unavailable' : 'auth';
+  }
+  if (status === 404 || status === 410) return 'not_found';
+  return 'unavailable';
+}
+
+async function call<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof CalendarError) throw err;
+    throw new CalendarError(calendarErrorKind(err), err instanceof Error ? err.message : String(err));
+  }
+}
+
+// ---------- Reminders ----------
+
+/** Appointments and timed tasks always warn 180 and 60 minutes before, as a popup. */
+export const REQUIRED_REMINDERS = [
+  { method: 'popup', minutes: 180 },
+  { method: 'popup', minutes: 60 },
+] as const;
+
+export function hasRequiredReminders(reminders: calendar_v3.Schema$Event['reminders'] | undefined): boolean {
+  if (!reminders || reminders.useDefault) return false;
+  const popups = (reminders.overrides ?? []).filter((o) => o.method === 'popup').map((o) => o.minutes);
+  return REQUIRED_REMINDERS.every((r) => popups.includes(r.minutes));
+}
+
+// ---------- Gateway ----------
+
+const DEFAULT_DURATION_MS = 30 * 60_000;
+
+function eventBody(e: EventInput): calendar_v3.Schema$Event {
+  const endsAt = e.endsAt ?? new Date(e.startsAt.getTime() + DEFAULT_DURATION_MS);
+  return {
+    summary: e.title,
+    ...(e.description !== undefined && { description: e.description }),
+    start: { dateTime: e.startsAt.toISOString(), timeZone: DEFAULT_TZ },
+    end: { dateTime: endsAt.toISOString(), timeZone: DEFAULT_TZ },
+    reminders: { useDefault: false, overrides: REQUIRED_REMINDERS.map((r) => ({ ...r })) },
+  };
+}
+
+/** A `dateTime`, or an all-day `date` taken as Madrid midnight. */
+function eventTime(t: calendar_v3.Schema$EventDateTime | undefined): Date | null {
+  if (t?.dateTime) return new Date(t.dateTime);
+  if (t?.date) return madridToUtc(t.date, '00:00');
+  return null;
+}
+
+/**
+ * Gateway over the Calendar API. `auth` is an OAuth2 client holding Marc's refresh token
+ * (see getCalendarGateway in lib/calendar/server.ts); `opts.api` replaces the API in tests.
+ */
+export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarApi } = {}): CalendarGateway {
+  const api: CalendarApi = opts.api ?? calendarApi({ version: 'v3', auth: auth ?? undefined });
+
+  async function listCalendars(): Promise<calendar_v3.Schema$CalendarListEntry[]> {
+    const items: calendar_v3.Schema$CalendarListEntry[] = [];
+    let pageToken: string | undefined;
+    do {
+      const { data } = await api.calendarList.list({ pageToken });
+      items.push(...(data.items ?? []));
+      pageToken = data.nextPageToken ?? undefined;
+    } while (pageToken);
+    return items;
+  }
+
+  async function listCalendarEvents(calendarId: string, from: Date, to: Date): Promise<CalendarEvent[]> {
+    const out: CalendarEvent[] = [];
+    let pageToken: string | undefined;
+    do {
+      const { data } = await api.events.list({
+        calendarId,
+        timeMin: from.toISOString(),
+        timeMax: to.toISOString(),
+        singleEvents: true,
+        orderBy: 'startTime',
+        maxResults: 250,
+        pageToken,
+      });
+      for (const ev of data.items ?? []) {
+        const startsAt = eventTime(ev.start);
+        if (!ev.id || ev.status === 'cancelled' || !startsAt) continue;
+        out.push({
+          id: ev.id,
+          title: ev.summary ?? '',
+          startsAt,
+          endsAt: eventTime(ev.end) ?? startsAt,
+          calendarId,
+          hasRequiredReminders: hasRequiredReminders(ev.reminders),
+        });
+      }
+      pageToken = data.nextPageToken ?? undefined;
+    } while (pageToken);
+    return out;
+  }
+
+  return {
+    createEvent: (calendarId, e) =>
+      call(async () => {
+        const { data } = await api.events.insert({ calendarId, requestBody: eventBody(e) });
+        if (!data.id) throw new CalendarError('unavailable', 'Calendar no devolvió el id del evento');
+        return data.id;
+      }),
+
+    updateEvent: (calendarId, eventId, e) =>
+      call(async () => {
+        await api.events.patch({ calendarId, eventId, requestBody: eventBody(e) });
+      }),
+
+    deleteEvent: (calendarId, eventId) =>
+      call(async () => {
+        await api.events.delete({ calendarId, eventId });
+      }),
+
+    listEvents: ({ from, to }) =>
+      call(async () => {
+        const calendars = (await listCalendars()).filter((c) => c.id && (c.selected || c.primary));
+        const lists = await Promise.all(calendars.map((c) => listCalendarEvents(c.id!, from, to)));
+        return lists.flat().sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+      }),
+
+    ensureCalendar: (name) =>
+      call(async () => {
+        const existing = (await listCalendars()).find((c) => c.summary === name && c.accessRole === 'owner');
+        if (existing?.id) return existing.id;
+        const { data } = await api.calendars.insert({ requestBody: { summary: name, timeZone: DEFAULT_TZ } });
+        if (!data.id) throw new CalendarError('unavailable', 'Calendar no devolvió el id del calendario');
+        return data.id;
+      }),
+  };
+}
+
+/** Where the "Tareas" calendar id is remembered (google_credentials.calendar_tasks_id). */
+export interface CalendarIdCache {
+  get(): Promise<string | null>;
+  set(id: string): Promise<void>;
+}
+
+/**
+ * Remembers the "Tareas" calendar id so a sync costs no lookup. If Marc deleted that calendar in
+ * Google, creating an event in it gives 404: the calendar is recreated, the new id saved and the
+ * event created there. (Updates fall back to a create, and deletes of a gone event succeed.)
+ */
+export function withCachedCalendar(gw: CalendarGateway, cache: CalendarIdCache): CalendarGateway {
+  let known: string | null | undefined;
+
+  async function refresh(name: CalendarName): Promise<string> {
+    const id = await gw.ensureCalendar(name);
+    known = id;
+    // Not saving it only costs a lookup next time; the sync itself has worked.
+    await cache.set(id).catch(() => {});
+    return id;
+  }
+
+  return {
+    ...gw,
+    async ensureCalendar(name) {
+      if (known === undefined) known = await cache.get();
+      return known ?? refresh(name);
+    },
+    async createEvent(calendarId, e) {
+      try {
+        return await gw.createEvent(calendarId, e);
+      } catch (err) {
+        if (calendarErrorKind(err) !== 'not_found' || calendarId !== known) throw err;
+        return gw.createEvent(await refresh('Tareas'), e);
+      }
+    },
+  };
+}

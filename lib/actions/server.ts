@@ -1,3 +1,5 @@
+import { calendarGatewayFor } from '@/lib/calendar/server';
+import { taskSyncHook } from '@/lib/calendar/taskSync';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
 import { createSupabasePeopleRepo } from '@/lib/db/people';
 import { createClient, requireUser } from '@/lib/supabase/server';
@@ -8,13 +10,13 @@ import type { ActionDeps } from './items';
  * Redirects to /login without an allowed session. Used by pages and server actions.
  */
 export async function getDeps(): Promise<ActionDeps> {
-  await requireUser();
+  const user = await requireUser();
   const client = await createClient();
   return {
     items: createSupabaseItemsRepo(client),
     people: createSupabasePeopleRepo(client),
-    // Tarea 7: `sync: (item) => syncTaskEvent(item, gw)`. Its `{ eventId, error }` is the
-    // `SyncResult` that afterWrite stores; if it throws, afterWrite stores SYNC_UNAVAILABLE
-    // and the action still succeeds, so no adapter or try/catch is needed here.
+    // Timed tasks ↔ "Tareas" calendar. Reads the Google credentials only when there is an
+    // event to create, change or delete; never throws (errors are stored as syncError).
+    sync: taskSyncHook(() => calendarGatewayFor(user.id)),
   };
 }

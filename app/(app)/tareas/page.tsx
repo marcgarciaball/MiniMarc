@@ -32,6 +32,7 @@ async function Tareas({ searchParams }: { searchParams: SearchParams }) {
       today={madridToday()}
       before={<AreaSelector area={area} />}
       sections={[{ key: area, items }]}
+      syncNotices
       emptyText={area === 'trabajo' ? 'No hay tareas de trabajo pendientes.' : 'No hay tareas personales pendientes.'}
       newItem={{ type: 'tarea', area, label: area === 'trabajo' ? 'Nueva tarea de trabajo' : 'Nueva tarea' }}
     />

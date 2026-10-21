@@ -219,6 +219,30 @@
   background: var(--fill-pressed);
 }
 
+.app-item__notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  margin-top: -10px;
+  padding: 0 16px 0 52px;
+  color: var(--label-secondary);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+}
+
+.app-item__notice-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--accent);
+}
+
+.app-item__notice-action:disabled {
+  color: var(--label-tertiary);
+}
+
 .ui-row__title[data-done] {
   color: var(--label-secondary);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useOptimistic, useRef, useState, useTransition, type ReactNode } from 'react';
-import { addItem, deleteItem, moveItem, toggleDone, undoDelete } from '@/app/actions/items';
+import { addItem, deleteItem, moveItem, retrySync, toggleDone, undoDelete } from '@/app/actions/items';
 import { PlusIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
 import type { MovePatch } from '@/lib/actions/items';
@@ -11,6 +11,7 @@ import { formatDue, TYPE_LABELS } from '@/lib/format';
 import { ItemRow } from './ItemRow';
 import { ItemSheet, type NewItemDefaults, type SheetMode } from './ItemSheet';
 import { SwipeRow } from './SwipeRow';
+import { SyncNotice } from './SyncNotice';
 
 export type ItemSection = { key: string; header?: string; footer?: string; items: Item[] };
 
@@ -31,6 +32,8 @@ export type ItemsScreenProps = {
   leading?: ReactNode;
   /** Content between the title and the lists (area selector, person card…). */
   before?: ReactNode;
+  /** Tareas: rows whose Calendar sync failed say so and offer "Reintentar". */
+  syncNotices?: boolean;
 };
 
 type ToastState = NonNullable<ToastProps['toast']>;
@@ -53,6 +56,7 @@ export function ItemsScreen({
   hidePerson,
   leading,
   before,
+  syncNotices,
 }: ItemsScreenProps) {
   const [, startTransition] = useTransition();
   const [removed, removeOptimistic] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
@@ -62,6 +66,7 @@ export function ItemsScreen({
     mode: { kind: 'new', defaults: newItem ?? { type: 'tarea', label: '' } },
   });
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const toastId = useRef(0);
 
   const peopleById = new Map(people.map((p) => [p.id, p.name]));
@@ -105,6 +110,16 @@ export function ItemsScreen({
     );
   const remove = (item: Item) =>
     removeWith(item, () => deleteItem(item.id), 'Eliminado', () => undoDelete(item.id));
+
+  function retry(item: Item) {
+    setRetrying(item.id);
+    startTransition(async () => {
+      const result = await settle(() => retrySync(item.id), OFFLINE);
+      setRetrying(null);
+      if (!result.ok) showToast(result.error);
+      else if (result.value.syncError) showToast('Calendar sigue sin responder. Inténtalo más tarde.');
+    });
+  }
 
   function tick(item: Item) {
     setChecked((ids) => [...ids, item.id]);
@@ -177,6 +192,16 @@ export function ItemsScreen({
                       checked={checked.includes(item.id)}
                       onToggle={() => tick(item)}
                       onOpen={() => openEdit(item)}
+                      notice={
+                        syncNotices &&
+                        item.syncError && (
+                          <SyncNotice
+                            error={item.syncError}
+                            pending={retrying === item.id}
+                            onRetry={() => retry(item)}
+                          />
+                        )
+                      }
                     />
                   </SwipeRow>
                 ))}

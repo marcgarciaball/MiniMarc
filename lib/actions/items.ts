@@ -157,6 +157,11 @@ export async function undoDelete(deps: ActionDeps, id: string): Promise<Item> {
   return afterWrite(deps, await findItem(deps, id));
 }
 
+/** Runs the sync hook again for an item whose last sync failed ("Reintentar"). */
+export async function retrySync(deps: ActionDeps, id: string): Promise<Item> {
+  return afterWrite(deps, await findItem(deps, id));
+}
+
 // ---------- People ----------
 
 function parseBirthday(fd: FormData): string | null {
