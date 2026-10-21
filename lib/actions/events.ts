@@ -59,7 +59,15 @@ export function parseNewEvent(fd: FormData): EventInput {
  * Throws UserError before touching Calendar if the form is invalid.
  */
 export async function addEvent(deps: EventDeps, fd: FormData): Promise<AddEventResult> {
-  const input = parseNewEvent(fd);
+  return createCita(deps, parseNewEvent(fd));
+}
+
+/**
+ * Creates an already-validated cita in the primary calendar (with the 180/60 reminders).
+ * Never throws: a Calendar failure comes back as `{ ok: false, error }`. Shared by the
+ * "Nueva cita" form and the capture pipeline (lib/capture/pipeline.ts).
+ */
+export async function createCita(deps: EventDeps, input: EventInput): Promise<AddEventResult> {
   try {
     const gw = await deps.calendar();
     return { ok: true, eventId: await gw.createEvent(PRIMARY_CALENDAR, input) };
