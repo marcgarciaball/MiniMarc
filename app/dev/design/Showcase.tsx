@@ -14,8 +14,10 @@ import {
   Wallpaper,
   type TabBarItem,
 } from '@/components/ui';
+import { AppNav } from '@/components/app/AppNav';
+import { AppShell } from '@/components/app/AppShell';
 import { formatLongDate } from '@/lib/time';
-import { BellIcon, CaptureIcon, Circle, ClockIcon, GlobeIcon, ListIcon, SettingsIcon, TodayIcon } from './icons';
+import { BellIcon, CaptureIcon, Circle, ClockIcon, GlobeIcon, ListIcon, SettingsIcon, TodayIcon } from '@/components/icons';
 
 type Theme = 'light' | 'dark';
 
@@ -43,6 +45,10 @@ export function DesignShowcase({ today }: { today: Date }) {
         <Panel label="Automático" today={today} />
         <Panel label="Claro" theme="light" today={today} />
         <Panel label="Oscuro" theme="dark" today={today} />
+      </div>
+      <div className="dd-desktops">
+        <DesktopPanel label="Escritorio · claro" theme="light" />
+        <DesktopPanel label="Escritorio · oscuro" theme="dark" />
       </div>
     </main>
   );
@@ -186,5 +192,39 @@ function SheetScreen() {
         </InsetList>
       </Sheet>
     </>
+  );
+}
+
+/** The web app from 900px: glass sidebar and a centred 720px column (shown only on wide screens). */
+function DesktopPanel({ label, theme }: { label: string; theme: Theme }) {
+  return (
+    <section className="dd-panel dd-panel--forced" data-theme={theme}>
+      <h2 className="dd-panel__label">{label}</h2>
+      <div className="dd-desktop">
+        <Wallpaper />
+        <div className="dd-scroll">
+          <AppShell nav={<AppNav active="tareas" />}>
+            <LargeTitle
+              title="Tareas"
+              trailing={
+                <button type="button" className="ui-bar-button">
+                  Añadir
+                </button>
+              }
+            >
+              <div className="dd-segmented">
+                <Segmented label="Área" options={AREAS} defaultValue="personal" />
+              </div>
+              <InsetList>
+                <Row leading={<Circle />} title="Recoger el traje del tinte" subtitle="Hoy" detail="18:00" />
+                <Row leading={<Circle />} title="Llamar al seguro del coche" subtitle="Mañana" />
+                <Row leading={<Circle />} title="Pedir cita en el taller" subtitle="Viernes" />
+                <Row leading={<Circle />} title="Renovar el pasaporte" />
+              </InsetList>
+            </LargeTitle>
+          </AppShell>
+        </div>
+      </div>
+    </section>
   );
 }

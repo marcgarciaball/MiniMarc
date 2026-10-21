@@ -167,6 +167,36 @@
   height: 20px;
 }
 
+/* Desktop web shell: a 1180×760 browser-window frame (the shell switches layout at ≥ 900px of viewport). */
+.dd-desktops {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.dd-desktop {
+  position: relative;
+  width: 1180px;
+  height: 760px;
+  overflow: hidden;
+  contain: layout paint;
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--label);
+  box-shadow: 0 0 0 0.5px var(--hairline), 0 24px 60px rgba(20, 32, 48, 0.18);
+}
+
+.dd-desktop .app-shell {
+  min-height: 100%;
+}
+
+@media (max-width: 899px) {
+  .dd-desktops {
+    display: none;
+  }
+}
+
 /* On a phone the automatic frame fills the screen and uses the real safe areas. */
 @media (max-width: 500px) {
   .dd-page {

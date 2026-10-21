@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { DesignShowcase } from '@/app/dev/design/Showcase';
 
 const root = path.resolve(__dirname, '..');
-const CSS_FILES = ['styles/tokens.css', 'app/globals.css', 'components/ui/ui.css', 'app/dev/design/design.css'];
+const CSS_FILES = ['styles/tokens.css', 'app/globals.css', 'components/ui/ui.css', 'components/app/app.css', 'app/dev/design/design.css'];
 
 const css = CSS_FILES.map((file) => `/* ${file} */\n${readFileSync(path.join(root, file), 'utf8')}`).join('\n');
 const body = renderToStaticMarkup(<DesignShowcase today={new Date()} />);

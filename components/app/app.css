@@ -1,0 +1,385 @@
+/*
+ * App screens on top of components/ui: shell (tab bar ↔ sidebar), item rows with swipe, sheet forms.
+ * Prefix `app-`. Desktop rules are scoped to `.app-shell`, so the iPhone frames of /dev/design are untouched.
+ */
+
+/* ---------- Shell ---------- */
+.app-shell {
+  min-height: 100dvh;
+}
+
+.app-sidebar {
+  display: none;
+}
+
+/* ---------- Desktop (≥ 900px): glass sidebar + centred 720px column ---------- */
+@media (min-width: 900px) {
+  .app-shell {
+    --sidebar-width: 248px;
+    padding-left: calc(var(--sidebar-width) + 24px);
+  }
+
+  .app-tabbar {
+    display: none;
+  }
+
+  .app-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 12px 8px 48px;
+  }
+
+  .app-main.ui-tabbar-inset {
+    padding-bottom: 48px;
+  }
+
+  /* The bar floats as a rounded glass strip inside the column instead of spanning the screen. */
+  .app-main .ui-navbar {
+    top: 12px;
+    border-radius: var(--radius-continuous);
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 12px;
+    bottom: 12px;
+    left: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: var(--sidebar-width);
+    padding: 22px 10px 12px;
+    overflow-y: auto;
+    border-radius: 26px;
+    background-color: var(--glass-fill-bar);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  .app-sidebar__title {
+    padding: 0 10px;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 28px;
+    letter-spacing: 0.35px;
+  }
+
+  .app-sidebar__group ul {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    list-style: none;
+  }
+
+  .app-sidebar__group:last-child {
+    margin-top: auto;
+  }
+
+  .app-sidebar__header {
+    padding: 0 10px 6px;
+    color: var(--label-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 18px;
+    letter-spacing: -0.08px;
+  }
+
+  .app-sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: 12px;
+    font-size: 15px;
+    line-height: 20px;
+    letter-spacing: -0.24px;
+    transition: background-color var(--duration-fast) linear;
+  }
+
+  .app-sidebar__link:hover {
+    background-color: var(--fill-pressed);
+  }
+
+  .app-sidebar__link[aria-current="page"] {
+    background-color: var(--accent-tint);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .app-sidebar__icon {
+    display: flex;
+    color: var(--accent);
+  }
+
+  .app-sidebar__icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Sheets become a centred floating card. */
+  .app-shell .ui-sheet {
+    bottom: 24px;
+    max-width: 560px;
+    margin: 0 auto;
+    padding-bottom: 8px;
+    border-radius: var(--radius-sheet);
+  }
+
+  .app-shell .ui-sheet:not([data-open="true"]) {
+    transform: translateY(calc(100% + 48px));
+  }
+
+  .app-shell .ui-toast-region {
+    left: calc(var(--sidebar-width) + 24px);
+    bottom: 24px;
+  }
+}
+
+@media (min-width: 900px) and (prefers-reduced-transparency: reduce) {
+  .app-sidebar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ---------- Screen pieces ---------- */
+.app-segmented,
+.app-form__segmented {
+  padding: 4px calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+}
+
+.app-form__segmented {
+  padding-top: 0;
+}
+
+/* Quiet empty state: one line of secondary text, no illustration. */
+.app-empty {
+  padding: 24px calc(var(--gutter) + 16px);
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+  text-align: center;
+}
+
+.app-back {
+  gap: 2px;
+  padding-left: 4px;
+}
+
+.app-back svg {
+  width: 12px;
+  height: 20px;
+}
+
+.app-add-icon {
+  display: flex;
+  color: var(--accent);
+}
+
+.app-add-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.ui-navbar .ui-bar-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- Item row ---------- */
+.app-item {
+  padding-left: 6px;
+  gap: 2px;
+}
+
+.app-item__check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--label-tertiary);
+  transition: color var(--duration-fast) linear;
+}
+
+.app-item__check[aria-checked="true"] {
+  color: var(--accent);
+}
+
+.app-item__body {
+  text-align: left;
+}
+
+.app-item__body:active {
+  background: var(--fill-pressed);
+}
+
+.ui-row__title[data-done] {
+  color: var(--label-secondary);
+}
+
+/* ---------- Swipe ---------- */
+.app-swipe {
+  position: relative;
+  overflow: hidden;
+}
+
+.app-swipe__content {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  touch-action: pan-y;
+  transition: transform 380ms var(--ease-ios);
+}
+
+.app-swipe__content[data-phase="drag"] {
+  transition: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-swipe__content[data-phase="leave"] {
+  transition: transform 260ms var(--ease-ios);
+}
+
+/* While a row moves it needs an opaque-ish fill so the action colour shows only beside it. */
+.app-swipe[data-dir] .app-swipe__content {
+  background: var(--glass-fill-sheet);
+}
+
+.app-swipe__action {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 22px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.24px;
+}
+
+.app-swipe__action svg {
+  width: 22px;
+  height: 22px;
+}
+
+.app-swipe__action--complete {
+  justify-content: flex-start;
+  background: var(--accent-tile);
+}
+
+.app-swipe__action--archive {
+  justify-content: flex-end;
+  background: linear-gradient(180deg, #8494a8 0%, #66768b 100%);
+}
+
+.app-swipe[data-dir="complete"] .app-swipe__action--complete,
+.app-swipe[data-dir="archive"] .app-swipe__action--archive {
+  display: flex;
+}
+
+/* ---------- Sheet forms ---------- */
+.app-form {
+  padding-bottom: 12px;
+}
+
+.app-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 11px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: -0.41px;
+  outline: none;
+  resize: none;
+}
+
+.app-input::placeholder {
+  color: var(--label-tertiary);
+}
+
+.app-input--notes {
+  display: block;
+  border-top: 0.5px solid var(--hairline);
+  font-size: 15px;
+  letter-spacing: -0.24px;
+}
+
+.app-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--touch-target);
+  padding-left: 16px;
+}
+
+.ui-inset-list__group > li + li .app-field,
+.ui-inset-list__group > li + li .app-action {
+  box-shadow: inset 0 0.5px 0 var(--hairline);
+}
+
+.app-field > span {
+  flex: none;
+}
+
+.app-field .app-input {
+  flex: 1;
+  min-width: 0;
+  color: var(--accent);
+  text-align: right;
+  text-align-last: right;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.app-form__error {
+  padding: 0 calc(var(--gutter) + 16px) 20px;
+  color: var(--destructive);
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.app-action {
+  color: var(--accent);
+}
+
+.app-action--destructive {
+  color: var(--destructive);
+}
+
+:root {
+  --destructive: #c23a2f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --destructive: #ff7a6e;
+  }
+}
+
+[data-theme="dark"] {
+  --destructive: #ff7a6e;
+}
+
+[data-theme="light"] {
+  --destructive: #c23a2f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-swipe__content,
+  .app-swipe__content[data-phase="leave"],
+  .app-item__check,
+  .app-sidebar__link {
+    transition: none;
+  }
+}

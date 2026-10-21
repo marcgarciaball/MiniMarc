@@ -20,6 +20,12 @@ describe('design showcase', () => {
     },
   );
 
+  it('shows the desktop shell (sidebar) in light and dark', () => {
+    expect(html.split('class="ui-glass app-sidebar"').length - 1).toBe(2);
+    expect(html).toContain('Escritorio · oscuro');
+    expect(html).toMatch(/class="app-sidebar__link" aria-current="page"/);
+  });
+
   it('prints the real weekday for the date', () => {
     expect(html).toContain('miércoles, 21 de octubre');
   });

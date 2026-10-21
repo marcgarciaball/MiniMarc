@@ -7,7 +7,11 @@ export interface PeopleRepo {
   listPeople(): Promise<Person[]>;
   /** Cumpleaños (solo mes/día) entre `from` y `from + days`, ambos inclusive. */
   upcomingBirthdays(from: string, days: number): Promise<Person[]>;
+  /** Lanza si no existe o si el nombre queda vacío. */
+  updatePerson(id: string, patch: PersonPatch): Promise<Person>;
 }
+
+export type PersonPatch = Partial<Pick<Person, 'name' | 'birthday' | 'notes'>>;
 
 export function rowToPerson(row: Row): Person {
   return {
@@ -52,6 +56,18 @@ export function createPeopleRepo(backend: DbBackend): PeopleRepo {
             offsetByMonthDay.get(a.birthday!.slice(5, 10))! -
             offsetByMonthDay.get(b.birthday!.slice(5, 10))!,
         );
+    },
+
+    async updatePerson(id, patch) {
+      const row: Row = {};
+      if (patch.name !== undefined) {
+        const clean = patch.name.trim();
+        if (!clean) throw new Error('El nombre no puede estar vacío');
+        row.name = clean;
+      }
+      if (patch.birthday !== undefined) row.birthday = patch.birthday;
+      if (patch.notes !== undefined) row.notes = patch.notes;
+      return rowToPerson(await backend.update('people', id, row));
     },
   };
 }

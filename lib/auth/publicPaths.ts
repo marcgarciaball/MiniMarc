@@ -9,6 +9,10 @@ export const PUBLIC_PATHS = [
   '/api/capture',
   '/api/cron/',
   '/api/push/',
+  // PWA files: the browser fetches them without cookies (also excluded in the proxy matcher).
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/icons/',
 ] as const;
 
 export function isPublicPath(pathname: string): boolean {

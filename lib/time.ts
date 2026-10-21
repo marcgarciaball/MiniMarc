@@ -65,3 +65,26 @@ export function formatLongDate(d: Date, tz: string = DEFAULT_TZ): string {
     timeZone: tz,
   }).format(d);
 }
+
+/** Local date ("YYYY-MM-DD") and time ("HH:mm") of `d` in `tz`; feeds date/time inputs. */
+export function madridDateTime(d: Date, tz: string = DEFAULT_TZ): { date: string; time: string } {
+  const p = wallParts(d, tz);
+  return { date: `${p.year}-${pad(p.month)}-${pad(p.day)}`, time: `${pad(p.hour)}:${pad(p.minute)}` };
+}
+
+/** True for a real calendar date written "YYYY-MM-DD". */
+export function isValidDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/**
+ * Wall-clock date (+ optional "HH:mm") in Madrid → an item's `dueAt` (UTC ISO) and `hasTime`.
+ * A date without time is stored as Madrid midnight. Empty date → no due date.
+ */
+export function toDue(date: string, time: string, tz: string = DEFAULT_TZ): { dueAt: string | null; hasTime: boolean } {
+  if (!date) return { dueAt: null, hasTime: false };
+  if (!isValidDate(date)) throw new Error(`Fecha no válida: ${date}`);
+  return { dueAt: madridToUtc(date, time || '00:00', tz).toISOString(), hasTime: Boolean(time) };
+}

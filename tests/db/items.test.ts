@@ -115,3 +115,16 @@ describe('people repo', () => {
     expect(res.map((p) => p.name)).toEqual(['Hoy', 'FinDeAño', 'Enero']);
   });
 });
+
+describe('people repo · updatePerson', () => {
+  it('cambia nombre, cumpleaños y notas, y lanza si no existe', async () => {
+    const ana = await people.upsertPersonByName('Ana');
+    const up = await people.updatePerson(ana.id, { birthday: '1990-11-02', notes: 'Le gusta leer' });
+    expect(up).toEqual({ id: ana.id, name: 'Ana', birthday: '1990-11-02', notes: 'Le gusta leer' });
+    const cleared = await people.updatePerson(ana.id, { name: ' Ana María ', birthday: null });
+    expect(cleared.name).toBe('Ana María');
+    expect(cleared.birthday).toBeNull();
+    await expect(people.updatePerson('nope', { name: 'X' })).rejects.toThrow();
+    await expect(people.updatePerson(ana.id, { name: '  ' })).rejects.toThrow();
+  });
+});

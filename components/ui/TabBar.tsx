@@ -7,6 +7,8 @@ export type TabBarItem = {
   label: string;
   href: string;
   icon: ReactNode;
+  /** Reserved slot: shown, not yet navigable. */
+  disabled?: boolean;
 };
 
 export type TabBarProps = {
@@ -22,7 +24,15 @@ export type TabBarProps = {
 export function TabBar({ items, active }: TabBarProps) {
   return (
     <Glass as="nav" className="ui-tabbar" aria-label="Secciones">
-      {items.map((item) => (
+      {items.map((item) =>
+        item.disabled ? (
+          <span key={item.key} className="ui-tabbar__item" aria-disabled="true">
+            <span className="ui-tabbar__icon" aria-hidden>
+              {item.icon}
+            </span>
+            {item.label}
+          </span>
+        ) : (
         <Link
           key={item.key}
           href={item.href}
@@ -34,7 +44,8 @@ export function TabBar({ items, active }: TabBarProps) {
           </span>
           {item.label}
         </Link>
-      ))}
+        ),
+      )}
     </Glass>
   );
 }
