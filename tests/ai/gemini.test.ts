@@ -61,6 +61,20 @@ describe('GeminiProvider', () => {
     await expect(provider(flaky).generateText('p')).resolves.toBe('hola');
   });
 
+  it.each([
+    ['HTTP 429', Object.assign(new Error('Too Many Requests'), { status: 429 })],
+    ['RESOURCE_EXHAUSTED', new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}')],
+    ['RESOURCE_EXHAUSTED sin código', new Error('got status: RESOURCE_EXHAUSTED. Quota exceeded')],
+  ])('does not retry on quota or rate-limit errors (%s)', async (_n, err) => {
+    let calls = 0;
+    const quota: GenerateFn = async () => {
+      calls++;
+      throw err;
+    };
+    await expect(provider(quota).generateText('p')).rejects.toBe(err);
+    expect(calls).toBe(1);
+  });
+
   it('enforces the daily call cap and resets the next Madrid day', async () => {
     let day = new Date('2026-10-21T10:00:00Z');
     const ai = provider(async () => 'x', { dailyCap: 2, now: () => day });

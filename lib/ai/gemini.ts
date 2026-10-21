@@ -65,6 +65,16 @@ function withTimeout(generate: GenerateFn, req: GenerateRequest, timeoutMs: numb
   });
 }
 
+/**
+ * HTTP 429 / RESOURCE_EXHAUSTED: quota or rate limit. A retry would only fail again and burn
+ * another call of the small free-tier budget, so these are not retried.
+ */
+export function isQuotaError(err: unknown): boolean {
+  const e = (err ?? {}) as { status?: unknown; code?: unknown; message?: unknown };
+  if (Number(e.status) === 429 || Number(e.code) === 429) return true;
+  return typeof e.message === 'string' && /RESOURCE_EXHAUSTED|"code"\s*:\s*429\b/.test(e.message);
+}
+
 function positiveInt(value: string | undefined): number | undefined {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
@@ -93,7 +103,8 @@ export function createGeminiProvider(opts: GeminiOptions = {}): AiProvider {
     takeCall();
     try {
       return await withTimeout(generate, req, timeoutMs);
-    } catch {
+    } catch (err) {
+      if (isQuotaError(err)) throw err;
       takeCall(); // One retry, which also counts against the cap.
       return withTimeout(generate, req, timeoutMs);
     }
