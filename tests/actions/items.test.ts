@@ -4,6 +4,7 @@ import { createItemsRepo } from '@/lib/db/items';
 import { createPeopleRepo } from '@/lib/db/people';
 import * as actions from '@/lib/actions/items';
 import type { ActionDeps } from '@/lib/actions/items';
+import { attempt } from '@/lib/actions/result';
 
 let deps: ActionDeps;
 
@@ -117,8 +118,8 @@ describe('moveItem', () => {
 });
 
 describe('sync hook (Tarea 7)', () => {
-  it('se llama tras cada escritura y guarda calendarEventId y syncError', async () => {
-    const sync = vi.fn(async () => ({ calendarEventId: 'ev1', syncError: null }));
+  it('se llama tras cada escritura y guarda eventId y error como calendarEventId y syncError', async () => {
+    const sync = vi.fn(async () => ({ eventId: 'ev1', error: null }));
     const withSync = { ...deps, sync };
     const item = await actions.addItem(withSync, form({ type: 'tarea', title: 'Cita', dueDate: '2026-10-22', dueTime: '10:00' }));
     expect(item.calendarEventId).toBe('ev1');
@@ -127,6 +128,80 @@ describe('sync hook (Tarea 7)', () => {
     expect(sync).toHaveBeenCalledTimes(3);
     const deleted = sync.mock.calls[2] as unknown as [{ deletedAt: string | null }];
     expect(deleted[0].deletedAt).not.toBeNull();
+  });
+
+  it('un sync que lanza no hace fallar la acción: el elemento queda guardado con syncError', async () => {
+    const sync = vi.fn(async () => {
+      throw new Error('invalid_grant');
+    });
+    const withSync = { ...deps, sync };
+    const item = await actions.addItem(withSync, form({ type: 'tarea', title: 'Cita', dueDate: '2026-10-22' }));
+    expect(item.syncError).toBe(actions.SYNC_UNAVAILABLE);
+    const stored = await deps.items.listItems();
+    expect(stored.map((i) => [i.title, i.syncError])).toEqual([['Cita', actions.SYNC_UNAVAILABLE]]);
+
+    const result = await attempt(() => actions.addItem(withSync, form({ type: 'tarea', title: 'Otra' })), 'fallo');
+    expect(result.ok).toBe(true);
+    expect(await deps.items.listItems()).toHaveLength(2);
+
+    await expect(actions.toggleDone(withSync, item.id)).resolves.toMatchObject({ status: 'hecho' });
+    await expect(actions.deleteItem(withSync, item.id)).resolves.toBeUndefined();
+    await expect(actions.undoDelete(withSync, item.id)).resolves.toMatchObject({ id: item.id });
+  });
+
+  it('un error al guardar el resultado del sync tampoco hace fallar la acción', async () => {
+    const withSync: ActionDeps = {
+      ...deps,
+      sync: async () => ({ eventId: 'ev1', error: null }),
+      items: { ...deps.items, updateItem: async () => Promise.reject(new Error('red')) },
+    };
+    const item = await actions.addItem(withSync, form({ type: 'tarea', title: 'Cita' }));
+    expect(item.title).toBe('Cita');
+    expect(await deps.items.listItems()).toHaveLength(1);
+  });
+});
+
+describe('cambio de tipo y fecha (M-4)', () => {
+  it('una tarea que pasa a idea, compra o regalo pierde la fecha y la hora', async () => {
+    for (const type of ['idea', 'compra', 'regalo'] as const) {
+      const t = await actions.addItem(deps, form({ type: 'tarea', title: `T ${type}`, dueDate: '2026-10-22', dueTime: '10:00' }));
+      const moved = await actions.moveItem(deps, t.id, { type });
+      expect(moved).toMatchObject({ type, dueAt: null, hasTime: false });
+    }
+  });
+
+  it('una fecha enviada junto a un tipo que no es tarea se descarta', async () => {
+    const idea = await actions.addItem(deps, form({ type: 'idea', title: 'Viaje' }));
+    const moved = await actions.moveItem(deps, idea.id, { type: 'compra', dueAt: '2026-10-22T08:00:00.000Z', hasTime: true });
+    expect(moved).toMatchObject({ dueAt: null, hasTime: false });
+  });
+
+  it('una tarea que sigue siendo tarea conserva su fecha', async () => {
+    const t = await actions.addItem(deps, form({ type: 'tarea', title: 'T', dueDate: '2026-10-22', dueTime: '10:00' }));
+    const moved = await actions.moveItem(deps, t.id, { area: 'trabajo' });
+    expect(moved).toMatchObject({ dueAt: '2026-10-22T08:00:00.000Z', hasTime: true });
+  });
+
+  it('una idea que pasa a tarea puede recibir fecha', async () => {
+    const idea = await actions.addItem(deps, form({ type: 'idea', title: 'Viaje' }));
+    const moved = await actions.moveItem(deps, idea.id, { type: 'tarea', dueAt: '2026-10-22T08:00:00.000Z', hasTime: true });
+    expect(moved).toMatchObject({ type: 'tarea', dueAt: '2026-10-22T08:00:00.000Z', hasTime: true });
+  });
+});
+
+describe('Sin clasificar por área (M-3)', () => {
+  it('separa Personal y Trabajo; lo que no tiene área cuenta como Personal', async () => {
+    await deps.items.createItem({ type: 'tarea', title: 'Informe', area: 'trabajo', needsReview: true });
+    await deps.items.createItem({ type: 'idea', title: 'Idea de equipo', area: 'trabajo', needsReview: true });
+    await deps.items.createItem({ type: 'tarea', title: 'Dentista', area: 'personal', needsReview: true });
+    await deps.items.createItem({ type: 'compra', title: 'Pilas', needsReview: true });
+
+    const personal = await actions.listSinClasificar(deps, 'personal');
+    const trabajo = await actions.listSinClasificar(deps, 'trabajo');
+    expect(personal.map((i) => i.title).sort()).toEqual(['Dentista', 'Pilas']);
+    expect(trabajo.map((i) => i.title).sort()).toEqual(['Idea de equipo', 'Informe']);
+    expect(personal.filter((p) => trabajo.some((t) => t.id === p.id))).toEqual([]);
+    expect(await actions.listSinClasificar(deps)).toHaveLength(4);
   });
 });
 

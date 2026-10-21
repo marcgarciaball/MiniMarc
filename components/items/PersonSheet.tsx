@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { addPerson, updatePerson } from '@/app/actions/items';
 import { InsetList, Sheet } from '@/components/ui';
+import { personFormError } from '@/lib/actions/forms';
+import { settle } from '@/lib/actions/result';
 import type { Person } from '@/lib/db/types';
 
 export type PersonSheetProps = {
@@ -18,20 +20,29 @@ const FORM_ID = 'person-sheet-form';
 export function PersonSheet({ open, person, onClose }: PersonSheetProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Blocks a second submit (double tap, Enter) before `pending` re-renders the button.
+  const inFlight = useRef(false);
 
-  function submit(fd: FormData) {
-    if (!String(fd.get('name') ?? '').trim()) {
-      setError('Escribe un nombre.');
-      return;
-    }
+  // onSubmit, not <form action>: React resets an action form's fields when the action ends,
+  // which would wipe the typed text on failure. The fields reset only when the sheet closes.
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (inFlight.current) return;
+    const fd = new FormData(e.currentTarget);
+    const invalid = personFormError(fd);
+    if (invalid) return setError(invalid);
     setError(null);
+    inFlight.current = true;
     startTransition(async () => {
-      try {
-        await (person ? updatePerson(person.id, fd) : addPerson(fd));
-        onClose();
-      } catch {
-        setError('No se ha podido guardar. Revisa los datos e inténtalo de nuevo.');
-      }
+      const result = await settle(
+        () => (person ? updatePerson(person.id, fd) : addPerson(fd)),
+        'No se ha podido guardar. Revisa la conexión e inténtalo de nuevo.',
+      );
+      inFlight.current = false;
+      startTransition(() => {
+        if (result.ok) onClose();
+        else setError(result.error);
+      });
     });
   }
 
@@ -51,7 +62,7 @@ export function PersonSheet({ open, person, onClose }: PersonSheetProps) {
         </button>
       }
     >
-      <form id={FORM_ID} key={`${person?.id ?? 'new'}-${String(open)}`} action={submit} className="app-form">
+      <form id={FORM_ID} key={`${person?.id ?? 'new'}-${String(open)}`} onSubmit={handleSubmit} className="app-form">
         <InsetList>
           <input
             className="app-input app-input--title"

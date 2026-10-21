@@ -13,6 +13,8 @@ export async function getDeps(): Promise<ActionDeps> {
   return {
     items: createSupabaseItemsRepo(client),
     people: createSupabasePeopleRepo(client),
-    // Tarea 7: add `sync` here (Google Calendar via syncTaskEvent) so every item action stays in step.
+    // Tarea 7: `sync: (item) => syncTaskEvent(item, gw)`. Its `{ eventId, error }` is the
+    // `SyncResult` that afterWrite stores; if it throws, afterWrite stores SYNC_UNAVAILABLE
+    // and the action still succeeds, so no adapter or try/catch is needed here.
   };
 }

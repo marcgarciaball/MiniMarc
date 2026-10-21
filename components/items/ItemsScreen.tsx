@@ -5,6 +5,7 @@ import { addItem, deleteItem, moveItem, toggleDone, undoDelete } from '@/app/act
 import { PlusIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
 import type { MovePatch } from '@/lib/actions/items';
+import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, Person } from '@/lib/db/types';
 import { formatDue, TYPE_LABELS } from '@/lib/format';
 import { ItemRow } from './ItemRow';
@@ -37,6 +38,9 @@ type ToastState = NonNullable<ToastProps['toast']>;
 /** Delay between ticking the circle and the row leaving, so the check is seen (as in Reminders). */
 const CHECK_DELAY_MS = 450;
 
+/** The server action call itself failed (no connection, server down). */
+const OFFLINE = 'No se ha podido guardar. Revisa la conexión e inténtalo de nuevo.';
+
 /** A list screen: large title, grouped item rows with swipe, add/edit sheet and an undo toast. */
 export function ItemsScreen({
   title,
@@ -57,7 +61,6 @@ export function ItemsScreen({
     open: false,
     mode: { kind: 'new', defaults: newItem ?? { type: 'tarea', label: '' } },
   });
-  const [sheetError, setSheetError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastId = useRef(0);
 
@@ -65,7 +68,7 @@ export function ItemsScreen({
   const visible = sections.map((s) => ({ ...s, items: s.items.filter((i) => !removed.includes(i.id)) }));
   const isEmpty = visible.every((s) => s.items.length === 0);
 
-  function showToast(message: string, undo?: () => Promise<unknown>) {
+  function showToast(message: string, undo?: () => Promise<ActionResult<unknown>>) {
     toastId.current += 1;
     setToast({
       id: toastId.current,
@@ -75,18 +78,19 @@ export function ItemsScreen({
     });
   }
 
-  async function run(fn: () => Promise<unknown>): Promise<boolean> {
-    try {
-      await fn();
-      return true;
-    } catch {
-      showToast('No se ha podido guardar. Inténtalo de nuevo.');
-      return false;
-    }
+  async function run(fn: () => Promise<ActionResult<unknown>>): Promise<boolean> {
+    const result = await settle(fn, OFFLINE);
+    if (!result.ok) showToast(result.error);
+    return result.ok;
   }
 
   /** Removes the row at once, runs the action, offers Undo. The row comes back by itself if the action fails. */
-  function removeWith(item: Item, action: () => Promise<unknown>, message: string, undo: () => Promise<unknown>) {
+  function removeWith(
+    item: Item,
+    action: () => Promise<ActionResult<unknown>>,
+    message: string,
+    undo: () => Promise<ActionResult<unknown>>,
+  ) {
     startTransition(async () => {
       removeOptimistic(item.id);
       if (await run(action)) showToast(message, undo);
@@ -114,12 +118,10 @@ export function ItemsScreen({
 
   function openNew() {
     if (!newItem) return;
-    setSheetError(null);
     setSheet({ open: true, mode: { kind: 'new', defaults: newItem } });
   }
 
   function openEdit(item: Item) {
-    setSheetError(null);
     setSheet({ open: true, mode: { kind: 'edit', item } });
   }
 
@@ -128,27 +130,9 @@ export function ItemsScreen({
     then(item);
   }
 
-  function create(fd: FormData) {
-    startTransition(async () => {
-      try {
-        await addItem(fd);
-        closeSheet();
-      } catch {
-        setSheetError('No se ha podido añadir. Revisa los datos e inténtalo de nuevo.');
-      }
-    });
-  }
-
-  function save(item: Item, patch: MovePatch) {
-    startTransition(async () => {
-      try {
-        await moveItem(item.id, patch);
-        closeSheet();
-      } catch {
-        setSheetError('No se ha podido guardar. Revisa los datos e inténtalo de nuevo.');
-      }
-    });
-  }
+  // The sheet keeps the typed text, shows the error and closes itself only on success.
+  const create = (fd: FormData) => settle(() => addItem(fd), OFFLINE);
+  const save = (item: Item, patch: MovePatch) => settle(() => moveItem(item.id, patch), OFFLINE);
 
   function subtitleFor(item: Item): { subtitle?: string; detail?: string } {
     const parts: string[] = [];
@@ -207,7 +191,6 @@ export function ItemsScreen({
         mode={sheet.mode}
         people={people}
         reviewMode={reviewMode}
-        error={sheetError}
         onClose={closeSheet}
         onCreate={create}
         onSave={save}

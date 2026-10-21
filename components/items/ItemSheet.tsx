@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState, useTransition, type FormEvent, type TransitionStartFunction } from 'react';
 import { InsetList, Segmented, Sheet } from '@/components/ui';
+import { editPatchFromForm, newItemFormError } from '@/lib/actions/forms';
 import type { MovePatch } from '@/lib/actions/items';
+import type { ActionResult } from '@/lib/actions/result';
 import type { Area, Item, ItemType, Person } from '@/lib/db/types';
-import { madridDateTime, toDue } from '@/lib/time';
+import { madridDateTime } from '@/lib/time';
 
 export type NewItemDefaults = { type: ItemType; area?: Area; personId?: string; label: string };
 
@@ -28,10 +30,10 @@ export type ItemSheetProps = {
   people: Person[];
   /** Sin clasificar: saving files the item (clears needsReview). */
   reviewMode?: boolean;
-  error: string | null;
   onClose: () => void;
-  onCreate: (fd: FormData) => void;
-  onSave: (item: Item, patch: MovePatch) => void;
+  /** Must not throw; on `ok: false` the sheet stays open with the typed text and shows `error`. */
+  onCreate: (fd: FormData) => Promise<ActionResult<unknown>>;
+  onSave: (item: Item, patch: MovePatch) => Promise<ActionResult<unknown>>;
   onComplete: (item: Item) => void;
   onArchive: (item: Item) => void;
   onDelete: (item: Item) => void;
@@ -42,6 +44,7 @@ const FORM_ID = 'item-sheet-form';
 /** Add or edit an item. Also the non-gesture way to complete, archive or delete (reduced motion, keyboard). */
 export function ItemSheet(props: ItemSheetProps) {
   const { open, mode, onClose } = props;
+  const [pending, startTransition] = useTransition();
   const editing = mode.kind === 'edit' ? mode.item : null;
   const title = editing ? (props.reviewMode ? 'Clasificar' : 'Editar') : mode.kind === 'new' ? mode.defaults.label : '';
 
@@ -56,55 +59,61 @@ export function ItemSheet(props: ItemSheetProps) {
         </button>
       }
       trailing={
-        <button type="submit" form={FORM_ID} className="ui-bar-button ui-bar-button--strong">
+        <button type="submit" form={FORM_ID} className="ui-bar-button ui-bar-button--strong" disabled={pending}>
           {editing ? 'OK' : 'Añadir'}
         </button>
       }
     >
-      {/* Remount per item so the uncontrolled fields start from its values. */}
-      <ItemForm key={editing ? editing.id : `new-${String(open)}`} {...props} />
+      {/* Remount per item so the uncontrolled fields start from its values. A new item's fields
+          reset only when the sheet closes, which happens only after a successful save. */}
+      <ItemForm key={editing ? editing.id : `new-${String(open)}`} {...props} startTransition={startTransition} />
     </Sheet>
   );
 }
 
-function ItemForm({ mode, people, reviewMode, error, onCreate, onSave, onComplete, onArchive, onDelete }: ItemSheetProps) {
+type ItemFormProps = ItemSheetProps & { startTransition: TransitionStartFunction };
+
+function ItemForm(props: ItemFormProps) {
+  const { mode, people, reviewMode, onClose, onCreate, onSave, onComplete, onArchive, onDelete, startTransition } = props;
   const item = mode.kind === 'edit' ? mode.item : null;
   const defaults = mode.kind === 'new' ? mode.defaults : null;
   const [type, setType] = useState<ItemType>(item?.type ?? defaults?.type ?? 'tarea');
   const [area, setArea] = useState<Area>(item?.area ?? defaults?.area ?? 'personal');
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Blocks a second submit (double tap, Enter) before `pending` re-renders the button.
+  const inFlight = useRef(false);
   const due = item?.dueAt ? madridDateTime(new Date(item.dueAt)) : null;
 
-  function submit(fd: FormData) {
-    setLocalError(null);
-    if (!String(fd.get('title') ?? '').trim()) {
-      setLocalError('Escribe un título.');
-      return;
+  // onSubmit, not <form action>: React resets an action form's fields when the action ends,
+  // which would wipe the typed text on failure.
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (inFlight.current) return;
+    const fd = new FormData(e.currentTarget);
+    let call: () => Promise<ActionResult<unknown>>;
+    if (item) {
+      const patch = editPatchFromForm(fd, { type, area, reviewMode });
+      if (!patch.ok) return setError(patch.error);
+      call = () => onSave(item, patch.value);
+    } else {
+      const invalid = newItemFormError(fd);
+      if (invalid) return setError(invalid);
+      call = () => onCreate(fd);
     }
-    if (!item) {
-      onCreate(fd);
-      return;
-    }
-    const get = (k: string) => String(fd.get(k) ?? '').trim();
-    const patch: MovePatch = { title: get('title'), notes: get('notes') || null, type };
-    if (type === 'tarea') {
-      patch.area = area;
-      try {
-        Object.assign(patch, toDue(get('dueDate'), get('dueTime')));
-      } catch {
-        setLocalError('La fecha no es válida.');
-        return;
-      }
-    }
-    patch.personId = type === 'regalo' ? get('personId') || null : null;
-    if (reviewMode) patch.needsReview = false;
-    onSave(item, patch);
+    setError(null);
+    inFlight.current = true;
+    startTransition(async () => {
+      const result = await call();
+      inFlight.current = false;
+      startTransition(() => {
+        if (result.ok) onClose();
+        else setError(result.error);
+      });
+    });
   }
 
-  const shownError = localError ?? error;
-
   return (
-    <form id={FORM_ID} action={submit} className="app-form">
+    <form id={FORM_ID} onSubmit={handleSubmit} className="app-form">
       <input type="hidden" name="type" value={type} />
       {type === 'tarea' && <input type="hidden" name="area" value={area} />}
       <InsetList>
@@ -176,9 +185,9 @@ function ItemForm({ mode, people, reviewMode, error, onCreate, onSave, onComplet
         </InsetList>
       )}
 
-      {shownError && (
+      {error && (
         <p className="app-form__error" role="alert">
-          {shownError}
+          {error}
         </p>
       )}
 
