@@ -6,3 +6,5 @@ export { InsetList, type InsetListProps } from './InsetList';
 export { Row, type RowProps } from './Row';
 export { Switch, type SwitchProps } from './Switch';
 export { Sheet, type SheetProps } from './Sheet';
+export { Segmented, type SegmentedProps, type SegmentedOption } from './Segmented';
+export { Wallpaper } from './Wallpaper';

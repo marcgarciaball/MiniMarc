@@ -3,6 +3,7 @@
 .dd-page {
   min-height: 100dvh;
   padding: 32px;
+  background: var(--bg);
 }
 
 .dd-intro {
@@ -10,16 +11,16 @@
 }
 
 .dd-intro h1 {
-  font-family: var(--font-display);
-  font-size: 44px;
+  font-size: 34px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 41px;
+  letter-spacing: 0.37px;
 }
 
 .dd-intro p {
   color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 20px;
+  font-size: 15px;
+  line-height: 20px;
 }
 
 .dd-panels {
@@ -34,20 +35,21 @@
   flex-direction: column;
   gap: 20px;
   padding: 20px;
-  border-radius: 32px;
+  border-radius: 36px;
 }
 
 .dd-panel--forced {
-  border: 1px solid transparent;
-  border-image: var(--sketch-box) 20 / 16px / 2px stretch;
-  background-image: var(--grain);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 0.5px var(--hairline);
 }
 
 .dd-panel__label {
   color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 22px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
 }
 
 /* Simulated iPhone 15/16 screen: safe areas are faked so bars sit where they would. */
@@ -58,12 +60,11 @@
   width: 393px;
   height: 852px;
   overflow: hidden;
-  contain: layout paint; /* makes position: fixed bars and sheets stay inside the frame */
-  border-radius: 48px;
-  background: var(--bg) var(--grain);
+  contain: layout paint; /* makes position: fixed bars, sheets and the wallpaper stay inside the frame */
+  border-radius: 54px;
+  background: var(--bg);
   color: var(--label);
-  outline: 1.5px solid var(--label);
-  outline-offset: -1.5px;
+  box-shadow: 0 0 0 0.5px var(--hairline), 0 24px 60px rgba(20, 32, 48, 0.18);
 }
 
 .dd-frame--short {
@@ -73,7 +74,6 @@
 .dd-scroll {
   height: 100%;
   overflow-y: auto;
-  padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
 }
 
 .dd-statusbar {
@@ -88,39 +88,83 @@
 }
 
 .dd-date {
-  margin: 0 0 22px;
+  margin: -4px 0 18px;
   padding: 0 calc(var(--gutter) + var(--safe-left));
   color: var(--label-secondary);
-  font-family: var(--font-serif);
-  font-size: 21px;
-  font-style: italic;
+  font-size: 17px;
+  line-height: 22px;
+}
+
+.dd-date::first-letter {
+  text-transform: uppercase;
+}
+
+/* "Próxima cita" glass card with a large numeral, like a widget. */
+.dd-next {
+  margin: 0 calc(var(--gutter) + var(--safe-right)) 20px calc(var(--gutter) + var(--safe-left));
+  padding: 16px 20px 18px;
+  border-radius: var(--radius-continuous);
+}
+
+.dd-next__eyebrow {
+  color: var(--label-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  text-transform: uppercase;
+}
+
+.dd-next__main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.dd-next__title {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: -0.26px;
+}
+
+.dd-next__time {
+  font-size: 44px;
+  font-weight: 300;
+  line-height: 52px;
+  letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dd-next__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.dd-next__meta svg {
+  width: 17px;
+  height: 17px;
+  color: var(--accent);
+}
+
+.dd-segmented {
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+}
+
+.dd-check {
+  color: var(--label-tertiary);
 }
 
 .dd-spacer {
-  height: 24px;
-}
-
-.dd-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
-  color: var(--label);
-}
-
-.dd-empty .ui-inset-list__header {
-  align-self: stretch;
-}
-
-.dd-sketch {
-  width: 200px;
-  height: auto;
-}
-
-.dd-empty p {
-  color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 20px;
+  height: 20px;
 }
 
 /* On a phone the automatic frame fills the screen and uses the real safe areas. */
@@ -143,9 +187,8 @@
   .dd-panel {
     width: 100%;
     padding: 0;
-    border: 0;
-    border-image: none;
     border-radius: 0;
+    box-shadow: none;
   }
 
   .dd-panel__label {
@@ -158,6 +201,6 @@
     width: 100%;
     height: 100dvh;
     border-radius: 0;
-    outline: 0;
+    box-shadow: none;
   }
 }

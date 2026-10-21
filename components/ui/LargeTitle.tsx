@@ -21,7 +21,7 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
 
 /**
  * iOS large title: a 34pt heading that scrolls under the NavBar; once it is
- * hidden the bar gets its paper and rule and shows the inline title.
+ * hidden the bar gets its glass material and hairline and shows the inline title.
  */
 export function LargeTitle({ title, leading, trailing, children }: LargeTitleProps) {
   const navRef = useRef<HTMLElement>(null);

@@ -6,7 +6,7 @@ export type RowProps = {
   subtitle?: string;
   /** Secondary value on the right, e.g. "10:00". */
   detail?: string;
-  /** Ink icon (`.ui-icon-tile`), checkbox… */
+  /** Icon tile (`.ui-icon-tile`), checkbox… */
   leading?: ReactNode;
   /** Control on the right, e.g. a `<Switch>`. */
   trailing?: ReactNode;
@@ -18,8 +18,8 @@ export type RowProps = {
 
 function Chevron() {
   return (
-    <svg className="ui-row__chevron" viewBox="0 0 9 15" aria-hidden>
-      <path d="M1.5 1.2C3.6 3.4 5.6 5.4 7.4 7.6C5.4 9.6 3.4 11.6 1.2 13.8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg className="ui-row__chevron" viewBox="0 0 8 14" aria-hidden>
+      <path d="M1.5 1.5L6.5 7L1.5 12.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

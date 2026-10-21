@@ -15,7 +15,10 @@ export type TabBarProps = {
   active: string;
 };
 
-/** Fixed bottom paper tab bar; the current tab gets a hand-drawn underline. Pads itself for the home indicator. */
+/**
+ * Floating glass tab bar (iOS 26 style capsule) above the home indicator; the current tab
+ * gets a glacier tint. Pad scroll content with `.ui-tabbar-inset` so nothing hides under it.
+ */
 export function TabBar({ items, active }: TabBarProps) {
   return (
     <Glass as="nav" className="ui-tabbar" aria-label="Secciones">
@@ -30,11 +33,6 @@ export function TabBar({ items, active }: TabBarProps) {
             {item.icon}
           </span>
           {item.label}
-          {item.key === active && (
-            <svg className="ui-tabbar__mark" viewBox="0 0 34 6" aria-hidden>
-              <path d="M2 3.6C9 2.4 18 3.9 32 2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          )}
         </Link>
       ))}
     </Glass>

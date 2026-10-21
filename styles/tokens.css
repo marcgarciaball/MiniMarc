@@ -1,26 +1,29 @@
 /*
- * Design tokens: "boceto conceptual" over an iOS structure.
- * Ink on cream paper (light) / chalk on charcoal paper (dark), one green spot ink.
+ * Design tokens: Apple glassmorphism / Liquid Glass with a glacier-blue accent.
+ * Frosted translucent surfaces over a soft glacier wallpaper (folded light ribbons).
+ * Glass recipe (literal in components/ui/ui.css, because Safari mishandles var() in
+ * -webkit-backdrop-filter): fill token + blur/saturate + 0.5px light rim + soft wide shadow.
  * Light by default; dark via `prefers-color-scheme`; `data-theme` forces either on any subtree.
- * The url() tokens are hand-drawn strokes (line tile and 9-slice box) and paper grain,
- * drawn once as irregular SVG paths; the ink colour is baked in, hence one per theme.
+ * `prefers-reduced-transparency` turns every glass surface solid (see the end of the file).
+ *
+ * Contrast (WCAG, measured on the composited glass over the darkest wallpaper tone):
+ *   light accent #335A80: 6.05 on cards, 6.16 on bars, 4.63 on bare wallpaper (#C3D1DF); white on it 7.20.
+ *   dark accent  #A8C2DC: 7.86 on cards, 8.85 on bars, 7.08 on bare wallpaper (#243243); #0B1118 on it 10.31.
  */
 
 :root {
-  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Helvetica Neue", Helvetica, Arial, sans-serif;
-  /* Set by next/font/local in app/fonts.ts (or by the static preview). */
-  --font-display: var(--font-amatic, "Amatic SC"), "Marker Felt", var(--font-text);
-  --font-hand: var(--font-caveat, "Caveat"), "Bradley Hand", var(--font-text);
-  --font-serif: var(--font-instrument, "Instrument Serif"), "New York", Georgia, serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
 
-  --radius-continuous: 12px;
-  --radius-sheet: 14px;
-  --hairline-width: 1px;
-  --sketch-line-size: 240px 6px;
+  /* Continuous-looking radii */
+  --radius-continuous: 22px;
+  --radius-sheet: 28px;
+  --radius-tile: 7px;
+  --radius-pill: 999px;
+  --hairline-width: 0.5px;
 
   --navbar-height: 44px;
-  --tabbar-height: 52px;
+  --tabbar-height: 62px;
   --touch-target: 44px;
 
   --safe-top: env(safe-area-inset-top, 0px);
@@ -38,68 +41,127 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #f3eee3;
-  --bg-elevated: #f3eee3;
-  --bg-sheet: #ece6d9;
-  /* Opaque paper (the "Glass" surface); name kept for compatibility. */
-  --surface-glass: #f3eee3;
-  --hairline: rgba(27, 26, 23, 0.55);
-  --label: #1b1a17;
-  --label-secondary: #5c564c;
-  --label-tertiary: #857e72;
-  --fill: transparent;
-  --fill-pressed: rgba(27, 26, 23, 0.06);
-  --accent: #137538;
-  --on-accent: #f3eee3;
-  --backdrop: rgba(27, 26, 23, 0.22);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%231b1a17' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
-  --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%231b1a17' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
+  --bg: #e9eff5;
+  --bg-elevated: #f4f7fa;
+  --bg-sheet: #f4f7fa;
+  --surface-glass: rgba(255, 255, 255, 0.58);
+  --glass-fill-bar: rgba(247, 249, 251, 0.72);
+  --glass-fill-sheet: rgba(244, 247, 250, 0.82);
+  --glass-fill-inner: rgba(255, 255, 255, 0.72);
+  --glass-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 10px 34px rgba(42, 66, 96, 0.1), 0 1px 3px rgba(42, 66, 96, 0.06);
+  --hairline: rgba(52, 70, 94, 0.2);
+  --label: #0d1520;
+  --label-secondary: #4b5768;
+  --label-tertiary: #7c8797;
+  --fill: rgba(118, 132, 152, 0.18);
+  --fill-pressed: rgba(52, 70, 94, 0.08);
+  --accent: #335a80;
+  --accent-tint: rgba(51, 90, 128, 0.12);
+  --accent-tile: linear-gradient(180deg, #5f86ad 0%, #335a80 100%);
+  --on-accent: #ffffff;
+  --switch-on: #335a80;
+  --segment-thumb: #ffffff;
+  --thumb: #ffffff;
+  --backdrop: rgba(28, 42, 60, 0.22);
+  /* Wallpaper: folded glacier ribbons */
+  --wp-base: linear-gradient(180deg, #eef2f7 0%, #dfe7ef 55%, #cfdbe7 100%);
+  --wp-ribbon: linear-gradient(180deg, #f7f9fb 0%, #e3eaf1 40%, #c3d1df 100%);
+  --wp-ribbon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 22px rgba(255, 255, 255, 0.55),
+    0 22px 44px -14px rgba(64, 90, 122, 0.2);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1e1d1a;
-  --bg-elevated: #1e1d1a;
-  --bg-sheet: #262421;
-  --surface-glass: #1e1d1a;
-  --hairline: rgba(237, 230, 216, 0.5);
-  --label: #ede6d8;
-  --label-secondary: #aaa293;
-  --label-tertiary: #7d766a;
-  --fill: transparent;
-  --fill-pressed: rgba(237, 230, 216, 0.07);
-  --accent: #4fbf78;
-  --on-accent: #1e1d1a;
-  --backdrop: rgba(0, 0, 0, 0.4);
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-  --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%23ede6d8' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
-  --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23ede6d8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
+  --bg: #0c131b;
+  --bg-elevated: #18202b;
+  --bg-sheet: #18202b;
+  --surface-glass: rgba(28, 36, 48, 0.55);
+  --glass-fill-bar: rgba(18, 25, 34, 0.7);
+  --glass-fill-sheet: rgba(24, 32, 43, 0.82);
+  --glass-fill-inner: rgba(255, 255, 255, 0.06);
+  --glass-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --hairline: rgba(214, 226, 240, 0.14);
+  --label: #f1f4f8;
+  --label-secondary: #9eabbb;
+  --label-tertiary: #6e7b8c;
+  --fill: rgba(140, 156, 176, 0.3);
+  --fill-pressed: rgba(214, 226, 240, 0.08);
+  --accent: #a8c2dc;
+  --accent-tint: rgba(168, 194, 220, 0.16);
+  --accent-tile: linear-gradient(180deg, #6e8fb1 0%, #46678a 100%);
+  --on-accent: #0b1118;
+  --switch-on: #5f86ad;
+  --segment-thumb: rgba(255, 255, 255, 0.16);
+  --thumb: #ffffff;
+  --backdrop: rgba(0, 0, 0, 0.45);
+  --wp-base: linear-gradient(180deg, #121a24 0%, #0c131b 60%, #090e14 100%);
+  --wp-ribbon: linear-gradient(180deg, #223040 0%, #172230 45%, #0f1720 100%);
+  --wp-ribbon-shadow: inset 0 1px 0 rgba(196, 216, 238, 0.32), 0 0 22px rgba(150, 182, 214, 0.08),
+    0 22px 44px -14px rgba(0, 0, 0, 0.55);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #1e1d1a;
-    --bg-elevated: #1e1d1a;
-    --bg-sheet: #262421;
-    --surface-glass: #1e1d1a;
-    --hairline: rgba(237, 230, 216, 0.5);
-    --label: #ede6d8;
-    --label-secondary: #aaa293;
-    --label-tertiary: #7d766a;
-    --fill: transparent;
-    --fill-pressed: rgba(237, 230, 216, 0.07);
-    --accent: #4fbf78;
-    --on-accent: #1e1d1a;
-    --backdrop: rgba(0, 0, 0, 0.4);
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
-    --sketch-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='6' fill='none' stroke='%23ede6d8' stroke-linecap='round'%3E%3Cpath stroke-width='1.1' d='M0 3C20 2.4 40 3.6 60 3.1S100 2.3 120 3S165 3.7 185 2.9S225 2.6 240 3'/%3E%3Cpath stroke-width='.7' stroke-opacity='.35' d='M0 3.4C30 3.9 55 2.8 80 3.3S140 3.7 170 2.9S220 3.6 240 3.4'/%3E%3C/svg%3E");
-    --sketch-box: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' fill='none' stroke='%23ede6d8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath stroke-width='1.5' d='M11 3.9C30 2.2 52 4.6 70 3.1C78 2.6 83 2.9 86 3C93 2.9 97.2 6.6 96.9 14C95.8 33 98.2 52 96.6 70C96.4 78 96.9 83 97 86C96.8 93.2 92.8 97.2 85 96.8C66 95.6 46 98.1 28 96.6C21 96.3 17 97 14 97.2C6.8 97 2.9 92.8 3.2 86C4.4 67 2 46 3.6 28C3.9 21 3.2 17 3.1 14C3.4 6.4 7.6 2.9 19 4.4'/%3E%3Cpath stroke-width='.8' stroke-opacity='.4' d='M16 5C40 4.1 64 5.6 84 4.5C91 4.8 95.6 8 95.6 16M95.4 84C95.6 91 91.6 95.6 84 95.4C62 96.4 38 95.2 17 95.8'/%3E%3C/svg%3E");
+    --bg: #0c131b;
+    --bg-elevated: #18202b;
+    --bg-sheet: #18202b;
+    --surface-glass: rgba(28, 36, 48, 0.55);
+    --glass-fill-bar: rgba(18, 25, 34, 0.7);
+    --glass-fill-sheet: rgba(24, 32, 43, 0.82);
+    --glass-fill-inner: rgba(255, 255, 255, 0.06);
+    --glass-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --hairline: rgba(214, 226, 240, 0.14);
+    --label: #f1f4f8;
+    --label-secondary: #9eabbb;
+    --label-tertiary: #6e7b8c;
+    --fill: rgba(140, 156, 176, 0.3);
+    --fill-pressed: rgba(214, 226, 240, 0.08);
+    --accent: #a8c2dc;
+    --accent-tint: rgba(168, 194, 220, 0.16);
+    --accent-tile: linear-gradient(180deg, #6e8fb1 0%, #46678a 100%);
+    --on-accent: #0b1118;
+    --switch-on: #5f86ad;
+    --segment-thumb: rgba(255, 255, 255, 0.16);
+    --thumb: #ffffff;
+    --backdrop: rgba(0, 0, 0, 0.45);
+    --wp-base: linear-gradient(180deg, #121a24 0%, #0c131b 60%, #090e14 100%);
+    --wp-ribbon: linear-gradient(180deg, #223040 0%, #172230 45%, #0f1720 100%);
+    --wp-ribbon-shadow: inset 0 1px 0 rgba(196, 216, 238, 0.32), 0 0 22px rgba(150, 182, 214, 0.08),
+      0 22px 44px -14px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* Reduced transparency: every glass surface becomes solid (ui.css drops the blur). */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-theme="light"] {
+    --surface-glass: #f7f9fb;
+    --glass-fill-bar: #f4f7fa;
+    --glass-fill-sheet: #f4f7fa;
+    --glass-fill-inner: #ffffff;
+  }
+
+  [data-theme="dark"] {
+    --surface-glass: #1a232f;
+    --glass-fill-bar: #141c26;
+    --glass-fill-sheet: #18202b;
+    --glass-fill-inner: #212b38;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface-glass: #1a232f;
+    --glass-fill-bar: #141c26;
+    --glass-fill-sheet: #18202b;
+    --glass-fill-inner: #212b38;
   }
 }
 
 [data-theme] {
-  background: var(--bg) var(--grain);
   color: var(--label);
 }

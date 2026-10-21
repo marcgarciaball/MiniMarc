@@ -1,11 +1,28 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { InsetList, LargeTitle, NavBar, Row, Sheet, Switch, TabBar, type TabBarItem } from '@/components/ui';
+import {
+  Glass,
+  InsetList,
+  LargeTitle,
+  NavBar,
+  Row,
+  Segmented,
+  Sheet,
+  Switch,
+  TabBar,
+  Wallpaper,
+  type TabBarItem,
+} from '@/components/ui';
 import { formatLongDate } from '@/lib/time';
-import { BellIcon, CaptureIcon, Circle, ClockIcon, ListIcon, NotebookSketch, SettingsIcon, TodayIcon } from './icons';
+import { BellIcon, CaptureIcon, Circle, ClockIcon, GlobeIcon, ListIcon, SettingsIcon, TodayIcon } from './icons';
 
 type Theme = 'light' | 'dark';
+
+const AREAS = [
+  { value: 'personal', label: 'Personal' },
+  { value: 'trabajo', label: 'Trabajo' },
+];
 
 const TABS: TabBarItem[] = [
   { key: 'hoy', label: 'Hoy', href: '#hoy', icon: <TodayIcon /> },
@@ -48,10 +65,11 @@ function Panel({ label, theme, today }: { label: string; theme?: Theme; today: D
 function Frame({ short, children }: { short?: boolean; children: ReactNode }) {
   return (
     <div className={short ? 'dd-frame dd-frame--short' : 'dd-frame'}>
+      <Wallpaper />
       <div className="dd-statusbar" aria-hidden>
         9:41
       </div>
-      <div className="dd-scroll">{children}</div>
+      <div className="dd-scroll ui-tabbar-inset">{children}</div>
     </div>
   );
 }
@@ -68,13 +86,27 @@ function TodayScreen({ today }: { today: Date }) {
         }
       >
         <p className="dd-date">{formatLongDate(today)}</p>
-        <InsetList header="Pendiente">
-          <Row leading={<Circle />} title="Llamar al dentista" subtitle="Personal" detail="10:00" />
-          <Row leading={<Circle />} title="Revisar presupuesto Q4" subtitle="Trabajo" detail="12:30" />
-          <Row leading={<Circle />} title="Comprar pilas AA" subtitle="Compra" />
-          <Row leading={<Circle />} title="Regalo para Laura" subtitle="Regalo · antes del 2 nov" />
+        <Glass as="section" className="dd-next" aria-label="Próxima cita">
+          <p className="dd-next__eyebrow">Próxima cita</p>
+          <div className="dd-next__main">
+            <h2 className="dd-next__title">Médico</h2>
+            <p className="dd-next__time">10:00</p>
+          </div>
+          <p className="dd-next__meta">
+            <BellIcon />
+            Avisos 3 h y 1 h antes
+          </p>
+        </Glass>
+        <div className="dd-segmented">
+          <Segmented label="Área" options={AREAS} defaultValue="personal" />
+        </div>
+        <InsetList header="Tareas">
+          <Row leading={<Circle />} title="Recoger el traje del tinte" detail="18:00" />
+          <Row leading={<Circle />} title="Llamar al seguro del coche" subtitle="Mañana" />
+          <Row leading={<Circle />} title="Regalo para Ainhoa" subtitle="Regalo · cumple el 2 de noviembre" />
+          <Row leading={<Circle />} title="Leche de avena y café" subtitle="Compra" />
         </InsetList>
-        <InsetList header="Avisos" footer="Los avisos llegan 3 h y 1 h antes de cada cita.">
+        <InsetList header="Avisos" footer="Las citas y las tareas con hora avisan 3 h y 1 h antes.">
           <Row
             leading={
               <span className="ui-icon-tile">
@@ -94,19 +126,17 @@ function TodayScreen({ today }: { today: Date }) {
             detail="8:00"
             href="#resumen"
           />
-          <Row title="Zona horaria" detail="Madrid" href="#zona" />
-          <Row title="Incluir trabajo" trailing={<Switch label="Incluir trabajo" />} />
+          <Row
+            leading={
+              <span className="ui-icon-tile">
+                <GlobeIcon />
+              </span>
+            }
+            title="Zona horaria"
+            detail="Madrid"
+            href="#zona"
+          />
         </InsetList>
-        <InsetList header="Ideas">
-          <Row title="Ordenar fotos del viaje a Lisboa" href="#idea-1" />
-          <Row title="Probar receta de lentejas" href="#idea-2" />
-          <Row title="Leer sobre jardines verticales" href="#idea-3" />
-        </InsetList>
-        <section className="dd-empty">
-          <h2 className="ui-inset-list__header">Sin clasificar</h2>
-          <NotebookSketch />
-          <p>Nada por revisar.</p>
-        </section>
       </LargeTitle>
       <TabBar items={TABS} active="hoy" />
     </>
@@ -128,7 +158,7 @@ function SheetScreen() {
       />
       <div className="dd-spacer" />
       <InsetList header="Supermercado">
-        <Row leading={<Circle />} title="Pilas AA" />
+        <Row leading={<Circle />} title="Leche de avena" />
         <Row leading={<Circle />} title="Café en grano" />
         <Row leading={<Circle />} title="Papel de horno" />
       </InsetList>

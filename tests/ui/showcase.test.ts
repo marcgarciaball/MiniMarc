@@ -12,7 +12,7 @@ describe('design showcase', () => {
     expect(html).toContain('Automático');
   });
 
-  it.each(['ui-glass', 'ui-navbar', 'ui-large-title', 'ui-tabbar', 'ui-inset-list', 'ui-row', 'ui-switch', 'ui-sheet'])(
+  it.each(['ui-glass', 'ui-navbar', 'ui-large-title', 'ui-tabbar', 'ui-inset-list', 'ui-row', 'ui-switch', 'ui-sheet', 'ui-segmented', 'ui-wallpaper'])(
     'includes %s in every panel',
     (cls) => {
       const count = html.split(`class="${cls}`).length - 1;
@@ -24,8 +24,10 @@ describe('design showcase', () => {
     expect(html).toContain('miércoles, 21 de octubre');
   });
 
-  it('marks switches and the open sheet accessibly', () => {
+  it('marks switches, the area selector and the open sheet accessibly', () => {
     expect(html).toContain('role="switch"');
+    expect(html).toMatch(/role="radiogroup" aria-label="Área"/);
+    expect(html).toMatch(/role="radio" aria-checked="true" class="ui-segmented__option">Personal</);
     expect(html).toMatch(/role="dialog" aria-modal="true" aria-label="Nueva compra"/);
   });
 });

@@ -6,7 +6,7 @@ export type NavBarProps = {
   leading?: ReactNode;
   trailing?: ReactNode;
   /**
-   * `true` (default): paper background, hand-drawn bottom rule and inline title.
+   * `true` (default): frosted glass bar with a hairline and the inline title.
    * `false`: transparent, title hidden — used under a LargeTitle before it scrolls away.
    */
   collapsed?: boolean;

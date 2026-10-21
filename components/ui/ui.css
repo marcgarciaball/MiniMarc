@@ -1,12 +1,55 @@
 /*
- * iOS structure, "boceto conceptual" skin: ink on paper, hand-drawn strokes, one green spot ink.
- * Every class is prefixed `ui-`. Values come from styles/tokens.css. No shadows, no blur.
+ * iOS structure, Liquid Glass skin: frosted translucent surfaces over a glacier wallpaper.
+ * Every class is prefixed `ui-`. Colours come from styles/tokens.css.
+ *
+ * Glass recipe (blur values are literal: Safari mishandles var() in -webkit-backdrop-filter):
+ *   cards  blur(28px) saturate(170%)   fill --surface-glass
+ *   bars   blur(24px) saturate(180%)   fill --glass-fill-bar
+ *   sheet  blur(40px) saturate(160%)   fill --glass-fill-sheet
+ *   + 0.5px inner light rim (--glass-rim) + very soft wide shadow (--glass-shadow).
  */
 
-/* ---------- Glass (paper surface; name kept) ---------- */
+/* ---------- Wallpaper (glass needs something behind it) ---------- */
+.ui-wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg) var(--wp-base);
+}
+
+/* Folded light ribbons, alternating from the left and the right, each overlapping the one above. */
+.ui-wallpaper > span {
+  position: absolute;
+  width: 118%;
+  height: 30%;
+  border-radius: 72px;
+  background: var(--wp-ribbon);
+  box-shadow: var(--wp-ribbon-shadow);
+}
+
+.ui-wallpaper > span:nth-child(odd) {
+  left: -58%;
+}
+
+.ui-wallpaper > span:nth-child(even) {
+  left: 40%;
+}
+
+.ui-wallpaper > span:nth-child(1) { top: -12%; }
+.ui-wallpaper > span:nth-child(2) { top: 8%; }
+.ui-wallpaper > span:nth-child(3) { top: 28%; }
+.ui-wallpaper > span:nth-child(4) { top: 48%; }
+.ui-wallpaper > span:nth-child(5) { top: 68%; }
+.ui-wallpaper > span:nth-child(6) { top: 88%; }
+
+/* ---------- Glass ---------- */
 .ui-glass {
   background-color: var(--surface-glass);
-  background-image: var(--grain);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
 }
 
 /* ---------- NavBar ---------- */
@@ -17,15 +60,19 @@
   padding-top: var(--safe-top);
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
-  background-image: var(--sketch-line), var(--grain);
-  background-position: left bottom, 0 0;
-  background-repeat: repeat-x, repeat;
-  background-size: var(--sketch-line-size), auto;
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 0.5px 0 var(--hairline);
+  transition: background-color var(--duration-fast) linear, box-shadow var(--duration-fast) linear;
 }
 
+/* Under a LargeTitle, before it scrolls away: no material at all. */
 .ui-navbar[data-collapsed="false"] {
   background-color: transparent;
-  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
 }
 
 .ui-navbar__row {
@@ -33,7 +80,7 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   min-height: var(--navbar-height);
-  padding: 0 8px 2px;
+  padding: 0 8px;
 }
 
 .ui-navbar__leading {
@@ -47,10 +94,10 @@
 }
 
 .ui-navbar__title {
-  font-family: var(--font-display);
-  font-size: 27px;
-  font-weight: 700;
-  line-height: 1;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.41px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -61,7 +108,7 @@
   opacity: 0;
 }
 
-/* Text button for bars (NavBar, Sheet header): handwritten, in spot ink. */
+/* Text button for bars (NavBar, Sheet header). */
 .ui-bar-button {
   display: inline-flex;
   align-items: center;
@@ -70,42 +117,43 @@
   min-width: var(--touch-target);
   padding: 0 8px;
   color: var(--accent);
-  font-family: var(--font-hand);
-  font-size: 21px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.41px;
 }
 
 .ui-bar-button:active {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .ui-bar-button--strong {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* ---------- LargeTitle ---------- */
 .ui-large-title {
-  padding: 0 calc(var(--gutter) + var(--safe-right)) 6px calc(var(--gutter) + var(--safe-left));
+  padding: 2px calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
   font-family: var(--font-display);
-  font-size: 52px;
-  line-height: 1;
+  font-size: 34px;
   font-weight: 700;
-  letter-spacing: 0.01em;
+  line-height: 41px;
+  letter-spacing: 0.37px;
 }
 
-/* ---------- TabBar ---------- */
+/* ---------- TabBar: floating glass capsule ---------- */
 .ui-tabbar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: calc(var(--gutter) + var(--safe-left));
+  right: calc(var(--gutter) + var(--safe-right));
+  bottom: max(12px, calc(var(--safe-bottom) - 12px));
   z-index: 20;
   display: flex;
-  padding: 2px var(--safe-right) var(--safe-bottom) var(--safe-left);
-  background-image: var(--sketch-line), var(--grain);
-  background-position: left top, 0 0;
-  background-repeat: repeat-x, repeat;
-  background-size: var(--sketch-line-size), auto;
+  height: var(--tabbar-height);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .ui-tabbar__item {
@@ -115,68 +163,72 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: var(--tabbar-height);
-  padding-top: 4px;
+  gap: 2px;
+  min-width: 0;
+  border-radius: var(--radius-pill);
   color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 16px;
+  font-size: 10px;
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 12px;
+  letter-spacing: 0.1px;
+  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
 }
 
 .ui-tabbar__item[aria-current="page"] {
-  color: var(--label);
+  background-color: var(--accent-tint);
+  color: var(--accent);
 }
 
 .ui-tabbar__icon {
   display: flex;
   width: 28px;
-  height: 28px;
+  height: 26px;
   align-items: center;
   justify-content: center;
 }
 
 .ui-tabbar__icon svg {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
-/* Hand-drawn underline under the current tab, in spot ink. */
-.ui-tabbar__mark {
-  width: 34px;
-  height: 6px;
-  margin-top: -1px;
-  color: var(--accent);
+/* Scroll content under a TabBar: bar height + its offset + breathing room. */
+.ui-tabbar-inset {
+  padding-bottom: calc(var(--tabbar-height) + max(12px, calc(var(--safe-bottom) - 12px)) + 24px);
 }
 
 /* ---------- InsetList ---------- */
 .ui-inset-list {
   padding: 0 calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .ui-inset-list__header {
-  padding: 0 14px 2px;
+  padding: 0 16px 7px;
   color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 21px;
-  font-weight: 500;
-  line-height: 1.2;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+  text-transform: uppercase;
 }
 
-/* Hand-drawn box: 9-slice of a wobbly rounded rectangle. */
 .ui-inset-list__group {
-  border: 1px solid transparent;
-  border-image: var(--sketch-box) 20 / 14px / 2px stretch;
+  overflow: hidden;
+  border-radius: var(--radius-continuous);
+  background-color: var(--surface-glass);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
   list-style: none;
 }
 
 .ui-inset-list__footer {
-  padding: 6px 14px 0;
+  padding: 7px 16px 0;
   color: var(--label-secondary);
-  font-family: var(--font-hand);
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
 }
 
 /* ---------- Row ---------- */
@@ -186,7 +238,7 @@
   gap: 12px;
   width: 100%;
   min-height: var(--touch-target);
-  padding-left: 14px;
+  padding-left: 16px;
   text-align: left;
   position: relative;
 }
@@ -207,7 +259,7 @@ button.ui-row:active {
   flex: none;
   align-items: center;
   justify-content: center;
-  min-width: 26px;
+  min-width: 24px;
 }
 
 .ui-row__body {
@@ -217,12 +269,12 @@ button.ui-row:active {
   align-self: stretch;
   align-items: center;
   gap: 8px;
-  padding: 11px 14px 11px 0;
+  padding: 11px 16px 11px 0;
 }
 
-/* Hand-drawn separator inset to the text, like iOS. */
+/* Separator inset to the text, like iOS. */
 .ui-inset-list__group > li + li .ui-row__body {
-  background: var(--sketch-line) left -3px / var(--sketch-line-size) repeat-x;
+  border-top: 0.5px solid var(--hairline);
 }
 
 .ui-row__text {
@@ -237,20 +289,27 @@ button.ui-row:active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 17px;
+  line-height: 22px;
+  letter-spacing: -0.41px;
 }
 
 .ui-row__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--label-secondary);
   font-size: 15px;
   line-height: 20px;
+  letter-spacing: -0.24px;
 }
 
 .ui-row__detail {
   flex: none;
   color: var(--label-secondary);
-  font-family: var(--font-serif);
-  font-size: 19px;
-  font-style: italic;
+  font-size: 17px;
+  letter-spacing: -0.41px;
+  font-variant-numeric: tabular-nums;
 }
 
 .ui-row__trailing {
@@ -261,24 +320,27 @@ button.ui-row:active {
 
 .ui-row__chevron {
   flex: none;
-  width: 9px;
-  height: 15px;
-  color: var(--label-secondary);
+  width: 8px;
+  height: 14px;
+  color: var(--label-tertiary);
 }
 
-/* Ink line icon for Row.leading (no coloured tile in this style). */
+/* Settings-style icon: glacier tile with a white glyph. */
 .ui-icon-tile {
   display: flex;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
-  color: var(--label);
+  border-radius: var(--radius-tile);
+  background: var(--accent-tile);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
+  color: #ffffff;
 }
 
 .ui-icon-tile svg {
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
 }
 
 /* ---------- Switch ---------- */
@@ -287,7 +349,9 @@ button.ui-row:active {
   flex: none;
   width: 51px;
   height: 31px;
-  color: var(--label);
+  border-radius: var(--radius-pill);
+  background-color: var(--fill);
+  transition: background-color 250ms var(--ease-ios);
 }
 
 /* Extends the hit area to 44pt without changing layout. */
@@ -297,28 +361,13 @@ button.ui-row:active {
   inset: -7px -4px;
 }
 
+.ui-switch[aria-checked="true"] {
+  background-color: var(--switch-on);
+}
+
 .ui-switch:disabled {
   opacity: 0.45;
   cursor: default;
-}
-
-.ui-switch__track {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.ui-switch__track path {
-  fill: transparent;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  transition: fill 250ms var(--ease-ios);
-}
-
-.ui-switch[aria-checked="true"] .ui-switch__track path {
-  fill: var(--accent);
 }
 
 .ui-switch__thumb {
@@ -327,17 +376,64 @@ button.ui-row:active {
   left: 2px;
   width: 27px;
   height: 27px;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 3px 1px rgba(0, 0, 0, 0.06), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
   transition: transform 250ms var(--ease-ios);
-}
-
-.ui-switch__thumb path {
-  fill: var(--bg);
-  stroke: currentColor;
-  stroke-width: 1.5;
 }
 
 .ui-switch[aria-checked="true"] .ui-switch__thumb {
   transform: translateX(20px);
+}
+
+/* ---------- Segmented (pill chips) ---------- */
+.ui-segmented {
+  display: flex;
+  gap: 2px;
+  min-height: var(--touch-target);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background-color: var(--surface-glass);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+}
+
+.ui-segmented__option {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  color: var(--label-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear,
+    box-shadow var(--duration-fast) linear;
+}
+
+/* Hit area reaches the track edge: 44pt tall. */
+.ui-segmented__option::before {
+  content: "";
+  position: absolute;
+  inset: -3px -1px;
+}
+
+.ui-segmented__option[aria-checked="true"] {
+  background-color: var(--segment-thumb);
+  color: var(--label);
+  font-weight: 600;
+  box-shadow: var(--glass-rim), 0 3px 10px rgba(42, 66, 96, 0.12), 0 0.5px 1px rgba(42, 66, 96, 0.1);
+}
+
+.ui-segmented__option:active {
+  opacity: 0.6;
 }
 
 /* ---------- Sheet ---------- */
@@ -366,12 +462,11 @@ button.ui-row:active {
   flex-direction: column;
   max-height: calc(100% - var(--safe-top) - 12px);
   padding-bottom: var(--safe-bottom);
-  border: 1px solid transparent;
-  /* Bottom edge of the drawn box is pushed off-screen. */
-  border-image: var(--sketch-box) 20 / 16px / 1px 1px 40px 1px stretch;
-  border-radius: 12px 12px 0 0;
-  background-color: var(--bg-sheet);
-  background-image: var(--grain);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  background-color: var(--glass-fill-sheet);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  box-shadow: var(--glass-rim), 0 -8px 40px rgba(20, 32, 48, 0.16);
   transform: translateY(100%);
   transition: transform var(--duration-sheet) var(--ease-ios);
   touch-action: none;
@@ -388,15 +483,17 @@ button.ui-row:active {
 .ui-sheet__grabber {
   display: flex;
   justify-content: center;
-  padding-top: 6px;
+  padding-top: 5px;
   cursor: grab;
 }
 
 .ui-sheet__grabber::before {
   content: "";
-  width: 40px;
-  height: 8px;
-  background: var(--sketch-line) center / 160px 8px no-repeat;
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--label-tertiary);
+  opacity: 0.5;
 }
 
 .ui-sheet__header {
@@ -408,9 +505,9 @@ button.ui-row:active {
 }
 
 .ui-sheet__title {
-  font-family: var(--font-serif);
-  font-size: 23px;
-  font-weight: 400;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.41px;
 }
 
 .ui-sheet__body {
@@ -420,21 +517,28 @@ button.ui-row:active {
   touch-action: pan-y;
 }
 
-/* ---------- Filled button (login): flat spot ink, hand-lettered ---------- */
+/* Groups inside the sheet sit on its glass: lighter inner fill, no second blur. */
+.ui-sheet .ui-inset-list__group {
+  background-color: var(--glass-fill-inner);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--glass-rim);
+}
+
+/* ---------- Filled button (login): glacier capsule ---------- */
 .ui-button {
   display: flex;
   width: 100%;
-  min-height: 52px;
+  min-height: 50px;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  border-image: var(--sketch-box) 20 / 14px / 2px stretch;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--on-accent);
-  font-family: var(--font-hand);
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.41px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 24px rgba(42, 66, 96, 0.22);
 }
 
 .ui-button:active {
@@ -446,10 +550,25 @@ button.ui-row:active {
   cursor: default;
 }
 
+@media (prefers-reduced-transparency: reduce) {
+  .ui-glass,
+  .ui-navbar,
+  .ui-tabbar,
+  .ui-inset-list__group,
+  .ui-segmented,
+  .ui-sheet {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .ui-navbar,
   .ui-navbar__title,
-  .ui-switch__track path,
+  .ui-tabbar__item,
+  .ui-switch,
   .ui-switch__thumb,
+  .ui-segmented__option,
   .ui-sheet,
   .ui-sheet-backdrop,
   a.ui-row,
