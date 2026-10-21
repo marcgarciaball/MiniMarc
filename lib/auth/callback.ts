@@ -1,0 +1,39 @@
+/**
+ * Decision logic of /auth/callback, kept pure so every branch is tested.
+ * Returns the path to redirect to.
+ */
+import { isAllowedEmail } from './allowlist';
+
+export interface CallbackDeps {
+  allowedEmail: string | undefined;
+  /** Exchanges the OAuth code for a session; null on failure. */
+  exchange: (code: string) => Promise<{ userId: string; email: string | undefined; refreshToken: string | null } | null>;
+  signOut: () => Promise<void>;
+  /** Stores Google's refresh token (service role only; see 0002_single_user.sql). Throws on failure. */
+  saveCredentials: (userId: string, refreshToken: string) => Promise<void>;
+}
+
+export async function finishSignIn(deps: CallbackDeps, code: string | null): Promise<string> {
+  if (!code) return '/login?error=auth';
+  const session = await deps.exchange(code);
+  if (!session) return '/login?error=auth';
+
+  if (!isAllowedEmail(session.email, deps.allowedEmail)) {
+    await deps.signOut();
+    return '/login?error=no_autorizado';
+  }
+
+  // Supabase does not persist Google's refresh token; keep it for Calendar.
+  // Without one (Google only sends it with prompt=consent) the existing row, if any, stays;
+  // Tarea 7/8 show "Reconectar Google" when there is no credentials row at all.
+  if (session.refreshToken) {
+    try {
+      await deps.saveCredentials(session.userId, session.refreshToken);
+    } catch {
+      // Don't leave a half-working session behind the error page.
+      await deps.signOut();
+      return '/login?error=credenciales';
+    }
+  }
+  return '/';
+}

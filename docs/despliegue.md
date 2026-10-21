@@ -2,7 +2,7 @@
 
 Agente Personal se despliega en Vercel (plan Hobby), con Supabase (base de datos, autenticación y RLS), inicio de sesión con Google y Google Calendar, y Gemini como IA interna. Es de un solo usuario. Esta guía asume que sabes programar pero que nunca has configurado estos servicios.
 
-**Aviso de coste:** todo el stack está pensado para coste 0 €. No se activa facturación en Google Cloud ni en Google AI Studio. Ningún paso de esta guía exige pagar. Aun así, Google Calendar anuncia que cobrará por superar 1.000.000 de peticiones diarias por proyecto "a partir de finales de 2026", con al menos 90 días de aviso. Para uso personal no se alcanza ese umbral, pero conviene revisarlo si cambia la política.
+**Aviso de coste:** todo el stack está pensado para coste 0 €. No se activa facturación en Google Cloud ni en Google AI Studio. Ningún paso de esta guía exige pagar. Google ha anunciado que la API de Google Calendar empezará a cobrar "más adelante en 2026" ("later in 2026") por encima de 1.000.000 de peticiones al día por proyecto, avisando con al menos 90 días de antelación. Para un solo usuario es irrelevante: no se acerca a ese umbral.
 
 **Aviso de privacidad (Gemini):** el nivel gratuito de la API de Gemini puede usar lo que envías para mejorar los productos de Google, y revisores humanos pueden leerlo. Google pide no enviar información personal o confidencial al nivel gratuito. El diseño de la app no envía contenido de Trabajo a la IA, pero sí enviará tareas, ideas y nombres personales. Es una decisión tomada por Marc; revisarla antes de usar la IA con datos reales (fase 3).
 
@@ -15,15 +15,30 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
 1. Entra en https://supabase.com y crea una cuenta.
 2. Pulsa **New project**. Elige la organización, un nombre (por ejemplo `agente-personal`), una contraseña para la base de datos (guárdala) y una región UE: **West EU (Paris)** (`eu-west-3`) o **Central EU (Frankfurt)** (`eu-central-1`). Plan: **Free**.
 3. Espera a que el proyecto termine de crearse.
-4. Aplica el esquema. Hay dos opciones:
-   - **Editor SQL (sin CLI):** abre **SQL Editor → New query**, pega el contenido completo de `supabase/migrations/0001_init.sql` y pulsa **Run**.
+4. Aplica el esquema: las migraciones de `supabase/migrations/` **en orden** (`0001_init.sql` y luego `0002_single_user.sql`). Si ya aplicaste `0001` antes, aplica solo `0002`. Hay dos opciones:
+   - **Editor SQL (sin CLI):** abre **SQL Editor → New query**, pega el contenido completo de `supabase/migrations/0001_init.sql` y pulsa **Run**. Repite con `0002_single_user.sql` en otra consulta nueva.
    - **Con CLI:** `npx supabase login`, luego `npx supabase link --project-ref <ref>` (el `ref` está en la URL del proyecto, `https://supabase.com/dashboard/project/<ref>`), y por último `npx supabase db push`.
-5. Anota las claves en **Settings → API Keys** (en el panel antiguo, **Settings → API**):
+5. **Escribe tu correo permitido en la base de datos.** Es obligatorio y va antes del primer inicio de sesión. La base de datos no ve las variables de Vercel, así que el correo de `ALLOWED_EMAIL` se guarda también aquí, en la tabla `private.app_config`. En **SQL Editor → New query** ejecuta (con tu correo de Google, en minúsculas):
+
+   ```sql
+   insert into private.app_config (allowed_email) values ('tu-correo@gmail.com')
+   on conflict (id) do update set allowed_email = excluded.allowed_email;
+   ```
+
+   - Debe ser **exactamente el mismo correo** que pondrás en `ALLOWED_EMAIL` (paso 4).
+   - Qué hace `0002_single_user.sql`:
+     - Un trigger en `auth.users` impide crear cualquier usuario con otro correo, venga del flujo que venga. Si la tabla está vacía, no deja crear ninguno.
+     - Las políticas RLS exigen además que el correo de la sesión sea ese.
+     - La tabla `google_credentials` (el refresh token de Google) solo es accesible desde el servidor.
+   - No hay que activar nada en el panel para esto (no usa **Auth Hooks**).
+   - Para comprobarlo: `select allowed_email from private.app_config;` debe devolver tu correo.
+   - Si el primer inicio de sesión falla con "Database error saving new user", el correo de esta tabla no coincide con tu cuenta de Google: corrígelo con el mismo `insert` y vuelve a entrar.
+6. Anota las claves en **Settings → API Keys** (en el panel antiguo, **Settings → API**):
    - **Project URL** (`https://<proyecto>.supabase.co`), en **Settings → API**.
    - **Publishable key** (`sb_publishable_...`). Equivale a la antigua clave `anon`. Es pública.
    - **Secret key** (`sb_secret_...`). Equivale a la antigua `service_role`. Salta RLS: **nunca** la pongas en una variable `NEXT_PUBLIC_*` ni en el cliente.
    - Las claves antiguas `anon` y `service_role` siguen funcionando, pero Supabase las retirará a finales de 2026. Si la app falla con las nuevas claves, usa las antiguas y avísame.
-6. Comprueba que las extensiones `pg_cron` y `pg_net` aparecen en **Database → Extensions**. Las necesita la fase 4. Si no aparecen en el plan Free, no sigas: hay que cambiar el diseño de los avisos.
+7. Comprueba que las extensiones `pg_cron` y `pg_net` aparecen en **Database → Extensions**. Las necesita la fase 4. Si no aparecen en el plan Free, no sigas: hay que cambiar el diseño de los avisos.
 
 ## 2. Google Cloud
 
@@ -49,6 +64,11 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
    - **Redirect URLs:** añade `https://<app>.vercel.app/auth/callback`.
    - Para desarrollo local, añade también `http://localhost:3000/auth/callback`.
 3. Si todavía no tienes la URL de Vercel, deja el Site URL con la URL que aparezca tras el primer despliegue y vuelve a este paso. Vercel puede añadir un sufijo si el nombre está ocupado; usa la URL exacta que te muestre.
+4. **Cierra los registros después de tu primer inicio de sesión.** Cuando hayas entrado una vez en la app desplegada (paso 4) con tu cuenta:
+   1. Comprueba en **Authentication → Users** que aparece un único usuario, con tu correo.
+   2. Ve a **Authentication → Sign In / Providers**. En la sección **User Signups**, desactiva **Allow new users to sign up** y pulsa **Save changes**.
+   3. Tu usuario ya existe, así que podrás seguir entrando. Nadie más podrá crear una cuenta, ni siquiera llamando a Supabase directamente con la clave pública. El trigger de `0002_single_user.sql` ya lo impedía; esto es una segunda barrera.
+   4. Si algún día borras tu usuario, vuelve a activar esa opción, entra una vez y desactívala de nuevo.
 
 ## 4. Vercel
 
@@ -59,10 +79,10 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
 
    | Variable | Qué es y de dónde sale |
    |---|---|
-   | `ALLOWED_EMAIL` | Tu correo de Google. Único correo que puede entrar; cualquier otro se rechaza. |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Project URL de Supabase (paso 1.5). Es pública. |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key de Supabase (paso 1.5). Es pública. |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Secret key de Supabase (paso 1.5). Solo servidor. |
+   | `ALLOWED_EMAIL` | Tu correo de Google. Único correo que puede entrar; cualquier otro se rechaza. Debe coincidir con el de `private.app_config` (paso 1.5). |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Project URL de Supabase (paso 1.6). Es pública. |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key de Supabase (paso 1.6). Es pública. |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Secret key de Supabase (paso 1.6). Solo servidor. Hace falta desde el primer inicio de sesión: es la única vía para guardar el acceso a Google Calendar. |
    | `GOOGLE_CLIENT_ID` | Client ID del cliente OAuth (paso 2.4). |
    | `GOOGLE_CLIENT_SECRET` | Client secret del cliente OAuth (paso 2.4). Solo servidor. |
    | `GEMINI_API_KEY` | Clave de Google AI Studio creada en un proyecto **sin facturación** (https://aistudio.google.com/apikey). No hace falta hasta la fase 3: puedes dejarla vacía. |
@@ -135,7 +155,7 @@ Verificados el 2026-10-21 contra la documentación oficial. Los límites cambian
 | Gemini API | UE (EEE) | Las condiciones piden usar solo servicios de pago al poner clientes de API a disposición de usuarios del EEE. Para una app de uso propio de un solo usuario no está claro que aplique; revisar | https://ai.google.dev/gemini-api/terms | verificado el 2026-10-21 |
 | Google Calendar API | Por usuario y proyecto | 600 peticiones por minuto | https://developers.google.com/calendar/api/guides/quota | verificado el 2026-10-21 |
 | Google Calendar API | Por proyecto | 10.000 peticiones por minuto | https://developers.google.com/calendar/api/guides/quota | verificado el 2026-10-21 |
-| Google Calendar API | Umbral diario de facturación | 1.000.000 peticiones al día por proyecto; sin cargo por debajo. Cargos previstos a finales de 2026 (ver aviso inicial) | https://developers.google.com/calendar/pricing | verificado el 2026-10-21 |
+| Google Calendar API | Umbral diario de facturación | 1.000.000 peticiones al día por proyecto; sin cargo por debajo. Google anunció cargos "later in 2026" por encima de ese umbral, con ≥90 días de aviso; irrelevante para un solo usuario (ver aviso inicial) | https://developers.google.com/calendar/pricing | verificado el 2026-10-21 |
 
 ## Verificación
 
@@ -143,4 +163,6 @@ Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas debe
 
 - [ ] Inicio de sesión con el correo de Marc (`ALLOWED_EMAIL`) completa el flujo de Google y entra en la app.
 - [ ] Inicio de sesión con otra cuenta de Google es rechazado.
+- [ ] Otra cuenta de Google no puede crear un usuario: tras intentarlo, **Authentication → Users** sigue mostrando solo tu usuario.
+- [ ] `select allowed_email from private.app_config;` devuelve tu correo, y **Allow new users to sign up** está desactivado (paso 3.4).
 - [ ] La PWA se instala en el iPhone desde Safari: **Compartir → Añadir a pantalla de inicio** (iOS 16.4 o superior).
