@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Suspense } from 'react';
 import { LoginButton } from './LoginButton';
 import './login.css';
@@ -28,6 +29,9 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
         <Suspense fallback={null}>
           <LoginError searchParams={searchParams} />
         </Suspense>
+        <Link href="/privacidad" className="login__privacy">
+          Privacidad
+        </Link>
       </div>
     </main>
   );

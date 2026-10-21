@@ -1,10 +1,12 @@
 /**
  * Routes reachable without a session. These either are the login flow itself
- * or validate their own token. Entries ending in `/` match as a prefix;
+ * or validate their own token (or are public pages, like /privacidad). Entries ending in `/` match as a prefix;
  * the rest match exactly (or as a path segment parent, e.g. `/login/...`).
  */
 export const PUBLIC_PATHS = [
   '/login',
+  // Privacy policy: Google needs it public to publish the OAuth app.
+  '/privacidad',
   '/auth/',
   '/api/capture',
   '/api/cron/',

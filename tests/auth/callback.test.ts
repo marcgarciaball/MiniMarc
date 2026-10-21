@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { finishSignIn, type CallbackDeps } from '@/lib/auth/callback';
+import { finishSignIn, safeError, type CallbackDeps } from '@/lib/auth/callback';
 
 const ALLOWED = 'marc@example.com';
 
@@ -21,6 +21,20 @@ function deps(over: Partial<CallbackDeps> = {}): CallbackDeps & { calls: string[
     ...over,
   };
 }
+
+describe('safeError', () => {
+  it('copia solo code, message, details, hint y status', () => {
+    expect(safeError({ code: 'x', message: 'm', status: 400, access_token: 'secreto', email: ALLOWED })).toEqual({
+      code: 'x',
+      message: 'm',
+      status: 400,
+    });
+  });
+
+  it('acepta valores que no son objetos', () => {
+    expect(safeError('boom')).toEqual({ message: 'boom' });
+  });
+});
 
 describe('finishSignIn (/auth/callback)', () => {
   it('sin código → /login?error=auth', async () => {
@@ -56,6 +70,44 @@ describe('finishSignIn (/auth/callback)', () => {
     });
     expect(await finishSignIn(d, 'c')).toBe('/login?error=credenciales');
     expect(d.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('si guardar las credenciales falla → registra una línea con solo los campos seguros del error', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      // Shape of a PostgrestError, plus request data supabase-js may attach.
+      const err = Object.assign(new Error('permission denied for table google_credentials'), {
+        code: '42501',
+        details: null,
+        hint: 'revisa los grants',
+        status: 403,
+        refresh_token: 'rt-secreto',
+        headers: { apikey: 'service-role-key' },
+      });
+      const d = deps({
+        exchange: async () => ({ userId: 'u1', email: ALLOWED, refreshToken: 'rt-secreto' }),
+        saveCredentials: async () => {
+          throw err;
+        },
+      });
+      expect(await finishSignIn(d, 'c')).toBe('/login?error=credenciales');
+      expect(spy).toHaveBeenCalledTimes(1);
+      const [prefix, payload] = spy.mock.calls[0];
+      expect(prefix).toBe('[auth/callback] saveCredentials failed');
+      expect(payload).toEqual({
+        code: '42501',
+        message: 'permission denied for table google_credentials',
+        details: null,
+        hint: 'revisa los grants',
+        status: 403,
+      });
+      const logged = JSON.stringify(spy.mock.calls);
+      expect(logged).not.toContain('rt-secreto');
+      expect(logged).not.toContain('service-role-key');
+      expect(logged).not.toContain(ALLOWED);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('sin refresh token de Google → entra igualmente, sin tocar las credenciales guardadas', async () => {

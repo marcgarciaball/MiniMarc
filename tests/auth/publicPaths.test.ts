@@ -4,6 +4,7 @@ import { isPublicPath } from '@/lib/auth/publicPaths';
 describe('isPublicPath', () => {
   it.each([
     '/login',
+    '/privacidad',
     '/auth/callback',
     '/api/capture',
     '/api/cron/digest',
@@ -19,6 +20,7 @@ describe('isPublicPath', () => {
     '/',
     '/ajustes',
     '/loginx',
+    '/privacidadx',
     '/api/capturex',
     '/api/cron',
     '/api/items',

@@ -40,3 +40,10 @@
   line-height: 20px;
   text-align: center;
 }
+
+.login__privacy {
+  align-self: center;
+  color: var(--label-tertiary);
+  font-size: 13px;
+  line-height: 18px;
+}

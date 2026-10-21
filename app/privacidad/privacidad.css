@@ -1,0 +1,32 @@
+.privacidad {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 24px) 0 calc(var(--safe-bottom) + 24px);
+}
+
+.privacidad__card {
+  margin: 8px calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  padding: 16px var(--gutter) 20px;
+  border-radius: var(--radius-continuous);
+  font-size: 17px;
+  line-height: 22px;
+}
+
+.privacidad__card h2 {
+  margin-top: 18px;
+  margin-bottom: 4px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.privacidad__card p {
+  color: var(--label-secondary);
+}
+
+.privacidad__back {
+  display: block;
+  margin-top: 20px;
+  color: var(--label-secondary);
+  font-size: 15px;
+  text-align: center;
+}

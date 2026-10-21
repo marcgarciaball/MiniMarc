@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { finishSignIn } from '@/lib/auth/callback';
+import { finishSignIn, logCallbackError } from '@/lib/auth/callback';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
       allowedEmail: process.env.ALLOWED_EMAIL,
       async exchange(code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error || !data.session) return null;
+        if (error || !data.session) {
+          logCallbackError('exchange', error ?? { message: 'no session' });
+          return null;
+        }
         const { user, provider_refresh_token } = data.session;
         return { userId: user.id, email: user.email, refreshToken: provider_refresh_token ?? null };
       },
