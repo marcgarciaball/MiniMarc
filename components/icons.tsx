@@ -18,6 +18,15 @@ export function TodayIcon() {
   );
 }
 
+export function AgendaIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3.5" />
+      <path d="M3.5 9.8h17M8 3v3.6M16 3v3.6M7.5 13.5h9M7.5 16.8h5.5" />
+    </svg>
+  );
+}
+
 export function ListIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...line}>

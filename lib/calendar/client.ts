@@ -30,7 +30,7 @@ export interface CalendarGateway {
   createEvent(calendarId: string, e: EventInput): Promise<string>;
   updateEvent(calendarId: string, eventId: string, e: EventInput): Promise<void>;
   deleteEvent(calendarId: string, eventId: string): Promise<void>;
-  /** Events from every calendar shown in Google Calendar, sorted by start. */
+  /** Events from every calendar shown in Google Calendar (plus Marc's own "Tareas"), sorted by start. */
   listEvents(range: { from: Date; to: Date }): Promise<CalendarEvent[]>;
   /** Id of the calendar called `name`, created (in Europe/Madrid) if missing. */
   ensureCalendar(name: CalendarName): Promise<string>;
@@ -134,6 +134,9 @@ function eventTime(t: calendar_v3.Schema$EventDateTime | undefined): Date | null
   return null;
 }
 
+const isOwned = (c: calendar_v3.Schema$CalendarListEntry, name: CalendarName) =>
+  c.summary === name && c.accessRole === 'owner';
+
 /**
  * Gateway over the Calendar API. `auth` is an OAuth2 client holding Marc's refresh token
  * (see getCalendarGateway in lib/calendar/server.ts); `opts.api` replaces the API in tests.
@@ -202,14 +205,16 @@ export function createCalendarClient(auth: Auth | null, opts: { api?: CalendarAp
 
     listEvents: ({ from, to }) =>
       call(async () => {
-        const calendars = (await listCalendars()).filter((c) => c.id && (c.selected || c.primary));
+        const calendars = (await listCalendars()).filter(
+          (c) => c.id && (c.selected || c.primary || isOwned(c, 'Tareas')),
+        );
         const lists = await Promise.all(calendars.map((c) => listCalendarEvents(c.id!, from, to)));
         return lists.flat().sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
       }),
 
     ensureCalendar: (name) =>
       call(async () => {
-        const existing = (await listCalendars()).find((c) => c.summary === name && c.accessRole === 'owner');
+        const existing = (await listCalendars()).find((c) => isOwned(c, name));
         if (existing?.id) return existing.id;
         const { data } = await api.calendars.insert({ requestBody: { summary: name, timeZone: DEFAULT_TZ } });
         if (!data.id) throw new CalendarError('unavailable', 'Calendar no devolvió el id del calendario');

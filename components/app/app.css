@@ -407,3 +407,94 @@
     transition: none;
   }
 }
+
+/* ---------- Agenda ---------- */
+/* Calm message when Calendar can't be read: plain text, one link, no alarm colours. */
+.app-notice {
+  padding: 8px calc(var(--gutter) + 16px + var(--safe-right)) 24px calc(var(--gutter) + 16px + var(--safe-left));
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-notice__action,
+.app-form__error-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--accent);
+}
+
+/* ---------- Ajustes ---------- */
+.app-signout {
+  width: 100%;
+  color: var(--destructive);
+}
+
+.app-signout:disabled {
+  color: var(--label-tertiary);
+}
+
+/* The iPhone guide (docs/iphone.md) rendered inside the app. */
+.app-doc {
+  padding: 0 calc(var(--gutter) + 4px + var(--safe-right)) 32px calc(var(--gutter) + 4px + var(--safe-left));
+  font-size: 17px;
+  line-height: 24px;
+  letter-spacing: -0.41px;
+}
+
+.app-doc h2 {
+  margin: 28px 0 8px;
+  scroll-margin-top: calc(var(--safe-top) + var(--navbar-height) + 12px);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 25px;
+}
+
+.app-doc h3 {
+  margin: 20px 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.app-doc p,
+.app-doc ol {
+  list-style: decimal;
+}
+
+.app-doc ul {
+  list-style: disc;
+}
+
+.app-doc ol,
+.app-doc ul {
+  margin: 0 0 12px;
+}
+
+.app-doc ol {
+  list-style: decimal;
+}
+
+.app-doc ul {
+  list-style: disc;
+}
+
+.app-doc ol,
+.app-doc ul {
+  padding-left: 22px;
+}
+
+.app-doc li + li {
+  margin-top: 6px;
+}
+
+.app-doc a {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.app-doc code {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 15px;
+}

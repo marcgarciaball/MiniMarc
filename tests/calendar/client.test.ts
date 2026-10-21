@@ -173,6 +173,21 @@ describe('createCalendarClient: ensureCalendar', () => {
 });
 
 describe('createCalendarClient: listEvents', () => {
+  it('incluye siempre el calendario "Tareas" propio, aunque no esté marcado como visible', async () => {
+    const { api, calls } = fakeApi({
+      'calendarList.list': () => ({
+        items: [
+          { id: 'primary-id', primary: true },
+          { id: 'tareas-id', summary: 'Tareas', accessRole: 'owner', selected: false },
+          { id: 'ajeno', summary: 'Tareas', accessRole: 'reader', selected: false },
+        ],
+      }),
+    });
+    await createCalendarClient(null, { api }).listEvents({ from: new Date(0), to: new Date(1) });
+    const listed = calls.filter((c) => c.method === 'events.list').map((c) => c.params.calendarId);
+    expect(listed).toEqual(['primary-id', 'tareas-id']);
+  });
+
   it('lista los eventos de los calendarios visibles, ordenados, con sus avisos', async () => {
     const { api, calls } = fakeApi({
       'calendarList.list': () => ({

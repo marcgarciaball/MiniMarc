@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Glass, TabBar, type TabBarItem } from '@/components/ui';
 import {
+  AgendaIcon,
   BagIcon,
-  CaptureIcon,
   GiftIcon,
   IdeaIcon,
   ListIcon,
@@ -14,11 +14,14 @@ import {
 } from '@/components/icons';
 import { tabFor, type Section } from '@/lib/nav';
 
+/*
+ * At most 5 tabs. Capturar (Tarea 11) is not a tab: it will be a floating button next to the
+ * tab bar (or the sidebar's first action), with CaptureIcon from components/icons.
+ */
 const TABS: TabBarItem[] = [
   { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
+  { key: 'agenda', label: 'Agenda', href: '/agenda', icon: <AgendaIcon /> },
   { key: 'tareas', label: 'Tareas', href: '/tareas', icon: <TasksIcon /> },
-  // Reserved for quick capture (later task): visible, not navigable yet.
-  { key: 'capturar', label: 'Capturar', href: '#', icon: <CaptureIcon />, disabled: true },
   { key: 'listas', label: 'Listas', href: '/listas', icon: <ListIcon /> },
   { key: 'ajustes', label: 'Ajustes', href: '/ajustes', icon: <SettingsIcon /> },
 ];
@@ -29,6 +32,7 @@ const SIDEBAR: { header?: string; links: SidebarLink[] }[] = [
   {
     links: [
       { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
+      { key: 'agenda', label: 'Agenda', href: '/agenda', icon: <AgendaIcon /> },
       { key: 'tareas', label: 'Tareas', href: '/tareas', icon: <TasksIcon /> },
     ],
   },
@@ -77,6 +81,7 @@ export function AppNav({ active }: { active: Section | null }) {
       </Glass>
       <div className="app-tabbar">
         <TabBar items={TABS} active={tabFor(active)} />
+        {/* Tarea 11: the Capturar button goes here, beside the tab bar. */}
       </div>
     </>
   );

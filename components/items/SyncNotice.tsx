@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { RECONNECT_HREF } from '@/lib/nav';
 
 export type SyncNoticeProps = {
   /** The item's `syncError` ('calendar_auth' | 'calendar_unavailable'). */
@@ -15,7 +16,7 @@ export function SyncNotice({ error, pending, onRetry }: SyncNoticeProps) {
     <p className="app-item__notice" role="status">
       <span className="app-item__notice-text">No se pudo avisar en Calendar.</span>
       {error === 'calendar_auth' && (
-        <Link href="/login" className="app-item__notice-action">
+        <Link href={RECONNECT_HREF} className="app-item__notice-action">
           Vuelve a entrar con Google
         </Link>
       )}

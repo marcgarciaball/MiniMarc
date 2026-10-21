@@ -33,6 +33,8 @@ describe('formatDay / formatDue', () => {
 describe('navigation sections', () => {
   it.each([
     ['/tareas', 'tareas', 'tareas'],
+    ['/agenda', 'agenda', 'agenda'],
+    ['/ajustes/iphone', 'ajustes', 'ajustes'],
     ['/regalos/abc', 'regalos', 'listas'],
     ['/sin-clasificar', 'sin-clasificar', 'listas'],
     ['/listas', 'listas', 'listas'],
