@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  captureBusyLabel,
   captureExtras,
   capturePlaceholder,
   kindForShortcut,
@@ -67,5 +68,19 @@ describe('kindForShortcut', () => {
     expect(shortcutHint('auto', true)).toBe('⌥1');
     expect(shortcutHint('cita', true)).toBe('⌥7');
     expect(shortcutHint('compra', false)).toBe('Alt+4');
+  });
+});
+
+describe('captureBusyLabel', () => {
+  it('Auto pasa por la IA: lo dice', () => {
+    expect(captureBusyLabel('auto', false)).toBe('Clasificando…');
+  });
+
+  it('Auto con Trabajo no pasa por la IA: no promete que esté pensando', () => {
+    expect(captureBusyLabel('auto', true)).toBe('Guardando…');
+  });
+
+  it.each(['tarea', 'idea', 'compra', 'regalo', 'libro', 'cita'] as const)('%s se guarda directo', (kind) => {
+    expect(captureBusyLabel(kind, false)).toBe('Guardando…');
   });
 });

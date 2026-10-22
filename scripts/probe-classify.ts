@@ -9,6 +9,7 @@
  */
 import path from 'node:path';
 import { loadEnvConfig } from '@next/env';
+import { z } from 'zod';
 
 loadEnvConfig(path.resolve(__dirname, '..'));
 
@@ -31,6 +32,9 @@ async function listModels() {
   console.log(`${usable.length} modelos que aceptan generateContent:`);
   for (const m of usable) console.log(`  ${m.name.replace(/^models\//, '')}`);
 }
+
+/** Whatever the model sent, pretty-printed: the point is to read it, not to validate it. */
+const anyJson = z.unknown().transform((v) => JSON.stringify(v, null, 2));
 
 async function main() {
   if (process.argv[2] === '--list') return listModels();
@@ -55,11 +59,12 @@ async function main() {
   const prompt = buildPrompt(text, ctx);
 
   // The raw answer first, with a generous timeout, so a slow model is not mistaken for a bad one.
+  // Asked in JSON mode, like the app: in text mode the model wraps it in a ```json fence.
   const raw = createGeminiProvider({ timeoutMs: 60_000 });
   const started = Date.now();
   let answer: string;
   try {
-    answer = await raw.generateText(prompt);
+    answer = await raw.generateJson(prompt, anyJson);
   } catch (err) {
     console.error(`La llamada falló en ${Date.now() - started} ms:`, err instanceof Error ? err.message : err);
     process.exit(1);

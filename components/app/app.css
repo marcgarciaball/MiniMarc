@@ -1148,6 +1148,27 @@
   color: var(--label-tertiary);
 }
 
+/* While a capture is in flight: a sheen bar and a word, never a spinner (see Skeleton.tsx). */
+.app-capture__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 0 12px 10px;
+}
+
+.app-capture__status-sheen {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-pill);
+}
+
+.app-capture__status-text {
+  flex: none;
+  color: var(--label-secondary);
+  font-size: 13px;
+}
+
 /* What the focused card adds: it opens (0fr → 1fr) on the spring; inert while closed. */
 .app-capture__more {
   display: grid;

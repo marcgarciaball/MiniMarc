@@ -39,6 +39,14 @@ export function capturePlaceholder(kind: QuickKind): string {
   return PLACEHOLDERS[kind];
 }
 
+/**
+ * What the bar says while a capture is in flight. Only Auto reaches the AI, and only when it is
+ * not Trabajo (work text never does), so the wait is the one that takes a second or two.
+ */
+export function captureBusyLabel(kind: QuickKind, work: boolean): string {
+  return kind === 'auto' && !work ? 'Clasificando…' : 'Guardando…';
+}
+
 /** The small fields under the text, per type (none for Auto, Idea and Compra). */
 export type CaptureExtra = 'fecha' | 'hora' | 'fin' | 'persona' | 'autor';
 

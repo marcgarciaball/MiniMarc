@@ -28,6 +28,7 @@ import {
 import { Toast, type ToastProps } from '@/components/ui';
 import { settle } from '@/lib/actions/result';
 import {
+  captureBusyLabel,
   captureDefaults,
   captureExtras,
   capturePlaceholder,
@@ -325,6 +326,14 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
               <SendIcon />
             </button>
           </div>
+
+          {/* While it saves: the wait made visible, outside __more so it also shows with the card closed. */}
+          {pending && (
+            <p className="app-capture__status" role="status">
+              <span className="app-capture__status-sheen ui-skeleton" aria-hidden />
+              <span className="app-capture__status-text">{captureBusyLabel(kind, work)}</span>
+            </p>
+          )}
 
           <div className="app-capture__more" inert={!open}>
             <div className="app-capture__more-inner">

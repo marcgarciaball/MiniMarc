@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseBackend, type DbBackend, type Row } from './backend';
+import { normalizeSearch } from '@/lib/search/normalize';
 import { isValidDate } from '@/lib/time';
 import type { NewPersonDate, Person, PersonDate, PersonDatePatch } from './types';
 
@@ -24,6 +25,14 @@ export interface PeopleRepo {
 }
 
 export type PersonPatch = Partial<Pick<Person, 'name' | 'birthday' | 'notes'>>;
+
+/**
+ * How two names are compared to decide they are the same person: no case, no accents, single
+ * spaces. Deliberately not fuzzy — "Ana" and "Ano" are different people.
+ */
+export function personKey(name: string): string {
+  return normalizeSearch(name.trim()).replace(/\s+/g, ' ');
+}
 
 export function rowToPerson(row: Row): Person {
   return {
@@ -122,8 +131,12 @@ export function createPeopleRepo(backend: DbBackend): PeopleRepo {
     async upsertPersonByName(name) {
       const clean = name.trim();
       if (!clean) throw new Error('El nombre no puede estar vacío');
-      const found = await backend.select('people', { ieq: { name: clean } });
-      if (found.length > 0) return rowToPerson(found[0]);
+      // Matched without case, accents or extra spaces: dictating "mamá" must find "Mama"
+      // instead of creating a second person. Compared here, over every row, because the
+      // comparison has to be the same on both backends; the table is one person's contacts.
+      const key = personKey(clean);
+      const found = (await backend.select('people')).find((r) => personKey(String(r.name)) === key);
+      if (found) return rowToPerson(found);
       return rowToPerson(await backend.insert('people', { name: clean }));
     },
 
