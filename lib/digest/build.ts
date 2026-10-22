@@ -88,34 +88,22 @@ export async function buildDigest(date: string, deps: DigestDeps): Promise<Diges
   const dayEnd = madridToUtc(addDays(date, 1), '00:00', deps.tz);
 
   const [eventsResult, pending, upcoming] = await Promise.all([
-    loadEvents(deps, dayStart, dayEnd),
+    loadEvents(deps.calendar, dayStart, dayEnd),
     deps.items.listItems({ status: 'pendiente' }),
     deps.people.upcomingDates(date, DATES_WINDOW_DAYS),
   ]);
 
-  const dueTasks: Record<Area, DigestTask[]> = { personal: [], trabajo: [] };
-  let unclassified = 0;
-  for (const item of pending) {
-    if (item.needsReview) {
-      unclassified++;
-      continue;
-    }
-    if (item.type !== 'tarea' || !item.dueAt) continue;
-    const t = Date.parse(item.dueAt);
-    if (t >= dayEnd.getTime()) continue;
-    dueTasks[item.area ?? 'personal'].push({ item, overdue: t < dayStart.getTime() });
-  }
-
-  // Pending gifts are already among `pending` (any area; gifts have none).
-  const dates: DigestDate[] = upcoming.map((u) => ({
-    ...u,
-    giftIdeas: pending.filter((i) => i.type === 'regalo' && !i.needsReview && i.personId === u.person.id),
-  }));
+  const { tasks: dueTasks, unclassified } = collectTasks(pending, { until: dayEnd, overdueBefore: dayStart });
+  const dates = withGiftIdeas(upcoming, pending);
 
   const todayPersonal = dueTasks.personal.filter((t) => !t.overdue).sort(byOrder);
-  const headline = await buildHeadline(date, deps, todayPersonal, dates, {
-    anything: eventsResult.events.length > 0 || dueTasks.personal.length + dueTasks.trabajo.length > 0,
-  });
+  const anything = eventsResult.events.length > 0 || dueTasks.personal.length + dueTasks.trabajo.length > 0;
+  const headline =
+    todayPersonal.length === 0 && dates.length === 0
+      ? anything
+        ? FALLBACK_HEADLINE
+        : CALM_HEADLINE
+      : await askOneLine(deps, headlinePrompt(date, deps.tz, todayPersonal, dates), FALLBACK_HEADLINE);
 
   return {
     date,
@@ -128,24 +116,60 @@ export async function buildDigest(date: string, deps: DigestDeps): Promise<Diges
   };
 }
 
+/**
+ * Pending tasks with a due date before `until`, split by area (no area = Personal); `overdue`
+ * when due before `overdueBefore`. With `from`, tasks due earlier are kept only when overdue and
+ * `earlierOverdue` is not false. Items waiting in "Sin clasificar" are only counted. Shared by
+ * the daily and the weekly digest.
+ */
+export function collectTasks(
+  pending: Item[],
+  range: { until: Date; overdueBefore: Date; from?: Date; earlierOverdue?: boolean },
+): { tasks: Record<Area, DigestTask[]>; unclassified: number } {
+  const tasks: Record<Area, DigestTask[]> = { personal: [], trabajo: [] };
+  let unclassified = 0;
+  for (const item of pending) {
+    if (item.needsReview) {
+      unclassified++;
+      continue;
+    }
+    if (item.type !== 'tarea' || !item.dueAt) continue;
+    const t = Date.parse(item.dueAt);
+    if (t >= range.until.getTime()) continue;
+    const overdue = t < range.overdueBefore.getTime();
+    if (range.from && t < range.from.getTime() && (!overdue || range.earlierOverdue === false)) continue;
+    tasks[item.area ?? 'personal'].push({ item, overdue });
+  }
+  return { tasks, unclassified };
+}
+
+/** Each date with the person's pending gift ideas (already among `pending`; gifts have no area). */
+export function withGiftIdeas(upcoming: UpcomingDate[], pending: Item[]): DigestDate[] {
+  return upcoming.map((u) => ({
+    ...u,
+    giftIdeas: pending.filter((i) => i.type === 'regalo' && !i.needsReview && i.personId === u.person.id),
+  }));
+}
+
 /** Overdue first (oldest first), then timed tasks by time, then untimed ones. */
-function byOrder(a: DigestTask, b: DigestTask): number {
+export function byOrder(a: DigestTask, b: DigestTask): number {
   const rank = (t: DigestTask) => (t.overdue ? 0 : t.item.hasTime ? 1 : 2);
   return rank(a) - rank(b) || a.item.dueAt!.localeCompare(b.item.dueAt!) || a.item.title.localeCompare(b.item.title, 'es');
 }
 
-function toArea(tasks: DigestTask[]): DigestArea {
+export function toArea(tasks: DigestTask[], max: number = MAX_TASKS_PER_AREA): DigestArea {
   const sorted = [...tasks].sort(byOrder);
-  return { items: sorted.slice(0, MAX_TASKS_PER_AREA), more: Math.max(0, sorted.length - MAX_TASKS_PER_AREA) };
+  return { items: sorted.slice(0, max), more: Math.max(0, sorted.length - max) };
 }
 
-async function loadEvents(
-  deps: DigestDeps,
+/** Calendar events in [from, to); a failure becomes a calm flag, never an exception. */
+export async function loadEvents(
+  calendar: () => Promise<CalendarGateway>,
   from: Date,
   to: Date,
 ): Promise<{ events: DigestEvent[]; error: DigestCalendarError | null }> {
   try {
-    const gw = await deps.calendar();
+    const gw = await calendar();
     const events = await gw.listEvents({ from, to });
     return {
       events: events.map((e) => ({
@@ -161,17 +185,15 @@ async function loadEvents(
   }
 }
 
-async function buildHeadline(
-  date: string,
-  deps: DigestDeps,
-  todayPersonal: DigestTask[],
-  dates: DigestDate[],
-  ctx: { anything: boolean },
-): Promise<string> {
-  if (todayPersonal.length === 0 && dates.length === 0) {
-    return ctx.anything ? FALLBACK_HEADLINE : CALM_HEADLINE;
-  }
-  const prompt = headlinePrompt(date, deps.tz, todayPersonal, dates);
+/**
+ * One AI line for `prompt`, cleaned (first line, no quotes, at most HEADLINE_MAX), or `fallback`
+ * when the AI fails, times out or answers nothing usable. The caller builds a private prompt.
+ */
+export async function askOneLine<F extends string | null>(
+  deps: Pick<DigestDeps, 'ai' | 'aiTimeoutMs'>,
+  prompt: string,
+  fallback: F,
+): Promise<string | F> {
   const timeoutMs = deps.aiTimeoutMs ?? HEADLINE_TIMEOUT_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -182,9 +204,9 @@ async function buildHeadline(
       }),
     ]);
     const line = reply.trim().split('\n')[0].trim().replace(/^["'«“]+|["'»”]+$/g, '').trim();
-    return line && line.length <= HEADLINE_MAX ? line : FALLBACK_HEADLINE;
+    return line && line.length <= HEADLINE_MAX ? line : fallback;
   } catch {
-    return FALLBACK_HEADLINE;
+    return fallback;
   } finally {
     clearTimeout(timer);
   }

@@ -53,6 +53,20 @@ export function parseDayParam(param: string | string[] | undefined, today: strin
   return typeof param === 'string' && isValidDate(param) ? param : today;
 }
 
+/** The Monday of the `?w=` week (any of its days is accepted), else the Monday of today's week. */
+export function parseWeekParam(param: string | string[] | undefined, today: string): string {
+  return weekRange(parseDayParam(param, today)).start;
+}
+
+const dayMonthFmt = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+
+/** "19–25 de octubre", or "26 de octubre – 1 de noviembre" across months. */
+export function weekLabel(start: string): string {
+  const end = addDays(start, 6);
+  if (start.slice(0, 7) === end.slice(0, 7)) return `${Number(start.slice(8, 10))}–${dayMonthFmt.format(utc(end))}`;
+  return `${dayMonthFmt.format(utc(start))} – ${dayMonthFmt.format(utc(end))}`;
+}
+
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const utc = (date: string) => new Date(`${date}T00:00:00Z`);
 const monthFmt = new Intl.DateTimeFormat('es-ES', { month: 'long', timeZone: 'UTC' });

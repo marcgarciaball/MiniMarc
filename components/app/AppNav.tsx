@@ -14,13 +14,15 @@ import {
   TasksIcon,
   TodayIcon,
   TrayIcon,
+  WeekIcon,
 } from '@/components/icons';
 import { tabFor, type Section } from '@/lib/nav';
 import { CaptureLink } from './CaptureLink';
 
 /*
  * At most 5 tabs. Capturar is not a tab: on iPhone the CaptureBar floats right above the tab bar;
- * on desktop the sidebar's first action focuses it. The Bandeja lives under Listas.
+ * on desktop the sidebar's first action focuses it. The Bandeja lives under Listas; the week
+ * (/semana) is reached from Hoy ("Ver la semana") and lights up the Hoy tab.
  */
 const TABS: TabBarItem[] = [
   { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
@@ -36,6 +38,7 @@ const SIDEBAR: { header?: string; links: SidebarLink[] }[] = [
   {
     links: [
       { key: 'hoy', label: 'Hoy', href: '/hoy', icon: <TodayIcon /> },
+      { key: 'semana', label: 'Semana', href: '/semana', icon: <WeekIcon /> },
       { key: 'agenda', label: 'Agenda', href: '/agenda', icon: <AgendaIcon /> },
       { key: 'tareas', label: 'Tareas', href: '/tareas', icon: <TasksIcon /> },
       { key: 'bandeja', label: 'Recién añadido', href: '/bandeja', icon: <ClockIcon /> },

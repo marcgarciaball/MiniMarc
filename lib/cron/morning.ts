@@ -9,6 +9,9 @@
  *      b. Purge of items soft-deleted more than 30 days ago, deleting their event and their photos'
  *         storage objects first (the item_photos rows go with the item, on delete cascade). If
  *         either fails, the item stays and the next hourly run retries.
+ *   3. Weekly summary, Monday 08:00 or Sunday 20:00 (shouldSendWeekly), after the daily one and
+ *      apart from it: its own settings read, its own tag, and a failure never touches the daily
+ *      result. last_weekly_date is saved before sending, so a week is never pushed twice.
  * The response holds counts only: no titles, no headline.
  */
 import { timingSafeEqual, createHash } from 'node:crypto';
@@ -20,11 +23,13 @@ import type { PushSub } from '@/lib/db/push';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item } from '@/lib/db/types';
 import type { Digest } from '@/lib/digest/build';
+import { weekSummaryLine, type WeekDigest } from '@/lib/digest/week';
 import type { PhotoStorage } from '@/lib/photos/storage';
 import { dateWithPerson } from '@/lib/people/format';
 import type { PushPayload } from '@/lib/push/send';
 import { toMadrid } from '@/lib/time';
 import { shouldSendDigest } from './shouldSendDigest';
+import { shouldSendWeekly } from './shouldSendWeekly';
 
 export const MAINTENANCE_CAP = 20;
 export const PURGE_AFTER_DAYS = 30;
@@ -35,6 +40,8 @@ export interface MorningDeps {
   items: ItemsRepo;
   calendar: () => Promise<CalendarGateway>;
   buildDigest: (date: string, settings: Settings) => Promise<Digest>;
+  /** The week starting on Monday `weekStart`. */
+  buildWeekDigest: (weekStart: string, settings: Settings) => Promise<WeekDigest>;
   subscriptions: () => Promise<PushSub[]>;
   sendPush: (sub: PushSub, payload: PushPayload) => Promise<void>;
   /** Scoped to the user, like `items`. */
@@ -46,6 +53,8 @@ export interface MorningResult {
   digest: 'sent' | 'not_due' | 'failed';
   pushed: number;
   pushFailed: number;
+  weekly: 'sent' | 'not_due' | 'failed';
+  weeklyPushed: number;
   synced: number;
   syncFailed: number;
   purged: number;
@@ -80,6 +89,37 @@ export function digestPayload(d: Digest): PushPayload {
     url: '/hoy',
     tag: `digest-${d.date}`,
   };
+}
+
+/** "Tu semana": the AI line, or counts when there is none. No task, event or gift titles. Opens /semana. */
+export function weeklyPayload(w: WeekDigest): PushPayload {
+  return {
+    title: 'Tu semana',
+    body: w.headline ?? weekSummaryLine(w),
+    url: `/semana?w=${w.weekStart}`,
+    tag: `weekly-${w.weekStart}`,
+  };
+}
+
+async function sendWeekly(deps: MorningDeps, r: MorningResult): Promise<void> {
+  try {
+    const settings = await deps.settings.get();
+    const week = shouldSendWeekly(deps.now, settings);
+    if (!week) {
+      r.weekly = 'not_due';
+      return;
+    }
+    const payload = weeklyPayload(await deps.buildWeekDigest(week, settings));
+    const subs = await deps.subscriptions();
+    // Saved first: if it cannot be saved, nothing goes out (the next hour retries) rather than
+    // a push every hour.
+    await deps.settings.update({ lastWeeklyDate: week });
+    const results = await Promise.allSettled(subs.map((s) => deps.sendPush(s, payload)));
+    r.weeklyPushed = results.filter((x) => x.status === 'fulfilled').length;
+    r.weekly = 'sent';
+  } catch {
+    r.weekly = 'failed';
+  }
 }
 
 async function sendDigest(deps: MorningDeps, r: MorningResult): Promise<void> {
@@ -170,12 +210,15 @@ export async function runMorning(deps: MorningDeps): Promise<MorningResult> {
     digest: 'not_due',
     pushed: 0,
     pushFailed: 0,
+    weekly: 'not_due',
+    weeklyPushed: 0,
     synced: 0,
     syncFailed: 0,
     purged: 0,
     maintenanceFailed: false,
   };
   await sendDigest(deps, r);
+  await sendWeekly(deps, r);
   await maintain(deps, r);
   return r;
 }

@@ -151,3 +151,27 @@ describe('0006_person_dates.sql', () => {
     expect(s).not.toMatch(/create (table|index) (?!if not exists)/);
   });
 });
+
+describe('0007_weekly.sql', () => {
+  const s = sql('0007_weekly.sql');
+
+  it('añade a settings el resumen semanal (lunes por defecto), la última semana y la frase cacheada', () => {
+    expect(s).toMatch(/add column if not exists weekly_digest text not null default 'lunes'/);
+    expect(s).toMatch(/add column if not exists last_weekly_date date/);
+    expect(s).toMatch(/add column if not exists last_week_headline text/);
+    expect(s).toMatch(/add column if not exists last_week_headline_week date/);
+  });
+
+  it('solo admite lunes, domingo u off, sin fallar al repetirse', () => {
+    expect(s).toMatch(/if not exists \(select 1 from pg_constraint where conname = 'settings_weekly_digest_check'\)/);
+    expect(s).toMatch(/check \(weekly_digest in \('lunes', 'domingo', 'off'\)\)/);
+  });
+
+  it('RLS de settings como en 0002: propietario y usuario permitido', () => {
+    expect(s).toMatch(/alter table public\.settings enable row level security;/);
+    expect(s).toMatch(/drop policy if exists settings_owner on public\.settings;/);
+    expect(s).toMatch(
+      /create policy settings_owner on public\.settings\s+for all to authenticated\s+using \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\)\s+with check \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\);/,
+    );
+  });
+});

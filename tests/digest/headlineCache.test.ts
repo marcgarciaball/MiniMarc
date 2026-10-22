@@ -4,7 +4,7 @@ import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import { cachedHeadlineOnly, withHeadlineCache } from '@/lib/digest/headlineCache';
 
 function setup(initial: Partial<Settings> = {}, reply: string | Error = 'Día de pan.') {
-  const state: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null, ...initial };
+  const state: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null, weeklyDigest: 'lunes', lastWeeklyDate: null, weekHeadline: null, weekHeadlineWeek: null, ...initial };
   const repo: SettingsRepo = {
     async get() {
       return { ...state };
@@ -51,8 +51,31 @@ describe('withHeadlineCache', () => {
   });
 });
 
+describe('withHeadlineCache · semana', () => {
+  it('guarda la línea semanal aparte, con el lunes; no toca el titular del día', async () => {
+    const t = setup({ headline: 'Día', headlineDate: '2026-10-22' }, 'Semana de pan.');
+    const ai = withHeadlineCache(t.ai, '2026-10-26', t.repo, { ...t.state }, 'week');
+    expect(await ai.generateText('p')).toBe('Semana de pan.');
+    expect(t.state).toMatchObject({ weekHeadline: 'Semana de pan.', weekHeadlineWeek: '2026-10-26', headline: 'Día', headlineDate: '2026-10-22' });
+  });
+
+  it('con la línea de esa semana: la devuelve sin llamar a la IA; con la de otra semana, llama', async () => {
+    const t = setup({ weekHeadline: 'Ya está', weekHeadlineWeek: '2026-10-26' });
+    expect(await withHeadlineCache(t.ai, '2026-10-26', t.repo, { ...t.state }, 'week').generateText('p')).toBe('Ya está');
+    expect(t.calls()).toBe(0);
+    await withHeadlineCache(t.ai, '2026-11-02', t.repo, { ...t.state }, 'week').generateText('p');
+    expect(t.calls()).toBe(1);
+  });
+
+  it('cachedHeadlineOnly de semana: solo la guardada', async () => {
+    const t = setup({ weekHeadline: 'Ya está', weekHeadlineWeek: '2026-10-26', headline: 'Día', headlineDate: '2026-10-19' });
+    expect(await cachedHeadlineOnly('2026-10-26', { ...t.state }, 'week').generateText('p')).toBe('Ya está');
+    await expect(cachedHeadlineOnly('2026-10-19', { ...t.state }, 'week').generateText('p')).rejects.toThrow();
+  });
+});
+
 describe('cachedHeadlineOnly (GET /api/hoy, nunca gasta una llamada a la IA)', () => {
-  const base: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null };
+  const base: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null, weeklyDigest: 'lunes', lastWeeklyDate: null, weekHeadline: null, weekHeadlineWeek: null };
 
   it('devuelve el titular guardado de hoy', async () => {
     const ai = cachedHeadlineOnly('2026-10-22', { ...base, headline: 'Ya está', headlineDate: '2026-10-22' });

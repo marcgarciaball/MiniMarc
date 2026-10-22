@@ -5,6 +5,11 @@ export const DEFAULT_DIGEST_HOUR = 8;
 /** Hours offered in Ajustes for the morning digest. */
 export const DIGEST_HOURS = [6, 7, 8, 9, 10, 11] as const;
 
+/** Ajustes → "Resumen semanal": Monday 08:00, Sunday 20:00 (next week) or off. */
+export const WEEKLY_OPTIONS = ['lunes', 'domingo', 'off'] as const;
+export type WeeklyDigest = (typeof WEEKLY_OPTIONS)[number];
+export const DEFAULT_WEEKLY: WeeklyDigest = 'lunes';
+
 export interface Settings {
   digestHour: number;
   tz: string;
@@ -13,6 +18,12 @@ export interface Settings {
   /** Cached digest headline (one AI call per day) and the local date it belongs to. */
   headline: string | null;
   headlineDate: string | null;
+  weeklyDigest: WeeklyDigest;
+  /** Monday ("YYYY-MM-DD") of the last week summarised by the weekly push, or null. */
+  lastWeeklyDate: string | null;
+  /** Cached weekly AI line (one call per week) and the Monday it belongs to. */
+  weekHeadline: string | null;
+  weekHeadlineWeek: string | null;
 }
 
 export type SettingsPatch = Partial<Settings>;
@@ -29,9 +40,24 @@ const COLUMNS = {
   lastDigestDate: 'last_digest_date',
   headline: 'last_digest_headline',
   headlineDate: 'last_digest_headline_date',
+  weeklyDigest: 'weekly_digest',
+  lastWeeklyDate: 'last_weekly_date',
+  weekHeadline: 'last_week_headline',
+  weekHeadlineWeek: 'last_week_headline_week',
 } as const satisfies Record<keyof Settings, string>;
 
 const SELECT = Object.values(COLUMNS).join(', ');
+/** Columns before 0007_weekly.sql: read when that migration is not applied yet. */
+const SELECT_BEFORE_0007 = ['digest_hour', 'tz', 'last_digest_date', 'last_digest_headline', 'last_digest_headline_date'].join(', ');
+
+/**
+ * Missing column = 0007 not applied: the weekly push stays off (it could not store
+ * last_weekly_date, so it would repeat), everything else works as before.
+ */
+function weeklyFrom(value: unknown): WeeklyDigest {
+  if (value === undefined) return 'off';
+  return (WEEKLY_OPTIONS as readonly unknown[]).includes(value) ? (value as WeeklyDigest) : DEFAULT_WEEKLY;
+}
 
 function rowToSettings(row: Record<string, unknown>): Settings {
   return {
@@ -40,6 +66,10 @@ function rowToSettings(row: Record<string, unknown>): Settings {
     lastDigestDate: (row.last_digest_date as string | null) ?? null,
     headline: (row.last_digest_headline as string | null) ?? null,
     headlineDate: (row.last_digest_headline_date as string | null) ?? null,
+    weeklyDigest: weeklyFrom(row.weekly_digest),
+    lastWeeklyDate: (row.last_weekly_date as string | null) ?? null,
+    weekHeadline: (row.last_week_headline as string | null) ?? null,
+    weekHeadlineWeek: (row.last_week_headline_week as string | null) ?? null,
   };
 }
 
@@ -53,7 +83,9 @@ export function defaultTz(): string {
  */
 export function createSettingsRepo(client: SupabaseClient, userId: string): SettingsRepo {
   async function read(): Promise<Settings | null> {
-    const res = await client.from('settings').select(SELECT).eq('user_id', userId).maybeSingle();
+    let res = await client.from('settings').select(SELECT).eq('user_id', userId).maybeSingle();
+    // 42703 = undefined column (0007_weekly.sql not applied yet).
+    if (res.error?.code === '42703') res = await client.from('settings').select(SELECT_BEFORE_0007).eq('user_id', userId).maybeSingle();
     if (res.error) throw new Error(`select settings: ${res.error.message}`);
     return res.data ? rowToSettings(res.data as unknown as Record<string, unknown>) : null;
   }
@@ -86,7 +118,17 @@ export async function loadSettingsOrDefaults(repo: SettingsRepo): Promise<{ sett
   try {
     return { settings: await repo.get(), repo };
   } catch {
-    const settings: Settings = { digestHour: DEFAULT_DIGEST_HOUR, tz: defaultTz(), lastDigestDate: null, headline: null, headlineDate: null };
+    const settings: Settings = {
+      digestHour: DEFAULT_DIGEST_HOUR,
+      tz: defaultTz(),
+      lastDigestDate: null,
+      headline: null,
+      headlineDate: null,
+      weeklyDigest: DEFAULT_WEEKLY,
+      lastWeeklyDate: null,
+      weekHeadline: null,
+      weekHeadlineWeek: null,
+    };
     return { settings, repo: { get: async () => settings, update: async () => {} } };
   }
 }

@@ -34,6 +34,7 @@ describe('navigation sections', () => {
   it.each([
     ['/tareas', 'tareas', 'tareas'],
     ['/agenda', 'agenda', 'agenda'],
+    ['/semana', 'semana', 'hoy'],
     ['/ajustes/iphone', 'ajustes', 'ajustes'],
     ['/regalos/abc', 'regalos', 'listas'],
     ['/personas', 'personas', 'listas'],

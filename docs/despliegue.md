@@ -196,6 +196,12 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 2. **Listas → Personas** muestra una tarjeta por persona, ordenadas por la fecha más cercana. `/regalos/<id>` lleva ahora a `/personas/<id>`.
 3. El día de una fecha, el aviso de la mañana se titula con ella, por ejemplo «Hoy: aniversario con Ainhoa (5 años)». A la IA solo llegan nombres y etiquetas, nunca notas.
 
+## 10. Resumen semanal
+
+1. Aplica la migración `0007_weekly.sql` (`npx supabase db push`, o pégala en el SQL Editor). Añade a `settings` la opción del resumen semanal (por defecto **Lunes 08:00**), la última semana enviada y la frase de la IA de la semana; RLS como las demás. Se puede ejecutar otra vez sin problema. Hasta aplicarla, todo lo demás funciona y el aviso semanal queda desactivado.
+2. Compruébalo en el SQL Editor: `select weekly_digest, last_weekly_date from public.settings;` debe devolver `lunes` y vacío.
+3. Elige el momento en **Ajustes → Resumen semanal**: **Lunes 08:00** (la semana que empieza), **Domingo 20:00** (la semana siguiente) o **Desactivado**. Lo envía el mismo cron horario de la sección 7; no hace falta programar nada más. El lunes a las 08:00 llegan dos avisos: el de la mañana («Hoy») y el semanal («Tu semana»). Este abre **/semana**, también accesible desde **Hoy → Ver la semana**.
+
 ## Verificación
 
 Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas deben estar marcadas.

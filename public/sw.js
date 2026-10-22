@@ -6,7 +6,8 @@
  *     request size limit; if that fails, the original request goes through untouched.
  *   - Page navigations: network first; offline, the last cached copy of that page.
  *   - Static assets (/_next/static, /icons, manifest): cache first.
- * Push (morning digest): shows the notification; a tap focuses an open window or opens /hoy.
+ * Push (morning digest, weekly summary): shows the notification; a tap focuses an open window
+ * and opens its url (/hoy by default).
  */
 const VERSION = 'v1';
 const PAGES = `pages-${VERSION}`;

@@ -27,6 +27,15 @@ export function AgendaIcon() {
   );
 }
 
+export function WeekIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3.5" />
+      <path d="M3.5 9.8h17M8 3v3.6M16 3v3.6M7 15h10" />
+    </svg>
+  );
+}
+
 export function ListIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...line}>

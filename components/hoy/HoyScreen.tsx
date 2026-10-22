@@ -117,6 +117,10 @@ export function HoyScreen({ digest, tz, vapidPublicKey }: HoyScreenProps) {
         empty="Ninguna fecha especial en las próximas dos semanas."
       />
 
+      <InsetList>
+        <Row href="/semana" title="Ver la semana" />
+      </InsetList>
+
       {digest.unclassified > 0 ? (
         <InsetList>
           <Row href="/sin-clasificar" title={`${digest.unclassified} sin clasificar`} />

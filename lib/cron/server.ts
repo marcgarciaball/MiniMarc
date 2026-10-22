@@ -6,7 +6,7 @@ import { createSupabaseItemsRepo } from '@/lib/db/items';
 import { createSupabasePhotosRepo } from '@/lib/db/photos';
 import { createPushSubscriptionsRepo } from '@/lib/db/push';
 import { createSettingsRepo } from '@/lib/db/settings';
-import { buildDigestFor } from '@/lib/digest/server';
+import { buildDigestFor, buildWeekDigestFor } from '@/lib/digest/server';
 import { createSupabasePhotoStorage } from '@/lib/photos/storage';
 import { sendPush } from '@/lib/push/send';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,6 +34,7 @@ export async function morningRun(now = new Date()): Promise<MorningResult | { sk
     items: createSupabaseItemsRepo(admin, { userId }),
     calendar: () => calendarGatewayFor(userId),
     buildDigest: (date, settings) => buildDigestFor({ client: admin, userId, date, now, settings, settingsRepo }),
+    buildWeekDigest: (weekStart, settings) => buildWeekDigestFor({ client: admin, userId, weekStart, now, settings, settingsRepo }),
     subscriptions: () => createPushSubscriptionsRepo(admin, { userId }).list(),
     sendPush: (sub, payload) => sendPush(sub, payload),
     // Service role, scoped: rows by user_id, objects only under '{userId}/'.

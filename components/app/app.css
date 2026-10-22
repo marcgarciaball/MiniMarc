@@ -1294,6 +1294,106 @@
   padding: 0 calc(var(--gutter) + 16px + var(--safe-right)) 28px calc(var(--gutter) + 16px + var(--safe-left));
 }
 
+/* ---------- Semana ---------- */
+.app-semana__counts {
+  margin-top: 4px;
+}
+
+.app-semana__day {
+  align-items: stretch;
+}
+
+.app-semana__day[data-today] {
+  background-color: var(--accent-tint);
+}
+
+/* Weekday initial over the day number, like the Agenda's week strip. */
+.app-semana__date {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  width: 32px;
+  padding: 10px 0;
+}
+
+.app-semana__initial {
+  color: var(--label-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.app-semana__number {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-semana__day[data-today] .app-semana__number {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.app-semana__entries {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.app-semana__entry {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-semana__when {
+  flex: none;
+  width: 44px;
+  color: var(--label-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tasks: a small ring where an untimed task has no time. */
+.app-semana__entry[data-kind="task"] .app-semana__when:empty::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--label-secondary);
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+.app-semana__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-semana__entry[data-kind="task"] .app-semana__title {
+  color: var(--label-secondary);
+}
+
+.app-semana__free,
+.app-semana__more {
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
 /* Native select as a row value (Ajustes → Resumen de la mañana). */
 .app-select {
   min-height: var(--touch-target);

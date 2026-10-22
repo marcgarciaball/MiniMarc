@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { addDays } from '@/lib/agenda/week';
 import { CalendarError, type CalendarGateway } from '@/lib/calendar/client';
-import { digestPayload, handleMorningRequest, MAINTENANCE_CAP, runMorning, type MorningDeps } from '@/lib/cron/morning';
+import { digestPayload, handleMorningRequest, MAINTENANCE_CAP, runMorning, weeklyPayload, type MorningDeps } from '@/lib/cron/morning';
 import { createItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPhotosRepo } from '@/lib/db/photos';
@@ -8,6 +9,7 @@ import type { PushSub } from '@/lib/db/push';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item, NewItem } from '@/lib/db/types';
 import type { Digest, DigestDate } from '@/lib/digest/build';
+import type { WeekDigest } from '@/lib/digest/week';
 import type { PushPayload } from '@/lib/push/send';
 import { madridToUtc } from '@/lib/time';
 
@@ -58,8 +60,43 @@ function digest(over: Partial<Digest> = {}): Digest {
   };
 }
 
+function week(over: Partial<WeekDigest> = {}): WeekDigest {
+  const days = Array.from({ length: 7 }, (_, i) => ({
+    date: addDays('2026-10-26', i),
+    events: [] as WeekDigest['days'][number]['events'],
+    tasks: [] as WeekDigest['days'][number]['tasks'],
+  }));
+  days[0].events = [{ id: 'e1', title: 'SENTINELA_CITA', startsAt: AT_8.toISOString(), endsAt: AT_8.toISOString() }];
+  days[1].tasks = [{ item: item({ id: 't1', title: 'SENTINELA_TRABAJO', area: 'trabajo' }), overdue: false }];
+  return {
+    weekStart: '2026-10-26',
+    today: '2026-10-26',
+    days,
+    calendarError: null,
+    tasks: {
+      personal: { items: [{ item: item({ id: 'p1', title: 'SENTINELA_PERSONAL' }), overdue: false }], more: 0 },
+      trabajo: { items: [{ item: item({ id: 't1', title: 'SENTINELA_TRABAJO', area: 'trabajo' }), overdue: false }], more: 0 },
+    },
+    unclassified: 0,
+    dates: [],
+    headline: 'Semana con pan.',
+    ...over,
+  };
+}
+
 function fakeSettings(initial: Partial<Settings> = {}, fail = false) {
-  const state: Settings = { digestHour: 8, tz: TZ, lastDigestDate: '2026-10-21', headline: null, headlineDate: null, ...initial };
+  const state: Settings = {
+    digestHour: 8,
+    tz: TZ,
+    lastDigestDate: '2026-10-21',
+    headline: null,
+    headlineDate: null,
+    weeklyDigest: 'lunes',
+    lastWeeklyDate: '2026-10-19',
+    weekHeadline: null,
+    weekHeadlineWeek: null,
+    ...initial,
+  };
   const repo: SettingsRepo = {
     async get() {
       if (fail) throw new Error('db down');
@@ -107,6 +144,8 @@ function setup(opts: {
   subs?: PushSub[];
   failPushFor?: string[];
   digest?: Digest | Error;
+  week?: WeekDigest | Error;
+  settingsUpdateFail?: (keyof Settings)[];
   calendarFail?: Error;
   storageFail?: boolean;
 } = {}) {
@@ -118,6 +157,14 @@ function setup(opts: {
   const cal = fakeCalendar(opts.calendarFail);
   const sent: { endpoint: string; payload: PushPayload }[] = [];
   const built: string[] = [];
+  const builtWeeks: string[] = [];
+  if (opts.settingsUpdateFail) {
+    const update = settings.repo.update;
+    settings.repo.update = async (patch) => {
+      if (Object.keys(patch).some((k) => opts.settingsUpdateFail!.includes(k as keyof Settings))) throw new Error('db down');
+      return update(patch);
+    };
+  }
   const photos = createPhotosRepo(db);
   const removedObjects: string[] = [];
   const storage = {
@@ -137,6 +184,12 @@ function setup(opts: {
       if (d instanceof Error) throw d;
       return d;
     },
+    async buildWeekDigest(weekStart) {
+      builtWeeks.push(weekStart);
+      const w = opts.week ?? week({ weekStart });
+      if (w instanceof Error) throw w;
+      return w;
+    },
     async subscriptions() {
       return opts.subs ?? [{ endpoint: 'https://push/a', p256dh: 'p', auth: 'a' }];
     },
@@ -149,7 +202,7 @@ function setup(opts: {
   };
   const create = (n: NewItem) => items.createItem(n);
   const setNow = (d: Date) => (now = d);
-  return { deps, db, items, settings, cal, sent, built, create, setNow, photos, removedObjects };
+  return { deps, db, items, settings, cal, sent, built, builtWeeks, create, setNow, photos, removedObjects };
 }
 
 describe('runMorning · resumen', () => {
@@ -214,6 +267,81 @@ describe('runMorning · resumen', () => {
     expect(r.digest).toBe('failed');
     expect(r.synced).toBe(1);
     expect((await t.items.listItems()).find((i) => i.id === task.id)?.calendarEventId).toBe('ev-1');
+  });
+});
+
+describe('runMorning · resumen semanal', () => {
+  /** Monday 26 Oct 2026, 08:00 in Madrid (CET). */
+  const MON_8 = madridToUtc('2026-10-26', '08:00', TZ);
+  /** Sunday 25 Oct 2026, 20:00 in Madrid (the day clocks go back). */
+  const SUN_20 = madridToUtc('2026-10-25', '20:00', TZ);
+
+  it('un jueves no hay resumen semanal', async () => {
+    const t = setup();
+    const r = await runMorning(t.deps);
+    expect(r.weekly).toBe('not_due');
+    expect(t.builtWeeks).toEqual([]);
+  });
+
+  it('lunes 08:00: sale el diario y el semanal, cada uno con su etiqueta; guarda last_weekly_date', async () => {
+    const t = setup({ now: MON_8, settings: { lastDigestDate: '2026-10-25' } });
+    const r = await runMorning(t.deps);
+    expect(r).toMatchObject({ digest: 'sent', pushed: 1, weekly: 'sent', weeklyPushed: 1 });
+    expect(t.built).toEqual(['2026-10-26']);
+    expect(t.builtWeeks).toEqual(['2026-10-26']);
+    expect(t.sent.map((s) => s.payload.tag)).toEqual(['digest-2026-10-22', 'weekly-2026-10-26']);
+    expect(t.settings.state).toMatchObject({ lastDigestDate: '2026-10-26', lastWeeklyDate: '2026-10-26' });
+
+    // The 09:00 run sends neither again.
+    t.deps.now = new Date(MON_8.getTime() + 60 * 60 * 1000);
+    const again = await runMorning(t.deps);
+    expect(again).toMatchObject({ digest: 'not_due', weekly: 'not_due' });
+    expect(t.sent).toHaveLength(2);
+  });
+
+  it('domingo 20:00 con «Domingo»: resume la semana siguiente', async () => {
+    const t = setup({ now: SUN_20, settings: { weeklyDigest: 'domingo', lastDigestDate: '2026-10-25' } });
+    const r = await runMorning(t.deps);
+    expect(r).toMatchObject({ digest: 'not_due', weekly: 'sent' });
+    expect(t.builtWeeks).toEqual(['2026-10-26']);
+    expect(t.sent[0].payload.url).toBe('/semana?w=2026-10-26');
+  });
+
+  it('desactivado: nada', async () => {
+    const t = setup({ now: MON_8, settings: { weeklyDigest: 'off' } });
+    expect((await runMorning(t.deps)).weekly).toBe('not_due');
+    expect(t.builtWeeks).toEqual([]);
+  });
+
+  it('si el semanal falla, el diario sale igual y la semana se reintenta la hora siguiente', async () => {
+    const t = setup({ now: MON_8, week: new Error('calendar down') });
+    const r = await runMorning(t.deps);
+    expect(r).toMatchObject({ digest: 'sent', pushed: 1, weekly: 'failed', weeklyPushed: 0 });
+    expect(t.settings.state.lastWeeklyDate).toBe('2026-10-19');
+  });
+
+  it('si no se puede guardar last_weekly_date, no envía (nunca un aviso por hora)', async () => {
+    const t = setup({ now: MON_8, settingsUpdateFail: ['lastWeeklyDate'] });
+    const r = await runMorning(t.deps);
+    expect(r).toMatchObject({ digest: 'sent', weekly: 'failed', weeklyPushed: 0 });
+    expect(t.sent.map((s) => s.payload.title)).toEqual(['Hoy']);
+  });
+});
+
+describe('weeklyPayload', () => {
+  it('«Tu semana», la línea de la IA, abre /semana; sin títulos de tareas ni de citas', () => {
+    const p = weeklyPayload(week());
+    expect(p).toEqual({ title: 'Tu semana', body: 'Semana con pan.', url: '/semana?w=2026-10-26', tag: 'weekly-2026-10-26' });
+    const json = JSON.stringify(p);
+    for (const s of ['SENTINELA_TRABAJO', 'SENTINELA_CITA', 'SENTINELA_PERSONAL']) expect(json).not.toContain(s);
+  });
+
+  it('sin línea de la IA: recuentos', () => {
+    expect(weeklyPayload(week({ headline: null })).body).toBe('1 cita · 2 tareas');
+    const empty = week({ headline: null, days: week().days.map((d) => ({ ...d, events: [], tasks: [] })) });
+    expect(weeklyPayload({ ...empty, tasks: { personal: { items: [], more: 0 }, trabajo: { items: [], more: 0 } } }).body).toBe(
+      'Semana tranquila.',
+    );
   });
 });
 

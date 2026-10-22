@@ -7,13 +7,37 @@
 import type { AiProvider } from '@/lib/ai/provider';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 
-export function withHeadlineCache(ai: AiProvider, date: string, repo: SettingsRepo, current: Settings): AiProvider {
+/**
+ * 'day' = the morning digest's headline (key: the local date); 'week' = the weekly line
+ * (key: the week's Monday), cached the same way in last_week_headline / _week.
+ */
+export type HeadlineSlot = 'day' | 'week';
+
+const FIELDS = {
+  day: { text: 'headline', key: 'headlineDate' },
+  week: { text: 'weekHeadline', key: 'weekHeadlineWeek' },
+} as const;
+
+function cached(current: Settings, key: string, slot: HeadlineSlot): string | null {
+  const f = FIELDS[slot];
+  return current[f.key] === key && current[f.text] ? current[f.text] : null;
+}
+
+export function withHeadlineCache(
+  ai: AiProvider,
+  date: string,
+  repo: SettingsRepo,
+  current: Settings,
+  slot: HeadlineSlot = 'day',
+): AiProvider {
   return {
     generateJson: (prompt, schema, opts) => ai.generateJson(prompt, schema, opts),
     async generateText(prompt, opts) {
-      if (current.headlineDate === date && current.headline) return current.headline;
+      const hit = cached(current, date, slot);
+      if (hit) return hit;
       const text = await ai.generateText(prompt, opts);
-      await repo.update({ headline: text, headlineDate: date }).catch(() => {});
+      const f = FIELDS[slot];
+      await repo.update({ [f.text]: text, [f.key]: date }).catch(() => {});
       return text;
     },
   };
@@ -23,13 +47,14 @@ export function withHeadlineCache(ai: AiProvider, date: string, repo: SettingsRe
  * For GET /api/hoy (the extension): today's cached headline, or an error so buildDigest falls
  * back to "Buenos días". Never calls the AI, so the extension never spends the day's quota.
  */
-export function cachedHeadlineOnly(date: string, current: Settings): AiProvider {
+export function cachedHeadlineOnly(date: string, current: Settings, slot: HeadlineSlot = 'day'): AiProvider {
   return {
     async generateJson() {
       throw new Error('AI disabled');
     },
     async generateText() {
-      if (current.headlineDate === date && current.headline) return current.headline;
+      const hit = cached(current, date, slot);
+      if (hit) return hit;
       throw new Error('no cached headline');
     },
   };

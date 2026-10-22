@@ -1,6 +1,7 @@
 /** App sections, as used by the tab bar (iPhone) and the sidebar (desktop). */
 export type Section =
   | 'hoy'
+  | 'semana'
   | 'agenda'
   | 'tareas'
   | 'ideas'
@@ -14,6 +15,7 @@ export type Section =
 
 const SECTIONS: Section[] = [
   'hoy',
+  'semana',
   'agenda',
   'tareas',
   'ideas',
@@ -32,8 +34,9 @@ export function sectionFor(pathname: string): Section | null {
   return (SECTIONS as string[]).includes(first) ? (first as Section) : null;
 }
 
-/** The tab bar has fewer slots: every list lives under "Listas". */
+/** The tab bar has fewer slots: every list lives under "Listas"; the week under "Hoy". */
 export function tabFor(section: Section | null): string {
+  if (section === 'semana') return 'hoy';
   if (
     section === 'ideas' ||
     section === 'compras' ||

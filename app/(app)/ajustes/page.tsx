@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { DigestSection } from '@/components/ajustes/DigestSection';
 import { SignOutButton } from '@/components/ajustes/SignOutButton';
 import { TokensSection } from '@/components/ajustes/TokensSection';
+import { WeeklySection } from '@/components/ajustes/WeeklySection';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import { madridToday } from '@/lib/actions/today';
 import { listApiTokens } from '@/lib/auth/tokens';
@@ -47,7 +48,14 @@ export default function AjustesPage() {
         <Row href="/ajustes/iphone" title="Guía completa" />
       </InsetList>
 
-      <Suspense fallback={<DigestSection hour={null} tz={null} />}>
+      <Suspense
+        fallback={
+          <>
+            <DigestSection hour={null} tz={null} />
+            <WeeklySection value={null} />
+          </>
+        }
+      >
         <Digest />
       </Suspense>
 
@@ -80,5 +88,10 @@ async function Tokens() {
 async function Digest() {
   const user = await requireUser();
   const settings = await createSettingsRepo(await createClient(), user.id).get();
-  return <DigestSection hour={settings.digestHour} tz={settings.tz} />;
+  return (
+    <>
+      <DigestSection hour={settings.digestHour} tz={settings.tz} />
+      <WeeklySection value={settings.weeklyDigest} />
+    </>
+  );
 }

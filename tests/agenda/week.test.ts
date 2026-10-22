@@ -11,6 +11,8 @@ import {
   monthTitle,
   nowMinutes,
   parseDayParam,
+  parseWeekParam,
+  weekLabel,
   toAgendaItems,
   weekRange,
   type AgendaItem,
@@ -105,6 +107,23 @@ describe('addDays / parseDayParam / títulos', () => {
     expect(monthTitle('2027-01-02')).toBe('Enero 2027');
     expect(dayTitle('2026-10-27')).toBe('Martes 27');
     expect(dayTitle('2026-11-01')).toBe('Domingo 1');
+  });
+});
+
+describe('parseWeekParam / weekLabel (/semana)', () => {
+  it('?w= da el lunes de su semana; si no es una fecha válida, la semana de hoy', () => {
+    expect(parseWeekParam('2026-10-26', '2026-10-22')).toBe('2026-10-26');
+    expect(parseWeekParam('2026-10-29', '2026-10-22')).toBe('2026-10-26');
+    expect(parseWeekParam('2026-11-01', '2026-10-22')).toBe('2026-10-26');
+    expect(parseWeekParam('2026-13-01', '2026-10-22')).toBe('2026-10-19');
+    expect(parseWeekParam(['2026-10-26'], '2026-10-22')).toBe('2026-10-19');
+    expect(parseWeekParam(undefined, '2026-10-25')).toBe('2026-10-19');
+  });
+
+  it('rango corto de la semana', () => {
+    expect(weekLabel('2026-10-19')).toBe('19–25 de octubre');
+    expect(weekLabel('2026-10-26')).toBe('26 de octubre – 1 de noviembre');
+    expect(weekLabel('2026-12-28')).toBe('28 de diciembre – 3 de enero');
   });
 });
 
