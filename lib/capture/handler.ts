@@ -50,6 +50,16 @@ function destination(item: Item): string {
   return LABELS[item.type];
 }
 
+/** Por qué no se clasificó, dicho como se lo diría una persona (y como Siri lo lee). */
+const AI_ERROR_TEXT: Record<string, string> = {
+  no_credit: 'Gemini se ha quedado sin saldo',
+  no_api_key: 'falta la clave de Gemini',
+  model_not_found: 'ese modelo de Gemini ya no existe',
+  quota: 'Gemini no acepta más peticiones por ahora',
+  timeout: 'la IA ha tardado demasiado',
+  invalid_output: 'la IA ha contestado algo que no entiendo',
+};
+
 /** "Guardado en Compras, Tareas · Personal y Calendar": short, for Siri to speak. */
 export function captureMessage(res: CaptureResult): string {
   const places = [
@@ -60,7 +70,9 @@ export function captureMessage(res: CaptureResult): string {
     ]),
   ];
   const list = places.length > 1 ? `${places.slice(0, -1).join(', ')} y ${places.at(-1)}` : (places[0] ?? 'Sin clasificar');
-  return `Guardado en ${list}`;
+  // Un fallo de la IA se cuenta aquí: si no, "Sin clasificar" parece una decisión y no una avería.
+  const why = res.aiError ? `: ${AI_ERROR_TEXT[res.aiError] ?? 'la IA no ha respondido'}` : '';
+  return `Guardado en ${list}${why}`;
 }
 
 /** A token whose name contains "trabajo" (any case) is a work token. */

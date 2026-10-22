@@ -697,3 +697,33 @@ describe('causeMessage', () => {
     expect(causeMessage(a)).toBe('unknown');
   });
 });
+
+describe('cuando la IA falla, la captura dice por qué', () => {
+  it.each([
+    ['sin saldo', new Error('{"error":{"code":402,"message":"Your prepayment credits are depleted."}}'), 'Gemini se ha quedado sin saldo'],
+    ['sin clave', new Error('Falta GEMINI_API_KEY'), 'falta la clave de Gemini'],
+    ['modelo retirado', new Error('{"code":404,"status":"NOT_FOUND"}'), 'ese modelo de Gemini ya no existe'],
+    ['cuota', new Error('{"code": 429, "status": "RESOURCE_EXHAUSTED"}'), 'Gemini no acepta más peticiones por ahora'],
+    ['tarda demasiado', new Error('Tiempo de espera agotado'), 'la IA ha tardado demasiado'],
+    ['cualquier otra cosa', new TypeError('fetch failed'), 'la IA no ha respondido'],
+  ])('%s', async (_name, err, expected) => {
+    const { deps } = setup(aiThrowing(err));
+    const res = await captureText({ text: 'llamar al fontanero', origin: 'web' }, deps);
+    expect(res.items[0]).toMatchObject({ needsReview: true, title: 'llamar al fontanero' });
+    expect(captureMessage(res)).toBe(`Guardado en Sin clasificar: ${expected}`);
+  });
+
+  it('una captura que sí se clasifica no arrastra ningún motivo', async () => {
+    const { deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const res = await captureText({ text: 'comprar leche', origin: 'web' }, deps);
+    expect(res.aiError).toBeUndefined();
+    expect(captureMessage(res)).toBe('Guardado en Compras');
+  });
+
+  it('Trabajo no pasa por la IA: nunca puede traer un motivo', async () => {
+    const { deps } = setup(aiThrowing(new Error('Falta GEMINI_API_KEY')));
+    const res = await captureText({ text: 'informe', area: 'trabajo', origin: 'web' }, deps);
+    expect(res.aiError).toBeUndefined();
+    expect(captureMessage(res)).toBe('Guardado en Tareas · Trabajo');
+  });
+});

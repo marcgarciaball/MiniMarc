@@ -133,7 +133,7 @@ describe('POST /api/capture', () => {
     expect(db.tables.items[0]).toMatchObject({ origin: 'extension', area: 'trabajo' });
   });
 
-  it('si la IA falla responde 200 con "Guardado en Sin clasificar"', async () => {
+  it('si la IA falla responde 200 y el mensaje dice por qué (Siri lo lee)', async () => {
     const { deps } = setup({
       async generateJson() {
         throw new Error('timeout');
@@ -143,7 +143,7 @@ describe('POST /api/capture', () => {
       },
     });
     const body = await (await handleCapture(post({ text: 'algo' }), deps)).json();
-    expect(body.message).toBe('Guardado en Sin clasificar');
+    expect(body.message).toBe('Guardado en Sin clasificar: la IA no ha respondido');
     expect(body.items[0]).toMatchObject({ title: 'algo', needsReview: true, area: null });
   });
 

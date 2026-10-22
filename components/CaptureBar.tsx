@@ -327,12 +327,14 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
             </button>
           </div>
 
-          {/* While it saves: the wait made visible, outside __more so it also shows with the card closed. */}
+          {/* While it saves: a hairline that travels the card's edge. Absolute, so nothing jumps. */}
           {pending && (
-            <p className="app-capture__status" role="status">
-              <span className="app-capture__status-sheen ui-skeleton" aria-hidden />
-              <span className="app-capture__status-text">{captureBusyLabel(kind, work)}</span>
-            </p>
+            <>
+              <span className="app-capture__progress" aria-hidden />
+              <span className="ui-visually-hidden" role="status">
+                {captureBusyLabel(kind, work)}
+              </span>
+            </>
           )}
 
           <div className="app-capture__more" inert={!open}>

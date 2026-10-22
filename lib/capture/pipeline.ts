@@ -24,7 +24,13 @@ export const DEDUP_WINDOW_MS = 30_000;
 export type CaptureInput = { text: string; area?: 'trabajo'; origin: Origin };
 /** A special date saved from a capture (`kind: 'fecha'`); a birthday has no `id`. */
 export type CapturedDate = Pick<PersonDate, 'personId' | 'label' | 'date'> & { personName: string };
-export type CaptureResult = { items: Item[]; eventIds: string[]; dates?: CapturedDate[] };
+export type CaptureResult = {
+  items: Item[];
+  eventIds: string[];
+  dates?: CapturedDate[];
+  /** Por qué no se clasificó (causeMessage). Solo cuando la IA falló: el aviso lo cuenta. */
+  aiError?: string;
+};
 
 export interface CaptureDeps {
   ai: AiProvider;
@@ -101,17 +107,19 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
   }
 
   let classified: Classification[] = [];
+  let aiError: string | undefined;
   try {
     const people = (await deps.people.listPeople()).map((p) => p.name);
     classified = await classify(text, { now: deps.now, tz: deps.tz ?? DEFAULT_TZ, people }, deps.ai);
   } catch (err) {
+    aiError = causeMessage(err);
     // ClassifyError (timeout, daily cap, invalid JSON) or anything else: fall through to "Sin clasificar".
     // Logged (never the text) so a capture that lands in Sin clasificar says why.
-    console.error('classify failed:', causeMessage(err));
+    console.error('classify failed:', aiError);
   }
   const unclassified = (): NewItem => ({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text });
   if (classified.length === 0) {
-    return { items: [await deps.items.createItem(unclassified())], eventIds: [] };
+    return { items: [await deps.items.createItem(unclassified())], eventIds: [], ...(aiError && { aiError }) };
   }
 
   // Each element is saved on its own: one failure does not undo or block the others.

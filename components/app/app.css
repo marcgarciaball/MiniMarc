@@ -1085,6 +1085,7 @@
 }
 
 .app-capture__bar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -1150,25 +1151,48 @@
   color: var(--label-tertiary);
 }
 
-/* While a capture is in flight: a sheen bar and a word, never a spinner (see Skeleton.tsx). */
-.app-capture__status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 0 12px 10px;
-}
-
-.app-capture__status-sheen {
-  flex: 1;
-  height: 3px;
+/*
+ * While a capture is in flight: a hairline that travels the bottom edge of the bar. Absolutely
+ * positioned, so the card does not grow and nothing jumps. No spinner (see ui/Skeleton.tsx).
+ */
+.app-capture__progress {
+  position: absolute;
+  z-index: 1;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  overflow: hidden;
+  height: 2px;
   border-radius: var(--radius-pill);
 }
 
-.app-capture__status-text {
-  flex: none;
-  color: var(--label-secondary);
-  font-size: 13px;
+.app-capture__progress::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: app-capture-travel 1.15s var(--ease-ios, ease-in-out) infinite;
+}
+
+@keyframes app-capture-travel {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(322%);
+  }
+}
+
+/* Sin movimiento: la línea se queda quieta y tenue, pero sigue diciendo que algo pasa. */
+@media (prefers-reduced-motion: reduce) {
+  .app-capture__progress::after {
+    width: 100%;
+    background: var(--accent);
+    opacity: 0.35;
+    animation: none;
+  }
 }
 
 /* What the focused card adds: it opens (0fr → 1fr) on the spring; inert while closed. */
