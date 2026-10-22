@@ -6,6 +6,7 @@ import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { listSinClasificar } from '@/lib/actions/items';
 import { getDeps } from '@/lib/actions/server';
 import { madridToday } from '@/lib/actions/today';
+import { loadPhotoMap } from '@/lib/photos/server';
 import type { Area } from '@/lib/db/types';
 
 export const metadata: Metadata = { title: 'Sin clasificar' };
@@ -25,6 +26,7 @@ async function SinClasificar({ searchParams }: { searchParams: SearchParams }) {
   const area: Area = (await searchParams).area === 'trabajo' ? 'trabajo' : 'personal';
   const deps = await getDeps();
   const [items, people] = await Promise.all([listSinClasificar(deps, area), deps.people.listPeople()]);
+  const photos = await loadPhotoMap(items);
   return (
     <ItemsScreen
       key={area}
@@ -41,6 +43,7 @@ async function SinClasificar({ searchParams }: { searchParams: SearchParams }) {
       emptyText={area === 'trabajo' ? 'No hay nada de trabajo sin clasificar.' : 'Todo lo personal está clasificado.'}
       people={people}
       reviewMode
+      photos={photos}
     />
   );
 }

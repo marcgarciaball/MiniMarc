@@ -231,6 +231,18 @@
   background: var(--fill-pressed);
 }
 
+/* First photo of the item, small, at the end of the row. */
+.app-item__thumb {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  margin-left: 8px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+  box-shadow: var(--glass-rim);
+  background: var(--accent-tint);
+}
+
 .app-item__notice {
   display: flex;
   flex-wrap: wrap;

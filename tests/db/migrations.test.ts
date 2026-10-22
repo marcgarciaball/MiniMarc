@@ -89,3 +89,41 @@ describe('0004_cron.sql', () => {
     expect(s).not.toMatch(/vault\.create_secret/);
   });
 });
+
+describe('0005_photos.sql', () => {
+  const s = sql('0005_photos.sql');
+
+  it('crea el bucket privado photos con límite de tamaño y tipos de imagen, idempotente', () => {
+    expect(s).toMatch(/insert into storage\.buckets[^;]*values \('photos', 'photos', false, 8388608,/);
+    expect(s).toMatch(/'image\/jpeg', 'image\/png', 'image\/webp', 'image\/heic'/);
+    expect(s).toMatch(/on conflict \(id\) do update set\s+public = false/);
+  });
+
+  it.each(['select', 'insert', 'update', 'delete'])(
+    'storage.objects (%s): solo la carpeta {auth.uid()} y el usuario permitido',
+    (op) => {
+      expect(s).toMatch(new RegExp(`drop policy if exists photos_owner_${op} on storage\\.objects;`));
+      const policy = new RegExp(`create policy photos_owner_${op} on storage\\.objects\\s+for ${op} to authenticated[^;]*;`);
+      const body = s.match(policy)?.[0] ?? '';
+      expect(body).toMatch(/bucket_id = 'photos'/);
+      expect(body).toMatch(/\(storage\.foldername\(name\)\)\[1\] = \(select auth\.uid\(\)\)::text/);
+      expect(body).toMatch(/\(select private\.is_allowed_user\(\)\)/);
+    },
+  );
+
+  it('item_photos: cascada desde items, user_id por defecto auth.uid() y RLS como en 0002', () => {
+    expect(s).toMatch(/create table if not exists public\.item_photos/);
+    expect(s).toMatch(/item_id\s+uuid not null references public\.items\(id\) on delete cascade/);
+    expect(s).toMatch(/user_id\s+uuid not null default auth\.uid\(\)/);
+    expect(s).toMatch(/path\s+text not null/);
+    expect(s).toMatch(/alter table public\.item_photos enable row level security;/);
+    expect(s).toMatch(/drop policy if exists item_photos_owner on public\.item_photos;/);
+    expect(s).toMatch(
+      /create policy item_photos_owner on public\.item_photos[^;]*using \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\)\s+with check \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\);/,
+    );
+  });
+
+  it('el bucket no es público', () => {
+    expect(s).not.toMatch(/'photos', 'photos', true/);
+  });
+});

@@ -6,6 +6,7 @@ import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { listTareas } from '@/lib/actions/items';
 import { getDeps } from '@/lib/actions/server';
 import { madridToday } from '@/lib/actions/today';
+import { loadPhotoMap } from '@/lib/photos/server';
 import type { Area } from '@/lib/db/types';
 
 export const metadata: Metadata = { title: 'Tareas' };
@@ -24,6 +25,7 @@ async function Tareas({ searchParams }: { searchParams: SearchParams }) {
   const area: Area = (await searchParams).area === 'trabajo' ? 'trabajo' : 'personal';
   const deps = await getDeps();
   const items = await listTareas(deps, area);
+  const photos = await loadPhotoMap(items);
   return (
     <ItemsScreen
       // A fresh screen per area: the two lists never share state.
@@ -33,6 +35,7 @@ async function Tareas({ searchParams }: { searchParams: SearchParams }) {
       before={<AreaSelector area={area} />}
       sections={[{ key: area, items }]}
       syncNotices
+      photos={photos}
       emptyText={area === 'trabajo' ? 'No hay tareas de trabajo pendientes.' : 'No hay tareas personales pendientes.'}
       newItem={{ type: 'tarea', area, label: area === 'trabajo' ? 'Nueva tarea de trabajo' : 'Nueva tarea' }}
     />

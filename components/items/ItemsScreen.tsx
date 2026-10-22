@@ -8,6 +8,7 @@ import type { MovePatch } from '@/lib/actions/items';
 import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, Person } from '@/lib/db/types';
 import { formatDue, TYPE_LABELS } from '@/lib/format';
+import type { PhotoMap } from '@/lib/photos/view';
 import { ItemRow } from './ItemRow';
 import { ItemSheet, type NewItemDefaults, type SheetMode } from './ItemSheet';
 import { SwipeRow } from './SwipeRow';
@@ -34,6 +35,8 @@ export type ItemsScreenProps = {
   before?: ReactNode;
   /** Tareas: rows whose Calendar sync failed say so and offer "Reintentar". */
   syncNotices?: boolean;
+  /** itemId → photos (signed URLs), from loadPhotoMap on the server. */
+  photos?: PhotoMap;
 };
 
 type ToastState = NonNullable<ToastProps['toast']>;
@@ -57,6 +60,7 @@ export function ItemsScreen({
   leading,
   before,
   syncNotices,
+  photos = {},
 }: ItemsScreenProps) {
   const [, startTransition] = useTransition();
   const [removed, removeOptimistic] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
@@ -192,6 +196,7 @@ export function ItemsScreen({
                       checked={checked.includes(item.id)}
                       onToggle={() => tick(item)}
                       onOpen={() => openEdit(item)}
+                      thumb={photos[item.id]?.[0]?.url}
                       notice={
                         syncNotices &&
                         item.syncError && (
@@ -215,6 +220,7 @@ export function ItemsScreen({
         open={sheet.open}
         mode={sheet.mode}
         people={people}
+        photos={sheet.mode.kind === 'edit' ? photos[sheet.mode.item.id] : undefined}
         reviewMode={reviewMode}
         onClose={closeSheet}
         onCreate={create}

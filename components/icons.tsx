@@ -180,6 +180,49 @@ export function ChevronLeftIcon() {
   );
 }
 
+export function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 12 20" aria-hidden {...line} strokeWidth={2.4}>
+      <path d="M2.5 2L10 10l-7.5 8" />
+    </svg>
+  );
+}
+
+export function CameraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <path d="M4.5 7.5h3l1.6-2.3h5.8l1.6 2.3h3a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V9a1.5 1.5 0 0 1 1.5-1.5z" />
+      <circle cx="12" cy="13" r="3.6" />
+    </svg>
+  );
+}
+
+export function PhotoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="M4 17l4.6-4.3 3.4 3 2.8-2.4L20 17.6" />
+    </svg>
+  );
+}
+
+export function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line} strokeWidth={2}>
+      <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
+    </svg>
+  );
+}
+
+export function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <path d="M4.5 6.5h15M9.5 6.5V4.8a.8.8 0 0 1 .8-.8h3.4a.8.8 0 0 1 .8.8v1.7M6.5 6.5l.9 12.2a1.5 1.5 0 0 0 1.5 1.3h6.2a1.5 1.5 0 0 0 1.5-1.3l.9-12.2M10 10.5v6M14 10.5v6" />
+    </svg>
+  );
+}
+
 /** Completion circle for task rows (iOS Reminders style); filled with a check once done. */
 export function CheckCircle({ checked }: { checked: boolean }) {
   return (

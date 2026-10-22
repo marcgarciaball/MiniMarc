@@ -7,7 +7,9 @@ import type { MovePatch } from '@/lib/actions/items';
 import type { ActionResult } from '@/lib/actions/result';
 import type { Area, Item, ItemType, Person } from '@/lib/db/types';
 import { originalText } from '@/lib/format';
+import type { PhotoView } from '@/lib/photos/view';
 import { madridDateTime } from '@/lib/time';
+import { ItemPhotos } from './ItemPhotos';
 
 export type NewItemDefaults = { type: ItemType; area?: Area; personId?: string; label: string };
 
@@ -29,6 +31,8 @@ export type ItemSheetProps = {
   open: boolean;
   mode: SheetMode;
   people: Person[];
+  /** The edited item's photos (signed URLs from the server). */
+  photos?: PhotoView[];
   /** Sin clasificar: saving files the item (clears needsReview). */
   reviewMode?: boolean;
   onClose: () => void;
@@ -75,7 +79,7 @@ export function ItemSheet(props: ItemSheetProps) {
 type ItemFormProps = ItemSheetProps & { startTransition: TransitionStartFunction };
 
 function ItemForm(props: ItemFormProps) {
-  const { mode, people, reviewMode, onClose, onCreate, onSave, onComplete, onArchive, onDelete, startTransition } = props;
+  const { mode, people, photos, reviewMode, onClose, onCreate, onSave, onComplete, onArchive, onDelete, startTransition } = props;
   const item = mode.kind === 'edit' ? mode.item : null;
   const defaults = mode.kind === 'new' ? mode.defaults : null;
   const [type, setType] = useState<ItemType>(item?.type ?? defaults?.type ?? 'tarea');
@@ -141,6 +145,12 @@ function ItemForm(props: ItemFormProps) {
       {source && (
         <InsetList header="Texto original">
           <p className="app-source-text">{source}</p>
+        </InsetList>
+      )}
+
+      {item && (
+        <InsetList header="Fotos">
+          <ItemPhotos itemId={item.id} photos={photos ?? []} />
         </InsetList>
       )}
 

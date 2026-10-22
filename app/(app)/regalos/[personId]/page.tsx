@@ -9,6 +9,7 @@ import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { listRegalos } from '@/lib/actions/items';
 import { getDeps } from '@/lib/actions/server';
 import { madridToday } from '@/lib/actions/today';
+import { loadPhotoMap } from '@/lib/photos/server';
 
 export const metadata: Metadata = { title: 'Regalos' };
 
@@ -35,6 +36,7 @@ async function Person({ params }: { params: Params }) {
   const group = people.find((g) => g.person.id === personId);
   if (!group) notFound();
   const { person, items } = group;
+  const photos = await loadPhotoMap(items);
   return (
     <ItemsScreen
       key={person.id}
@@ -46,6 +48,7 @@ async function Person({ params }: { params: Params }) {
       emptyText={`Sin ideas de regalo para ${person.name}.`}
       people={people.map((g) => g.person)}
       hidePerson
+      photos={photos}
       newItem={{ type: 'regalo', personId: person.id, label: 'Nuevo regalo' }}
     />
   );

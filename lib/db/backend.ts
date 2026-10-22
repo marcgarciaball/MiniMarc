@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type TableName = 'items' | 'people';
+export type TableName = 'items' | 'people' | 'item_photos';
 export type Row = Record<string, unknown>;
 
 /** Filtros combinados con AND. */
@@ -14,6 +14,8 @@ export interface Where {
   lt?: Record<string, string>;
   /** Columna de timestamp >= valor ISO. */
   gte?: Record<string, string>;
+  /** Columna con uno de estos valores. */
+  in?: Record<string, unknown[]>;
 }
 
 /** Backend mínimo sobre el que se construyen los repositorios. */
@@ -38,6 +40,7 @@ function applyWhere<Q extends Record<string, any>>(q: Q, where: Where = {}): Q {
   for (const k of where.notNull ?? []) q = q.not(k, 'is', null);
   for (const [k, v] of Object.entries(where.lt ?? {})) q = q.lt(k, v);
   for (const [k, v] of Object.entries(where.gte ?? {})) q = q.gte(k, v);
+  for (const [k, v] of Object.entries(where.in ?? {})) q = q.in(k, v);
   return q;
 }
 

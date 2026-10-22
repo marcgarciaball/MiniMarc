@@ -183,6 +183,13 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 
 **Si `pg_cron` o `pg_net` no están disponibles en el plan Free:** la migración se aplica igual, sin el trabajo, y muestra un aviso. Usa un cron externo gratuito, por ejemplo https://cron-job.org: crea un trabajo que llame cada hora (minuto 0) a `https://mini-marc-personal.vercel.app/api/cron/morning`, método `POST` (vale también `GET`), con la cabecera `Authorization: Bearer <CRON_SECRET>`.
 
+## 8. Fotos y "Compartir" en Android
+
+1. Aplica la migración `0005_photos.sql` (`npx supabase db push`, o pégala en el SQL Editor). Crea el bucket privado `photos` (máximo 8 MB por imagen; JPEG, PNG, WebP o HEIC), sus políticas (cada usuario solo su carpeta y solo el correo permitido) y la tabla `item_photos`. Compruébalo en **Storage**: el bucket `photos` debe aparecer como **Private**.
+2. Las fotos se reducen en el navegador antes de subirlas (1600 px, WebP o JPEG), para que el 1 GB gratuito dure. Al purgar la papelera (30 días) el cron borra también sus imágenes; mientras un elemento está en la papelera, sus fotos se conservan.
+3. **Compartir en Android:** "Agente" aparece en el menú **Compartir** de Android (texto, enlaces e imágenes) solo después de **reinstalar o actualizar la PWA** en el Pixel: Chrome lee el `share_target` del manifiesto al instalarla. Si no aparece, desinstala la app de la pantalla de inicio y vuelve a instalarla desde Chrome (**⋮ → Instalar aplicación**). Lo compartido acaba en **Recién añadido** con un aviso de dónde se ha guardado: texto y enlaces pasan por la captura automática; las imágenes crean una idea con la foto.
+4. **iPhone:** iOS no admite `share_target` en las PWA, así que "Agente" no saldrá en la hoja de Compartir de Safari. Más adelante lo cubrirá un atajo de Siri (ver `docs/siri.md`).
+
 ## Verificación
 
 Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas deben estar marcadas.

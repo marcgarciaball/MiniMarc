@@ -29,6 +29,8 @@ describe('isPublicPath', () => {
     '/auth',
     '/icons',
     '/tareas',
+    // Android share target: session only (the proxy sends it to /login).
+    '/compartir',
   ])('%s is protected', (p) => {
     expect(isPublicPath(p)).toBe(false);
   });

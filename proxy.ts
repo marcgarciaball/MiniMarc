@@ -44,7 +44,9 @@ export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   url.pathname = '/login';
   url.search = data?.claims ? '?error=no_autorizado' : '';
-  return withCookies(NextResponse.redirect(url), response);
+  // 303 for a POST (the Android share target, /compartir), so the browser follows with a GET.
+  const status = request.method === 'GET' || request.method === 'HEAD' ? 307 : 303;
+  return withCookies(NextResponse.redirect(url, status), response);
 }
 
 /** Carries any cookies Supabase set (refresh / sign-out) onto a new response. */

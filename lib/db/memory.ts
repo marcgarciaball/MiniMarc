@@ -17,6 +17,7 @@ function matches(row: Row, where: Where = {}): boolean {
     const cur = row[k];
     if (cur == null || Date.parse(String(cur)) < Date.parse(v)) return false;
   }
+  for (const [k, v] of Object.entries(where.in ?? {})) if (!v.includes(row[k])) return false;
   return true;
 }
 
@@ -25,7 +26,7 @@ export function createMemoryBackend(opts: { now?: () => Date } = {}): DbBackend 
   tables: Record<TableName, Row[]>;
 } {
   const now = opts.now ?? (() => new Date());
-  const tables: Record<TableName, Row[]> = { items: [], people: [] };
+  const tables: Record<TableName, Row[]> = { items: [], people: [], item_photos: [] };
 
   return {
     tables,

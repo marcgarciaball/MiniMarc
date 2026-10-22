@@ -13,10 +13,12 @@ export type ItemRowProps = {
   onOpen: () => void;
   /** Shown under the row (e.g. a Calendar sync problem). */
   notice?: ReactNode;
+  /** Signed URL of the item's first photo, shown small at the end of the row. */
+  thumb?: string;
 };
 
 /** A list row with a completion circle (44pt target) and a tappable body that opens the edit sheet. */
-export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, notice }: ItemRowProps) {
+export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, notice, thumb }: ItemRowProps) {
   return (
     <>
       <div className="ui-row app-item">
@@ -38,9 +40,16 @@ export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, not
             {subtitle && <span className="ui-row__subtitle">{subtitle}</span>}
           </span>
           {detail && <span className="ui-row__detail">{detail}</span>}
+          {thumb && <RowThumb url={thumb} />}
         </button>
       </div>
       {notice}
     </>
   );
+}
+
+/** Small photo at the end of a list row (decorative: the title says what it is). */
+export function RowThumb({ url }: { url: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- signed Supabase URL, no optimizer
+  return <img className="app-item__thumb" src={url} alt="" loading="lazy" decoding="async" />;
 }

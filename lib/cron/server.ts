@@ -3,9 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
 import { calendarGatewayFor } from '@/lib/calendar/server';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
+import { createSupabasePhotosRepo } from '@/lib/db/photos';
 import { createPushSubscriptionsRepo } from '@/lib/db/push';
 import { createSettingsRepo } from '@/lib/db/settings';
 import { buildDigestFor } from '@/lib/digest/server';
+import { createSupabasePhotoStorage } from '@/lib/photos/storage';
 import { sendPush } from '@/lib/push/send';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runMorning, type MorningResult } from './morning';
@@ -34,5 +36,8 @@ export async function morningRun(now = new Date()): Promise<MorningResult | { sk
     buildDigest: (date, settings) => buildDigestFor({ client: admin, userId, date, now, settings, settingsRepo }),
     subscriptions: () => createPushSubscriptionsRepo(admin, { userId }).list(),
     sendPush: (sub, payload) => sendPush(sub, payload),
+    // Service role, scoped: rows by user_id, objects only under '{userId}/'.
+    photos: createSupabasePhotosRepo(admin, { userId }),
+    storage: createSupabasePhotoStorage(admin, { userId }),
   });
 }

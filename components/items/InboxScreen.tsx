@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useOptimistic, useRef, useState, useTransition } from 'react';
+import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { deleteItem, moveItem, undoDelete } from '@/app/actions/items';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
 import type { MovePatch } from '@/lib/actions/items';
 import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, ItemStatus, Person } from '@/lib/db/types';
 import { destinationLabel, formatDay } from '@/lib/format';
+import type { PhotoMap } from '@/lib/photos/view';
 import { madridDateTime } from '@/lib/time';
+import { RowThumb } from './ItemRow';
 import { ItemSheet, type SheetMode } from './ItemSheet';
 
 export type InboxScreenProps = {
@@ -17,6 +19,10 @@ export type InboxScreenProps = {
   personal: Item[];
   trabajo: Item[];
   people: Person[];
+  /** itemId → photos (signed URLs), from loadPhotoMap on the server. */
+  photos?: PhotoMap;
+  /** Toast shown on arrival, e.g. where a share from Android was saved (`?guardado=`). */
+  notice?: string;
 };
 
 type ToastState = NonNullable<ToastProps['toast']>;
@@ -37,12 +43,20 @@ function createdLabel(item: Item, today: string): string {
  * Rows stay after completing or archiving (this is a log of arrivals); deleting hides the row
  * and offers "Deshacer".
  */
-export function InboxScreen({ today, personal, trabajo, people }: InboxScreenProps) {
+export function InboxScreen({ today, personal, trabajo, people, photos = {}, notice }: InboxScreenProps) {
   const [, startTransition] = useTransition();
   const [removed, removeOptimistic] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
   const [sheet, setSheet] = useState<{ open: boolean; item: Item | null }>({ open: false, item: null });
-  const [toast, setToast] = useState<ToastState | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(() => (notice ? { id: 0, message: notice } : null));
   const toastId = useRef(0);
+
+  // The toast is shown once: drop `?guardado=` so a reload or Back does not repeat it.
+  useEffect(() => {
+    if (!notice) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('guardado');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  }, [notice]);
 
   const names = new Map(people.map((p) => [p.id, p.name]));
   const sections = [
@@ -122,6 +136,7 @@ export function InboxScreen({ today, personal, trabajo, people }: InboxScreenPro
                         <span className="ui-row__subtitle">{subtitle(item)}</span>
                       </span>
                       <span className="ui-row__detail">{createdLabel(item, today)}</span>
+                      {photos[item.id]?.[0] && <RowThumb url={photos[item.id][0].url} />}
                     </button>
                     <button
                       type="button"
@@ -143,6 +158,7 @@ export function InboxScreen({ today, personal, trabajo, people }: InboxScreenPro
         open={sheet.open}
         mode={mode}
         people={people}
+        photos={sheet.item ? photos[sheet.item.id] : undefined}
         // An unclassified item is filed by saving it, as in Sin clasificar.
         reviewMode={sheet.item?.needsReview}
         onClose={closeSheet}

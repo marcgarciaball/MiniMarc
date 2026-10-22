@@ -6,17 +6,21 @@
  *   2. Maintenance, capped per run and never blocking the digest:
  *      a. Calendar sync retry for items with a syncError, and removal of events left on done,
  *         archived or deleted items (orphaned reminders, review I-3). Deleted items included.
- *      b. Purge of items soft-deleted more than 30 days ago, deleting their event first.
+ *      b. Purge of items soft-deleted more than 30 days ago, deleting their event and their photos'
+ *         storage objects first (the item_photos rows go with the item, on delete cascade). If
+ *         either fails, the item stays and the next hourly run retries.
  * The response holds counts only: no titles, no headline.
  */
 import { timingSafeEqual, createHash } from 'node:crypto';
 import type { CalendarGateway } from '@/lib/calendar/client';
 import { taskSyncHook, wantsEvent } from '@/lib/calendar/taskSync';
 import type { ItemsRepo } from '@/lib/db/items';
+import type { PhotosRepo } from '@/lib/db/photos';
 import type { PushSub } from '@/lib/db/push';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item } from '@/lib/db/types';
 import type { Digest } from '@/lib/digest/build';
+import type { PhotoStorage } from '@/lib/photos/storage';
 import type { PushPayload } from '@/lib/push/send';
 import { toMadrid } from '@/lib/time';
 import { shouldSendDigest } from './shouldSendDigest';
@@ -32,6 +36,9 @@ export interface MorningDeps {
   buildDigest: (date: string, settings: Settings) => Promise<Digest>;
   subscriptions: () => Promise<PushSub[]>;
   sendPush: (sub: PushSub, payload: PushPayload) => Promise<void>;
+  /** Scoped to the user, like `items`. */
+  photos: Pick<PhotosRepo, 'listPhotos'>;
+  storage: Pick<PhotoStorage, 'remove'>;
 }
 
 export interface MorningResult {
@@ -129,6 +136,15 @@ async function maintain(deps: MorningDeps, r: MorningResult): Promise<void> {
     const old = (await deps.items.listDeletedBefore(PURGE_AFTER_DAYS)).slice(0, MAINTENANCE_CAP);
     for (const item of old) {
       if (item.calendarEventId && !(await resync(item))) continue;
+      const photos = await deps.photos.listPhotos(item.id);
+      if (photos.length > 0) {
+        try {
+          await deps.storage.remove(photos.map((p) => p.path));
+        } catch {
+          r.maintenanceFailed = true;
+          continue;
+        }
+      }
       await deps.items.hardDelete(item.id);
       r.purged++;
     }

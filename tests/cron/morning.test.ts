@@ -3,6 +3,7 @@ import { CalendarError, type CalendarGateway } from '@/lib/calendar/client';
 import { digestPayload, handleMorningRequest, MAINTENANCE_CAP, runMorning, type MorningDeps } from '@/lib/cron/morning';
 import { createItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
+import { createPhotosRepo } from '@/lib/db/photos';
 import type { PushSub } from '@/lib/db/push';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item, NewItem } from '@/lib/db/types';
@@ -106,6 +107,7 @@ function setup(opts: {
   failPushFor?: string[];
   digest?: Digest | Error;
   calendarFail?: Error;
+  storageFail?: boolean;
 } = {}) {
   let now = opts.now ?? AT_8;
   const clock = () => now;
@@ -115,6 +117,14 @@ function setup(opts: {
   const cal = fakeCalendar(opts.calendarFail);
   const sent: { endpoint: string; payload: PushPayload }[] = [];
   const built: string[] = [];
+  const photos = createPhotosRepo(db);
+  const removedObjects: string[] = [];
+  const storage = {
+    async remove(paths: string[]) {
+      if (opts.storageFail) throw new Error('storage down');
+      removedObjects.push(...paths);
+    },
+  };
   const deps: MorningDeps = {
     now: opts.now ?? AT_8,
     settings: settings.repo,
@@ -133,10 +143,12 @@ function setup(opts: {
       if (opts.failPushFor?.includes(sub.endpoint)) throw new Error('push down');
       sent.push({ endpoint: sub.endpoint, payload });
     },
+    photos,
+    storage,
   };
   const create = (n: NewItem) => items.createItem(n);
   const setNow = (d: Date) => (now = d);
-  return { deps, db, items, settings, cal, sent, built, create, setNow };
+  return { deps, db, items, settings, cal, sent, built, create, setNow, photos, removedObjects };
 }
 
 describe('runMorning · resumen', () => {
@@ -292,6 +304,39 @@ describe('runMorning · mantenimiento', () => {
     expect(r.purged).toBe(2);
     expect(t.cal.deleted).toContain('ev-old');
     expect(t.db.tables.items.map((x) => x.id)).toEqual([recent.id]);
+  });
+
+  it('al purgar borra también las fotos del almacenamiento; el borrado suave las conserva', async () => {
+    const t = setup({ now: AT_7 });
+    const old = await t.create({ type: 'idea', title: 'vieja con fotos' });
+    const recent = await t.create({ type: 'idea', title: 'reciente con foto' });
+    await t.photos.addPhoto({ itemId: old.id, path: `u/${old.id}/a.webp`, width: 10, height: 10 });
+    await t.photos.addPhoto({ itemId: old.id, path: `u/${old.id}/b.webp`, width: 10, height: 10 });
+    await t.photos.addPhoto({ itemId: recent.id, path: `u/${recent.id}/c.webp`, width: 10, height: 10 });
+    t.setNow(new Date(AT_7.getTime() - 31 * DAY));
+    await t.items.softDeleteItem(old.id);
+    t.setNow(new Date(AT_7.getTime() - 29 * DAY));
+    await t.items.softDeleteItem(recent.id);
+    t.setNow(AT_7);
+    const r = await runMorning(t.deps);
+    expect(r.purged).toBe(1);
+    expect(t.removedObjects.sort()).toEqual([`u/${old.id}/a.webp`, `u/${old.id}/b.webp`]);
+    expect(t.db.tables.items.map((x) => x.id)).toEqual([recent.id]);
+  });
+
+  it('si no se pueden borrar las fotos, no purga el elemento (se reintenta la próxima hora)', async () => {
+    const t = setup({ now: AT_7, storageFail: true });
+    const old = await t.create({ type: 'idea', title: 'vieja con foto' });
+    const plain = await t.create({ type: 'idea', title: 'vieja sin foto' });
+    await t.photos.addPhoto({ itemId: old.id, path: `u/${old.id}/a.webp`, width: 10, height: 10 });
+    t.setNow(new Date(AT_7.getTime() - 31 * DAY));
+    await t.items.softDeleteItem(old.id);
+    await t.items.softDeleteItem(plain.id);
+    t.setNow(AT_7);
+    const r = await runMorning(t.deps);
+    expect(r.purged).toBe(1);
+    expect(r.maintenanceFailed).toBe(true);
+    expect(t.db.tables.items.map((x) => x.id)).toEqual([old.id]);
   });
 
   it('no purga un elemento cuyo evento no se pudo borrar (se reintenta la próxima hora)', async () => {
