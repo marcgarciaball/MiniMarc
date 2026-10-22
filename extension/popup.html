@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Agente Personal</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        width: 360px;
+        padding: 12px;
+      }
+    </style>
+    <script type="module" src="dist/popup.js"></script>
+  </head>
+  <body>
+    <div class="stack">
+      <div class="row">
+        <h1>Captura rápida</h1>
+        <a href="options.html" id="options-link" title="Opciones">Opciones</a>
+      </div>
+
+      <div id="no-token" class="glass" hidden>
+        <p style="margin: 0">Falta el token de la app. <a href="options.html" id="setup-link">Configúralo en Opciones</a>.</p>
+      </div>
+
+      <form id="capture" class="glass stack" autocomplete="off">
+        <textarea
+          id="text"
+          name="text"
+          rows="2"
+          maxlength="2000"
+          placeholder="Escribe y pulsa Intro"
+          aria-label="Texto a capturar"
+          autofocus
+        ></textarea>
+        <fieldset class="chips" aria-label="Tipo">
+          <input type="radio" name="kind" id="k-auto" value="auto" checked /><label for="k-auto">Auto</label>
+          <input type="radio" name="kind" id="k-tarea" value="tarea" /><label for="k-tarea">Tarea</label>
+          <input type="radio" name="kind" id="k-idea" value="idea" /><label for="k-idea">Idea</label>
+          <input type="radio" name="kind" id="k-compra" value="compra" /><label for="k-compra">Compra</label>
+          <input type="radio" name="kind" id="k-regalo" value="regalo" /><label for="k-regalo">Regalo</label>
+        </fieldset>
+        <div class="row">
+          <fieldset class="segment" id="area" aria-label="Área">
+            <input type="radio" name="area" id="a-personal" value="personal" checked /><label for="a-personal">Personal</label>
+            <input type="radio" name="area" id="a-trabajo" value="trabajo" /><label for="a-trabajo">Trabajo</label>
+          </fieldset>
+          <button type="submit" class="primary" id="send">Guardar</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+
+      <section id="hoy" class="glass stack" aria-label="Hoy">
+        <p id="headline" class="headline">Hoy</p>
+        <p id="hoy-status" class="status"></p>
+        <div id="events-box" hidden>
+          <h2>Agenda</h2>
+          <ul id="events" class="list"></ul>
+        </div>
+        <div id="personal-box" hidden>
+          <h2>Personal</h2>
+          <ul id="personal" class="list"></ul>
+        </div>
+        <div id="trabajo-box" hidden>
+          <h2>Trabajo</h2>
+          <ul id="trabajo" class="list"></ul>
+        </div>
+        <div class="row">
+          <span id="unclassified" class="muted"></span>
+          <a id="open-app" href="https://mini-marc-personal.vercel.app/hoy" target="_blank" rel="noopener">Abrir la app</a>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

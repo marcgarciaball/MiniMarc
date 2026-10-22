@@ -9,6 +9,8 @@ export const PUBLIC_PATHS = [
   '/privacidad',
   '/auth/',
   '/api/capture',
+  // Token-protected digest for the Chrome extension.
+  '/api/hoy',
   '/api/cron/',
   '/api/push/',
   // PWA files: the browser fetches them without cookies (also excluded in the proxy matcher).

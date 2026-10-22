@@ -18,3 +18,19 @@ export function withHeadlineCache(ai: AiProvider, date: string, repo: SettingsRe
     },
   };
 }
+
+/**
+ * For GET /api/hoy (the extension): today's cached headline, or an error so buildDigest falls
+ * back to "Buenos días". Never calls the AI, so the extension never spends the day's quota.
+ */
+export function cachedHeadlineOnly(date: string, current: Settings): AiProvider {
+  return {
+    async generateJson() {
+      throw new Error('AI disabled');
+    },
+    async generateText() {
+      if (current.headlineDate === date && current.headline) return current.headline;
+      throw new Error('no cached headline');
+    },
+  };
+}

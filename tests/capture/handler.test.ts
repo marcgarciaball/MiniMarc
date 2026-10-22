@@ -264,3 +264,72 @@ describe('captureMessage', () => {
     expect(captureMessage({ items, eventIds })).toBe(msg);
   });
 });
+
+describe('POST /api/capture con type (chips de la extensión)', () => {
+  const aiForbidden: AiProvider = {
+    async generateJson() {
+      throw new Error('AI must not be called');
+    },
+    async generateText() {
+      throw new Error('AI must not be called');
+    },
+  };
+
+  it.each([
+    ['tarea', undefined, 'Guardado en Tareas · Personal', { type: 'tarea', area: 'personal' }],
+    ['tarea', 'trabajo', 'Guardado en Tareas · Trabajo', { type: 'tarea', area: 'trabajo' }],
+    ['idea', undefined, 'Guardado en Ideas', { type: 'idea' }],
+    ['compra', undefined, 'Guardado en Compras', { type: 'compra' }],
+    ['regalo', undefined, 'Guardado en Regalos', { type: 'regalo', person_id: null }],
+  ])('type %s (area %s) guarda directamente sin IA', async (type, area, message, row: Record<string, unknown>) => {
+    const { db, deps } = setup(aiForbidden);
+    const res = await handleCapture(post({ text: '  Leche de avena  ', type, area, origin: 'extension' }), deps);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.message).toBe(message);
+    expect(body.items).toEqual([
+      { id: expect.any(String), type, title: 'Leche de avena', area: row.area ?? null, needsReview: false },
+    ]);
+    expect(body.eventIds).toEqual([]);
+    expect(db.tables.items).toHaveLength(1);
+    expect(db.tables.items[0]).toMatchObject({
+      ...row,
+      title: 'Leche de avena',
+      origin: 'extension',
+      needs_review: false,
+      source_text: '  Leche de avena  ',
+    });
+  });
+
+  it('un token de Trabajo con type tarea guarda en Tareas · Trabajo', async () => {
+    const { db, deps } = setup(aiForbidden, 'Extensión trabajo');
+    const res = await handleCapture(post({ text: 'informe', type: 'tarea' }), deps);
+    expect((await res.json()).message).toBe('Guardado en Tareas · Trabajo');
+    expect(db.tables.items[0].area).toBe('trabajo');
+  });
+
+  it.each([['cita'], ['auto'], ['nota']])('400 con type desconocido "%s", sin guardar', async (type) => {
+    const { db, deps } = setup(aiForbidden);
+    const res = await handleCapture(post({ text: 'hola', type }), deps);
+    expect(res.status).toBe(400);
+    expect(db.tables.items).toHaveLength(0);
+  });
+
+  it('400 con type y texto vacío', async () => {
+    const { db, deps } = setup(aiForbidden);
+    expect((await handleCapture(post({ text: '  ', type: 'idea' }), deps)).status).toBe(400);
+    expect(db.tables.items).toHaveLength(0);
+  });
+
+  it('500 si la base de datos falla al guardar con type', async () => {
+    const { deps } = setup(aiForbidden);
+    const res = await handleCapture(post({ text: 'algo', type: 'idea' }), {
+      ...deps,
+      async captureDeps(u) {
+        const d = await deps.captureDeps(u);
+        return { ...d, items: { ...d.items, createItem: async () => Promise.reject(new Error('db down')) } };
+      },
+    });
+    expect(res.status).toBe(500);
+  });
+});

@@ -77,3 +77,16 @@ export function createSettingsRepo(client: SupabaseClient, userId: string): Sett
     },
   };
 }
+
+/**
+ * The settings, or the defaults (8 h, default zone, headline not cached) when they cannot be
+ * read, with a no-op repo so nothing is written. Lets /hoy and GET /api/hoy still show the digest.
+ */
+export async function loadSettingsOrDefaults(repo: SettingsRepo): Promise<{ settings: Settings; repo: SettingsRepo }> {
+  try {
+    return { settings: await repo.get(), repo };
+  } catch {
+    const settings: Settings = { digestHour: DEFAULT_DIGEST_HOUR, tz: defaultTz(), lastDigestDate: null, headline: null, headlineDate: null };
+    return { settings, repo: { get: async () => settings, update: async () => {} } };
+  }
+}

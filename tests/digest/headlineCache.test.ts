@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
-import { withHeadlineCache } from '@/lib/digest/headlineCache';
+import { cachedHeadlineOnly, withHeadlineCache } from '@/lib/digest/headlineCache';
 
 function setup(initial: Partial<Settings> = {}, reply: string | Error = 'Día de pan.') {
   const state: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null, ...initial };
@@ -48,5 +48,20 @@ describe('withHeadlineCache', () => {
     const ai = withHeadlineCache(t.ai, '2026-10-22', t.repo, { ...t.state });
     await expect(ai.generateText('p')).rejects.toThrow('429');
     expect(t.state.headline).toBeNull();
+  });
+});
+
+describe('cachedHeadlineOnly (GET /api/hoy, nunca gasta una llamada a la IA)', () => {
+  const base: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null };
+
+  it('devuelve el titular guardado de hoy', async () => {
+    const ai = cachedHeadlineOnly('2026-10-22', { ...base, headline: 'Ya está', headlineDate: '2026-10-22' });
+    expect(await ai.generateText('p')).toBe('Ya está');
+  });
+
+  it('sin titular de hoy lanza (buildDigest usa "Buenos días"); generateJson también lanza', async () => {
+    const ai = cachedHeadlineOnly('2026-10-22', { ...base, headline: 'viejo', headlineDate: '2026-10-21' });
+    await expect(ai.generateText('p')).rejects.toThrow();
+    await expect(ai.generateJson('p', {} as never)).rejects.toThrow();
   });
 });

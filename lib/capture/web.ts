@@ -4,14 +4,13 @@
  * ActionResult so the bar keeps the typed text on any failure. Never logs the text.
  */
 import { createCita, EVENT_ERROR_MESSAGES, parseNewEvent } from '@/lib/actions/events';
-import { parseNewItem, saveNewItem, type ActionDeps } from '@/lib/actions/items';
 import { attempt, UserError, type ActionResult } from '@/lib/actions/result';
-import { taskSyncHook } from '@/lib/calendar/taskSync';
 import type { Item, ItemType } from '@/lib/db/types';
 import { BANDEJA_HREF } from '@/lib/nav';
 import { captureMessage, MAX_CAPTURE_LENGTH } from './handler';
 import { QUICK_KINDS } from './kinds';
 import { captureText, EmptyCaptureError, textFields, type CaptureDeps, type CaptureInput } from './pipeline';
+import { saveTypedItem } from './typed';
 
 export interface WebCaptureDeps {
   /** The signed-in user's pipeline deps (redirects to /login without a session). */
@@ -108,25 +107,14 @@ export async function quickCapture(fd: FormData, deps: WebCaptureDeps): Promise<
 }
 
 async function saveItem(type: ItemType, text: string, fd: FormData, deps: CaptureDeps): Promise<QuickCapture> {
-  const { title, notes } = textFields(text.trim());
-  const form = new FormData();
-  form.set('type', type);
-  form.set('title', title);
-  if (type === 'tarea') {
-    form.set('area', str(fd, 'area') === 'trabajo' ? 'trabajo' : 'personal');
-    const dueDate = str(fd, 'dueDate').trim();
-    const dueTime = str(fd, 'dueTime').trim();
-    if (dueTime && !dueDate) throw new UserError('Indica la fecha.');
-    form.set('dueDate', dueDate);
-    form.set('dueTime', dueTime);
-  }
-  const actionDeps: ActionDeps = { items: deps.items, people: deps.people, sync: taskSyncHook(deps.calendar) };
-  if (type === 'regalo') {
-    const newName = str(fd, 'personName').trim();
-    const personId = newName ? (await deps.people.upsertPersonByName(newName)).id : str(fd, 'personId').trim();
-    form.set('personId', personId);
-  }
-  const item = await saveNewItem(actionDeps, { ...parseNewItem(form), notes, sourceText: text });
+  const fields = {
+    area: str(fd, 'area'),
+    dueDate: str(fd, 'dueDate'),
+    dueTime: str(fd, 'dueTime'),
+    personId: str(fd, 'personId'),
+    personName: str(fd, 'personName'),
+  };
+  const item = await saveTypedItem(type, text, fields, deps, 'web');
   return { message: captureMessage({ items: [item], eventIds: [] }), href: itemHref(item) };
 }
 

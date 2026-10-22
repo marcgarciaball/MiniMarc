@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Agente Personal · Opciones</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        min-height: 100vh;
+        padding: 32px 16px;
+      }
+      main {
+        max-width: 480px;
+        margin: 0 auto;
+      }
+      label {
+        font-weight: 600;
+      }
+    </style>
+    <script type="module" src="dist/options.js"></script>
+  </head>
+  <body>
+    <main class="stack">
+      <h1>Agente Personal · Opciones</h1>
+      <form id="form" class="glass stack" autocomplete="off">
+        <label for="baseUrl">URL de la app</label>
+        <input type="url" id="baseUrl" name="baseUrl" placeholder="https://mini-marc-personal.vercel.app" required />
+        <label for="token">Token</label>
+        <input type="password" id="token" name="token" placeholder="ap_…" spellcheck="false" />
+        <p class="muted" style="margin: 0">
+          Crea un token llamado «Extensión» en <a id="ajustes-link" href="https://mini-marc-personal.vercel.app/ajustes" target="_blank" rel="noopener">Ajustes de la app</a>
+          y pégalo aquí. Se guarda solo en este ordenador.
+        </p>
+        <div class="row" style="justify-content: flex-start">
+          <button type="submit" class="primary">Guardar</button>
+          <button type="button" class="secondary" id="test">Probar</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </main>
+  </body>
+</html>
