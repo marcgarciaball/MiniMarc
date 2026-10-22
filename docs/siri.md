@@ -9,6 +9,7 @@ Requisitos: iPhone con iOS 26 y la app Atajos. Los nombres de acciones son los d
 1. En Agente Personal: Ajustes → Tokens de acceso → Nuevo token. Nombre: "Siri".
 2. Copia el token en el momento. Solo se muestra una vez.
 3. Repite con nombre "Siri trabajo".
+4. Regla de Trabajo: si el nombre del token contiene «trabajo» (o activas «Solo Trabajo» al crearlo), todo lo que envíe se guarda en Trabajo y nunca pasa por la IA; un token llamado, por ejemplo, «Oficina» sí pasaría por la IA.
 
 ## 2. Crear el atajo "Apunta"
 

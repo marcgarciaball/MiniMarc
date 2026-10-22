@@ -2,9 +2,10 @@
 
 import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { createToken, revokeToken } from '@/app/actions/tokens';
-import { InsetList, Row, Sheet } from '@/components/ui';
+import { InsetList, Row, Sheet, Switch } from '@/components/ui';
 import { settle } from '@/lib/actions/result';
 import type { ApiTokenInfo } from '@/lib/auth/tokens';
+import { isWorkTokenName, workTokenName } from '@/lib/auth/workToken';
 import { formatDay } from '@/lib/format';
 import { madridDateTime } from '@/lib/time';
 
@@ -35,18 +36,25 @@ export function TokensSection({ tokens, today }: TokensSectionProps) {
 
   return (
     <>
-      <InsetList header="Tokens de acceso" footer="Para Siri y la extensión del navegador. Revoca los que ya no uses.">
+      <InsetList header="Tokens de acceso" footer="Para Siri y la extensión del navegador. Si el nombre contiene «trabajo», todo lo que envíe va a Trabajo y nunca pasa por la IA. Revoca los que ya no uses.">
         {tokens?.map((t) => (
           <Row
             key={t.id}
             title={t.name}
             subtitle={createdLabel(t, today)}
             trailing={
-              !t.revokedAt && (
-                <button type="button" className="ui-bar-button app-action--destructive" onClick={() => setRevoking(t)}>
-                  Revocar
-                </button>
-              )
+              <>
+                {isWorkTokenName(t.name) && (
+                  <span className="app-badge" title="Todo lo que envíe va a Trabajo y nunca pasa por la IA">
+                    Trabajo
+                  </span>
+                )}
+                {!t.revokedAt && (
+                  <button type="button" className="ui-bar-button app-action--destructive" onClick={() => setRevoking(t)}>
+                    Revocar
+                  </button>
+                )}
+              </>
             }
           />
         ))}
@@ -63,6 +71,7 @@ export function TokensSection({ tokens, today }: TokensSectionProps) {
 
 function NewTokenSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [name, setName] = useState('');
+  const [workOnly, setWorkOnly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -74,6 +83,7 @@ function NewTokenSheet({ open, onClose }: { open: boolean; onClose: () => void }
     setCopied(false);
     if (open) {
       setName('');
+      setWorkOnly(false);
       setError(null);
     }
   }
@@ -86,7 +96,8 @@ function NewTokenSheet({ open, onClose }: { open: boolean; onClose: () => void }
     if (inFlight.current) return;
     if (!name.trim()) return setError('Escribe un nombre.');
     const fd = new FormData();
-    fd.set('name', name);
+    // "Solo Trabajo" appends " trabajo", so the server's name rule (lib/auth/workToken.ts) applies.
+    fd.set('name', workTokenName(name, workOnly));
     setError(null);
     inFlight.current = true;
     startTransition(async () => {
@@ -163,7 +174,20 @@ function NewTokenSheet({ open, onClose }: { open: boolean; onClose: () => void }
               aria-label="Nombre"
               autoComplete="off"
               enterKeyHint="done"
-              maxLength={60}
+              maxLength={60 - ' trabajo'.length}
+            />
+          </InsetList>
+          <InsetList footer="Añade «trabajo» al nombre: todo lo que envíe este token va a Trabajo y nunca pasa por la IA.">
+            <Row
+              title="Solo Trabajo (nunca pasa por la IA)"
+              trailing={
+                <Switch
+                  label="Solo Trabajo (nunca pasa por la IA)"
+                  checked={workOnly || isWorkTokenName(name)}
+                  onChange={setWorkOnly}
+                  disabled={pending || isWorkTokenName(name)}
+                />
+              }
             />
           </InsetList>
           <div className="app-chips" role="group" aria-label="Sugerencias">

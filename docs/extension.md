@@ -25,6 +25,7 @@ Si recompilas, pulsa el botón de recargar de la extensión en `chrome://extensi
 
 1. En la app, ve a Ajustes → Tokens de acceso → Nuevo token. Ponle de nombre «Extensión».
 2. Copia el token en ese momento, porque solo se muestra una vez.
+   - Regla de Trabajo: si el nombre contiene «trabajo» (o activas «Solo Trabajo» al crearlo), todo lo que envíe va a Trabajo y nunca pasa por la IA (ver el apartado 6).
 3. En la extensión, haz clic derecho en el icono → **Opciones** (o usa el enlace «Opciones» del popup).
 4. Pega el token y deja la URL por defecto (`https://mini-marc-personal.vercel.app`).
 5. Pulsa **Guardar** y después **Probar**. Debe aparecer «OK: conectado».

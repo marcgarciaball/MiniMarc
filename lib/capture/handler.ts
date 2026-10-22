@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { UserError } from '@/lib/actions/result';
 import { extensionCors, extensionPreflight } from '@/lib/auth/extensionCors';
 import type { VerifiedToken } from '@/lib/auth/tokens';
+import { isWorkTokenName } from '@/lib/auth/workToken';
 import type { Item } from '@/lib/db/types';
 import { captureText, EmptyCaptureError, type CaptureDeps, type CaptureResult } from './pipeline';
 import { saveTypedItem } from './typed';
@@ -61,7 +62,7 @@ export function captureMessage(res: CaptureResult): string {
 
 /** A token whose name contains "trabajo" (any case) is a work token. */
 export function isWorkToken(token: VerifiedToken): boolean {
-  return token.name.toLowerCase().includes('trabajo');
+  return isWorkTokenName(token.name);
 }
 
 export async function handleCapture(req: Request, deps: CaptureRouteDeps): Promise<Response> {
