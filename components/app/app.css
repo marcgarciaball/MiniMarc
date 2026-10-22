@@ -14,9 +14,17 @@
 
 /* ---------- Desktop (≥ 900px): glass sidebar + centred 720px column ---------- */
 @media (min-width: 900px) {
+  /*
+   * The column is centred in the space right of the fixed sidebar: the shell reserves the
+   * sidebar's width (plus its 12px inset and a 12px gap) on the left and the same 24px on the
+   * right, and the 720px column sits in the middle of what is left.
+   */
   .app-shell {
     --sidebar-width: 248px;
-    padding-left: calc(var(--sidebar-width) + 24px);
+    --content-left: calc(var(--sidebar-width) + 24px);
+    --content-right: 24px;
+    padding-left: var(--content-left);
+    padding-right: var(--content-right);
   }
 
   .app-tabbar {
@@ -24,8 +32,9 @@
   }
 
   .app-main {
+    width: 100%;
     max-width: 720px;
-    margin: 0 auto;
+    margin-inline: auto;
     padding: 12px 8px 48px;
   }
 
@@ -122,6 +131,8 @@
   /* Sheets become a centred floating card. */
   .app-shell .ui-sheet {
     bottom: 24px;
+    left: var(--content-left);
+    right: var(--content-right);
     max-width: 560px;
     margin: 0 auto;
     padding-bottom: 8px;
@@ -133,7 +144,8 @@
   }
 
   .app-shell .ui-toast-region {
-    left: calc(var(--sidebar-width) + 24px);
+    left: var(--content-left);
+    right: var(--content-right);
     bottom: 24px;
   }
 }
@@ -513,12 +525,22 @@
 
 /* ---------- CaptureBar ---------- */
 /*
- * iPhone: a glass capsule floating right above the tab bar (and above the keyboard while it is
- * open; CaptureBar sets --capture-keyboard from visualViewport). Desktop: the first thing in the column.
+ * iPhone: a glass capsule with its type chips under it, floating right above the tab bar (and
+ * above the keyboard while it is open; CaptureBar sets --capture-keyboard from visualViewport).
+ * Desktop: the first thing in the column. CaptureBar keeps --capture-height (the whole stack,
+ * chips and extra fields included) up to date on the shell; 102px is the capsule + one chip row.
  */
 .app-shell {
-  --capture-height: 50px;
+  --capture-bar-height: 50px;
+  --capture-height: 102px;
   --capture-gap: 8px;
+  --capture-chip-height: 36px;
+}
+
+@media (pointer: coarse) {
+  .app-shell {
+    --capture-chip-height: var(--touch-target);
+  }
 }
 
 .app-capture {
@@ -528,19 +550,25 @@
   bottom: calc(max(12px, calc(var(--safe-bottom) - 12px)) + var(--tabbar-height) + var(--capture-gap));
   z-index: 20;
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.app-capture[data-keyboard] {
+  bottom: calc(var(--capture-keyboard) + var(--capture-gap));
+}
+
+.app-capture__bar {
+  display: flex;
   align-items: center;
   gap: 2px;
-  height: var(--capture-height);
+  height: var(--capture-bar-height);
   padding: 0 4px 0 6px;
   border-radius: var(--radius-pill);
   background-color: var(--glass-fill-bar);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
   box-shadow: var(--glass-rim), var(--glass-shadow);
-}
-
-.app-capture[data-keyboard] {
-  bottom: calc(var(--capture-keyboard) + var(--capture-gap));
 }
 
 .app-capture__input {
@@ -560,23 +588,6 @@
 
 .app-capture__input::placeholder {
   color: var(--label-tertiary);
-}
-
-.app-capture__area {
-  flex: none;
-  min-height: var(--touch-target);
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  color: var(--label-secondary);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.24px;
-  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
-}
-
-.app-capture__area[aria-pressed="true"] {
-  background-color: var(--accent-tint);
-  color: var(--accent);
 }
 
 .app-capture__send {
@@ -603,6 +614,107 @@
   color: var(--label-tertiary);
 }
 
+/* One line that scrolls sideways on a narrow screen: chips, then the Personal │ Trabajo switch. */
+.app-capture__row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  /* Room for the glass shadow, which the scroll container would clip. */
+  margin: -4px calc(-1 * var(--gutter));
+  padding: 4px var(--gutter);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-capture__row::-webkit-scrollbar {
+  display: none;
+}
+
+.app-capture__chips {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.app-capture__chip,
+.app-capture__field {
+  flex: none;
+  min-height: var(--capture-chip-height);
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-capture__chip {
+  padding: 0 14px;
+  color: var(--label-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
+}
+
+.app-capture__chip[aria-checked="true"] {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.app-capture__chip:active {
+  opacity: 0.6;
+}
+
+.app-capture__area {
+  flex: none;
+  margin-left: auto;
+}
+
+.app-capture__area .ui-segmented {
+  min-height: var(--capture-chip-height);
+  padding: 2px;
+}
+
+.app-capture__area .ui-segmented__option {
+  flex: none;
+  min-height: calc(var(--capture-chip-height) - 4px);
+}
+
+/* Small inline fields of Tarea (fecha, hora), Cita (fecha, inicio, fin) and Regalo (persona). */
+.app-capture__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 14px;
+  color: var(--label-secondary);
+}
+
+.app-capture__field input,
+.app-capture__field select {
+  min-height: var(--capture-chip-height);
+  padding: 0 10px 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  /* ≥ 16px, or iOS zooms the page on focus. */
+  font-size: 16px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.app-capture__field input[type="text"] {
+  width: 9em;
+  color: var(--label);
+}
+
 /* Room for the capture bar under the content, and toasts above it. */
 @media (max-width: 899px) {
   .app-shell[data-capture] .app-main.ui-tabbar-inset {
@@ -619,13 +731,14 @@
 }
 
 @media (min-width: 900px) {
+  /* In the column, aligned with the lists and titles (same gutter). */
   .app-capture,
   .app-capture[data-keyboard] {
     position: relative;
     left: auto;
     right: auto;
     bottom: auto;
-    margin: 0 var(--gutter) 12px;
+    margin: 0 var(--gutter) 16px;
   }
 
   .app-sidebar__capture {
@@ -635,15 +748,21 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .app-capture {
+  .app-capture__bar,
+  .app-capture__chip,
+  .app-capture__field {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--bg-elevated);
   }
+
+  .app-capture__chip[aria-checked="true"] {
+    background-color: var(--accent-tint);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-capture__area {
+  .app-capture__chip {
     transition: none;
   }
 }

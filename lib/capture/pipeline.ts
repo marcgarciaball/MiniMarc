@@ -158,7 +158,7 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
 }
 
 /** Title (max 200 chars) from the original text; a longer text is kept whole in `notes`. */
-function textFields(text: string): Pick<NewItem, 'title' | 'notes'> {
+export function textFields(text: string): Pick<NewItem, 'title' | 'notes'> {
   if (text.length <= TITLE_MAX) return { title: text, notes: null };
   return { title: `${text.slice(0, TITLE_MAX - 1).trimEnd()}…`, notes: text };
 }

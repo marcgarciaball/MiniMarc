@@ -117,8 +117,12 @@ async function afterWrite(deps: ActionDeps, item: Item): Promise<Item> {
 }
 
 export async function addItem(deps: ActionDeps, fd: FormData): Promise<Item> {
-  const created = await deps.items.createItem(parseNewItem(fd));
-  return afterWrite(deps, created);
+  return saveNewItem(deps, parseNewItem(fd));
+}
+
+/** Creates an already-validated item and runs the sync hook (a timed task gets its event). */
+export async function saveNewItem(deps: ActionDeps, fields: NewItem): Promise<Item> {
+  return afterWrite(deps, await deps.items.createItem(fields));
 }
 
 export async function toggleDone(deps: ActionDeps, id: string): Promise<Item> {

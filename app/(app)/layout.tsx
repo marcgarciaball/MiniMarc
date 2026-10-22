@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { CaptureBar } from '@/components/CaptureBar';
+import { CaptureBar, CaptureBarFallback } from '@/components/CaptureBar';
 import { AppNav } from '@/components/app/AppNav';
 import { AppShell } from '@/components/app/AppShell';
 import { CurrentAppNav } from '@/components/app/CurrentAppNav';
@@ -14,7 +14,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <CurrentAppNav />
         </Suspense>
       }
-      capture={<CaptureBar />}
+      capture={
+        // usePathname/useSearchParams pick the screen's chip; while prerendering the bar starts on Auto.
+        <Suspense fallback={<CaptureBarFallback />}>
+          <CaptureBar />
+        </Suspense>
+      }
     >
       {children}
     </AppShell>
