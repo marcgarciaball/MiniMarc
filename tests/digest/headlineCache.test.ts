@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
-import { cachedHeadlineOnly, withHeadlineCache } from '@/lib/digest/headlineCache';
+import { cachedHeadlineOnly, noHeadline, weekHeadlineMode, withHeadlineCache } from '@/lib/digest/headlineCache';
 
 function setup(initial: Partial<Settings> = {}, reply: string | Error = 'Día de pan.') {
   const state: Settings = { digestHour: 8, tz: 'Europe/Madrid', lastDigestDate: null, headline: null, headlineDate: null, weeklyDigest: 'lunes', lastWeeklyDate: null, weekHeadline: null, weekHeadlineWeek: null, ...initial };
@@ -86,5 +86,46 @@ describe('cachedHeadlineOnly (GET /api/hoy, nunca gasta una llamada a la IA)', (
     const ai = cachedHeadlineOnly('2026-10-22', { ...base, headline: 'viejo', headlineDate: '2026-10-21' });
     await expect(ai.generateText('p')).rejects.toThrow();
     await expect(ai.generateJson('p', {} as never)).rejects.toThrow();
+  });
+});
+
+describe('weekHeadlineMode (/semana, M-3)', () => {
+  // Jueves 22-10-2026: esta semana empieza el 19, la siguiente el 26.
+  it('con «lunes» o desactivado: solo esta semana genera; la siguiente reutiliza la caché', () => {
+    for (const w of ['lunes', 'off'] as const) {
+      expect(weekHeadlineMode('2026-10-19', '2026-10-22', w)).toBe('generate');
+      expect(weekHeadlineMode('2026-10-26', '2026-10-22', w)).toBe('cached');
+    }
+  });
+
+  it('con «domingo»: el domingo genera la semana siguiente (la del aviso); el resto de días, esta', () => {
+    expect(weekHeadlineMode('2026-10-26', '2026-10-25', 'domingo')).toBe('generate');
+    expect(weekHeadlineMode('2026-10-19', '2026-10-25', 'domingo')).toBe('cached');
+    expect(weekHeadlineMode('2026-10-19', '2026-10-22', 'domingo')).toBe('generate');
+    expect(weekHeadlineMode('2026-10-26', '2026-10-22', 'domingo')).toBe('cached');
+  });
+
+  it('otras semanas (pasadas o más adelante): solo recuentos, nunca la IA', () => {
+    expect(weekHeadlineMode('2026-10-12', '2026-10-22', 'lunes')).toBe('none');
+    expect(weekHeadlineMode('2026-11-02', '2026-10-22', 'lunes')).toBe('none');
+    expect(weekHeadlineMode('2026-11-02', '2026-10-25', 'domingo')).toBe('none');
+  });
+
+  it('alternar entre esta semana y la siguiente llama a la IA una sola vez', async () => {
+    const t = setup({}, 'Semana con pan.');
+    const today = '2026-10-22';
+    for (const week of ['2026-10-19', '2026-10-26', '2026-10-19', '2026-10-26', '2026-10-19']) {
+      const settings = await t.repo.get();
+      const mode = weekHeadlineMode(week, today, settings.weeklyDigest);
+      const ai = mode === 'generate' ? withHeadlineCache(t.ai, week, t.repo, settings, 'week') : mode === 'cached' ? cachedHeadlineOnly(week, settings, 'week') : noHeadline();
+      await ai.generateText('p').catch(() => null);
+    }
+    expect(t.calls()).toBe(1);
+  });
+});
+
+describe('noHeadline', () => {
+  it('nunca da una línea', async () => {
+    await expect(noHeadline().generateText('p')).rejects.toThrow();
   });
 });

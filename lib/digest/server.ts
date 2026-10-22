@@ -10,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { toMadrid } from '@/lib/time';
 import { buildDigest, type Digest } from './build';
 import { buildWeekDigest, type WeekDigest } from './week';
-import { cachedHeadlineOnly, withHeadlineCache } from './headlineCache';
+import { cachedHeadlineOnly, noHeadline, withHeadlineCache, type WeekHeadlineMode } from './headlineCache';
 import type { HoyRouteDeps } from './hoyApi';
 
 export function buildDigestFor(opts: {
@@ -38,7 +38,7 @@ export function buildDigestFor(opts: {
 
 /**
  * Real wiring of buildWeekDigest (/semana and the weekly push). The AI line is cached per week
- * (last_week_headline / _week); with `cachedHeadlineOnly` it is never generated, only reused.
+ * (last_week_headline / _week); see `headline` for reuse-only and counts-only.
  */
 export function buildWeekDigestFor(opts: {
   client: SupabaseClient;
@@ -47,16 +47,21 @@ export function buildWeekDigestFor(opts: {
   now: Date;
   settings: Settings;
   settingsRepo: SettingsRepo;
-  cachedHeadlineOnly?: boolean;
+  /** 'generate' (default; cached per week), 'cached' (reuse only) or 'none' (counts only). */
+  headline?: WeekHeadlineMode;
 }): Promise<WeekDigest> {
   const { client, userId, weekStart, now, settings, settingsRepo } = opts;
+  const mode = opts.headline ?? 'generate';
   return buildWeekDigest(weekStart, {
     items: createSupabaseItemsRepo(client, { userId }),
     people: createSupabasePeopleRepo(client, { userId }),
     calendar: () => calendarGatewayFor(userId),
-    ai: opts.cachedHeadlineOnly
-      ? cachedHeadlineOnly(weekStart, settings, 'week')
-      : withHeadlineCache(createGeminiProvider(), weekStart, settingsRepo, settings, 'week'),
+    ai:
+      mode === 'none'
+        ? noHeadline()
+        : mode === 'cached'
+          ? cachedHeadlineOnly(weekStart, settings, 'week')
+          : withHeadlineCache(createGeminiProvider(), weekStart, settingsRepo, settings, 'week'),
     tz: settings.tz,
     now,
   });

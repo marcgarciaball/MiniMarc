@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { SemanaScreen } from '@/components/semana/SemanaScreen';
-import { addDays, parseWeekParam, weekRange } from '@/lib/agenda/week';
+import { parseWeekParam, weekRange } from '@/lib/agenda/week';
 import { createSettingsRepo, loadSettingsOrDefaults } from '@/lib/db/settings';
+import { weekHeadlineMode } from '@/lib/digest/headlineCache';
 import { buildWeekDigestFor } from '@/lib/digest/server';
 import { createClient, requireUser } from '@/lib/supabase/server';
 import { toMadrid } from '@/lib/time';
@@ -21,8 +22,8 @@ export default function SemanaPage({ searchParams }: { searchParams: SearchParam
 }
 
 /**
- * The week of `?w=` (any day of it; default this week). The AI line is only generated for this
- * week and the next one (cached per week); other weeks reuse a cached line or show counts.
+ * The week of `?w=` (any day of it; default this week). Only the week the weekly push targets
+ * generates the AI line; the other of this/next week reuses the cache; other weeks show counts.
  */
 async function Semana({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
@@ -39,7 +40,7 @@ async function Semana({ searchParams }: { searchParams: SearchParams }) {
     now,
     settings,
     settingsRepo: repo,
-    cachedHeadlineOnly: weekStart !== thisWeek && weekStart !== addDays(thisWeek, 7),
+    headline: weekHeadlineMode(weekStart, today, settings.weeklyDigest),
   });
   return <SemanaScreen week={week} thisWeek={thisWeek} />;
 }

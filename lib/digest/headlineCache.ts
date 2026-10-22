@@ -4,8 +4,9 @@
  * morning push usually pays the only call of the day. Failures are not cached (buildDigest falls
  * back to "Buenos días"; Gemini's own daily cap still applies).
  */
+import { addDays, weekRange } from '@/lib/agenda/week';
 import type { AiProvider } from '@/lib/ai/provider';
-import type { Settings, SettingsRepo } from '@/lib/db/settings';
+import type { Settings, SettingsRepo, WeeklyDigest } from '@/lib/db/settings';
 
 /**
  * 'day' = the morning digest's headline (key: the local date); 'week' = the weekly line
@@ -58,4 +59,34 @@ export function cachedHeadlineOnly(date: string, current: Settings, slot: Headli
       throw new Error('no cached headline');
     },
   };
+}
+
+/** No AI line at all: the week shows its counts-only summary. */
+export function noHeadline(): AiProvider {
+  return {
+    async generateJson() {
+      throw new Error('AI disabled');
+    },
+    async generateText() {
+      throw new Error('AI disabled');
+    },
+  };
+}
+
+/**
+ * How /semana gets the week's AI line (M-3). There is a single weekly cache slot, so only one
+ * week may generate: the one the weekly push targets now (next week on Sundays with «domingo»,
+ * otherwise this week; the cron uses the same week, so they share the call). The other of this
+ * and next week only reuses a cached line; any other week is counts-only. Flipping between
+ * weeks never pays a second Gemini call.
+ */
+export type WeekHeadlineMode = 'generate' | 'cached' | 'none';
+
+export function weekHeadlineMode(weekStart: string, today: string, weekly: WeeklyDigest): WeekHeadlineMode {
+  const thisWeek = weekRange(today).start;
+  const nextWeek = addDays(thisWeek, 7);
+  if (weekStart !== thisWeek && weekStart !== nextWeek) return 'none';
+  const sunday = new Date(`${today}T00:00:00Z`).getUTCDay() === 0;
+  const target = weekly === 'domingo' && sunday ? nextWeek : thisWeek;
+  return weekStart === target ? 'generate' : 'cached';
 }
