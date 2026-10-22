@@ -1,7 +1,7 @@
 /**
  * The popup: quick capture (autofocused; Intro sends, Mayús+Intro breaks the line) with the
- * web's chips and the Personal/Trabajo switch, then a compact "Hoy". Text only via
- * textContent, never innerHTML.
+ * web bar's type menu (Alt/Opción + 1…6, arrows, Intro, Esc) and Trabajo briefcase, then a
+ * compact "Hoy". Text only via textContent, never innerHTML.
  */
 import { apiUrl, fetchHoy, sendCapture } from './lib/api.js';
 import { loadSettings, saveSettings } from './lib/settings.js';
@@ -10,21 +10,124 @@ const form = $('capture');
 const text = $('text');
 const send = $('send');
 const status = $('status');
-const areaBox = $('area');
 const author = $('author');
+const typeButton = $('type');
+const menu = $('type-menu');
+const work = $('work');
+const options = [...menu.querySelectorAll('[role="option"]')];
 const TIME = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 const SHORT_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
+const KINDS = ['auto', 'tarea', 'idea', 'compra', 'regalo', 'libro'];
+const PLACEHOLDERS = {
+    auto: 'Apunta algo…',
+    tarea: 'Apunta una tarea…',
+    idea: 'Apunta una idea…',
+    compra: 'Apunta una compra…',
+    regalo: 'Apunta un regalo…',
+    libro: 'Apunta un libro…',
+};
+let kind = 'auto';
+let trabajo = false;
+let active = 0;
 text.focus();
 const settingsReady = loadSettings();
-function checked(name) {
-    return form.querySelector(`input[name="${name}"]:checked`)?.value ?? '';
+// The shortcut hints: ⌥ on a Mac, Alt+ elsewhere.
+if (!/Mac/.test(navigator.platform || navigator.userAgent)) {
+    for (const hint of menu.querySelectorAll('.hint'))
+        hint.textContent = `Alt+${hint.dataset.n}`;
 }
-/** Like the web bar: only Auto and Tarea use the Personal/Trabajo switch; only Libro shows "Autor". */
-function syncArea() {
-    const kind = checked('kind');
-    areaBox.disabled = !(kind === 'auto' || kind === 'tarea');
+/** Like the web bar: only Auto and Tarea have the Trabajo briefcase; only Libro shows "Autor". */
+function render() {
+    const i = KINDS.indexOf(kind);
+    const option = options[i];
+    $('type-label').textContent = option.querySelector('.option-label')?.textContent ?? '';
+    const icon = option.querySelector('svg');
+    $('type-icon').replaceChildren(...(icon ? [icon.cloneNode(true)] : []));
+    options.forEach((o, j) => o.setAttribute('aria-selected', String(j === i)));
+    text.placeholder = PLACEHOLDERS[kind];
+    work.hidden = !(kind === 'auto' || kind === 'tarea');
+    work.setAttribute('aria-pressed', String(trabajo));
     author.hidden = kind !== 'libro';
 }
+render();
+function setActive(i) {
+    active = i;
+    options.forEach((o, j) => o.toggleAttribute('data-active', j === i));
+    typeButton.setAttribute('aria-activedescendant', options[i].id);
+}
+function openMenu() {
+    menu.hidden = false;
+    typeButton.setAttribute('aria-expanded', 'true');
+    setActive(KINDS.indexOf(kind));
+}
+function closeMenu() {
+    menu.hidden = true;
+    typeButton.setAttribute('aria-expanded', 'false');
+    typeButton.removeAttribute('aria-activedescendant');
+}
+function choose(k) {
+    kind = k;
+    closeMenu();
+    render();
+    text.focus();
+}
+/** Alt/Opción + 1…6 (by `code`: on a Mac, Opción+1 types "¡"). */
+function shortcutKind(e) {
+    if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey)
+        return null;
+    const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+    return m ? (KINDS[Number(m[1]) - 1] ?? null) : null;
+}
+typeButton.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
+for (const [i, o] of options.entries()) {
+    o.addEventListener('click', () => choose(KINDS[i]));
+    o.addEventListener('pointermove', () => setActive(i));
+}
+document.addEventListener('pointerdown', (e) => {
+    const t = e.target;
+    if (!menu.hidden && !menu.contains(t) && !typeButton.contains(t))
+        closeMenu();
+});
+work.addEventListener('click', () => {
+    trabajo = !trabajo;
+    render();
+    void saveSettings({ area: trabajo ? 'trabajo' : 'personal' });
+});
+form.addEventListener('keydown', (e) => {
+    if (e.isComposing)
+        return;
+    const k = shortcutKind(e);
+    if (k) {
+        e.preventDefault();
+        choose(k);
+        return;
+    }
+    if (!menu.hidden) {
+        const last = KINDS.length - 1;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+            e.preventDefault();
+            const next = { ArrowDown: active === last ? 0 : active + 1, ArrowUp: active === 0 ? last : active - 1, Home: 0, End: last };
+            setActive(next[e.key]);
+        }
+        else if (e.key === 'Enter' || (e.key === ' ' && e.target === typeButton)) {
+            e.preventDefault();
+            choose(KINDS[active]);
+        }
+        else if (e.key === 'Escape') {
+            // Only the menu: Esc would otherwise close the popup.
+            e.preventDefault();
+            closeMenu();
+        }
+        else if (e.key === 'Tab') {
+            closeMenu();
+        }
+        return;
+    }
+    if (e.target === typeButton && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        openMenu();
+    }
+});
 function setStatus(el, msg, error = false) {
     el.textContent = msg;
     el.classList.toggle('error', error);
@@ -35,16 +138,8 @@ function openOptions(e) {
 }
 $('options-link').addEventListener('click', openOptions);
 $('setup-link').addEventListener('click', openOptions);
-form.addEventListener('change', (e) => {
-    syncArea();
-    const t = e.target;
-    if (t.name === 'area')
-        void saveSettings({ area: t.value === 'trabajo' ? 'trabajo' : 'personal' });
-    if (t.name === 'kind' || t.name === 'area')
-        text.focus();
-});
 text.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && menu.hidden) {
         e.preventDefault();
         form.requestSubmit();
     }
@@ -59,9 +154,8 @@ form.addEventListener('submit', async (e) => {
         return;
     }
     const settings = await settingsReady;
-    const kind = checked('kind');
     const type = kind === 'auto' ? undefined : kind;
-    const area = !areaBox.disabled && checked('area') === 'trabajo' ? 'trabajo' : undefined;
+    const area = trabajo && (kind === 'auto' || kind === 'tarea') ? 'trabajo' : undefined;
     send.disabled = true;
     setStatus(status, 'Guardando…');
     const r = await sendCapture(settings.baseUrl, settings.token, value, area, type, type === 'libro' ? author.value : undefined);
@@ -135,9 +229,8 @@ async function loadHoy(settings) {
 async function init() {
     const settings = await settingsReady;
     $('open-app').href = apiUrl(settings.baseUrl, '/hoy');
-    if (settings.area === 'trabajo')
-        $('a-trabajo').checked = true;
-    syncArea();
+    trabajo = settings.area === 'trabajo';
+    render();
     if (!settings.token) {
         $('no-token').hidden = false;
         $('hoy').hidden = true;

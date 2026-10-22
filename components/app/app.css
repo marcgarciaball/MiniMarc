@@ -1032,22 +1032,24 @@
 
 /* ---------- CaptureBar ---------- */
 /*
- * iPhone: a glass capsule with its type chips under it, floating right above the tab bar (and
- * above the keyboard while it is open; CaptureBar sets --capture-keyboard from visualViewport).
- * Desktop: the first thing in the column. CaptureBar keeps --capture-height (the whole stack,
- * chips and extra fields included) up to date on the shell; 102px is the capsule + one chip row.
+ * At rest: one glass capsule, the field and the send button. Focused: it grows into a glass card
+ * with a quiet row under the text (the type menu on the left, the Trabajo briefcase on the right)
+ * and, for some types, a line of small fields; hairlines between them.
+ * iPhone: fixed right above the tab bar (and above the keyboard while it is open; CaptureBar sets
+ * --capture-keyboard from visualViewport), so it grows upwards. CaptureBar keeps --capture-height
+ * (the whole card) up to date on the shell, so the content and the toasts clear it.
+ * Desktop: the first thing in the column; the open card floats over what is under it.
  */
 .app-shell {
   --capture-bar-height: 50px;
-  --capture-height: 102px;
+  --capture-height: 50px;
   --capture-gap: 8px;
-  --capture-chip-height: 36px;
-}
-
-@media (pointer: coarse) {
-  .app-shell {
-    --capture-chip-height: var(--touch-target);
-  }
+  /* A light spring (damping 0.78, ~2% overshoot), sampled. */
+  --capture-spring: linear(
+    0, 0.038, 0.131, 0.25, 0.378, 0.503, 0.616, 0.715, 0.797, 0.862, 0.913, 0.952, 0.979, 0.998, 1.009,
+    1.016, 1.019, 1.02, 1.019, 1.017, 1.014, 1.012, 1.009, 1.007, 1.005, 1
+  );
+  --capture-spring-duration: 500ms;
 }
 
 .app-capture {
@@ -1056,13 +1058,26 @@
   right: calc(var(--gutter) + var(--safe-right));
   bottom: calc(max(12px, calc(var(--safe-bottom) - 12px)) + var(--tabbar-height) + var(--capture-gap));
   z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .app-capture[data-keyboard] {
   bottom: calc(var(--capture-keyboard) + var(--capture-gap));
+}
+
+.app-capture__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: calc(var(--capture-bar-height) / 2);
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+  transition: border-radius var(--capture-spring-duration) var(--ease-ios);
+}
+
+.app-capture[data-open] .app-capture__card {
+  border-radius: var(--radius-continuous);
 }
 
 .app-capture__bar {
@@ -1070,12 +1085,22 @@
   align-items: center;
   gap: 2px;
   height: var(--capture-bar-height);
-  padding: 0 4px 0 6px;
-  border-radius: var(--radius-pill);
-  background-color: var(--glass-fill-bar);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: var(--glass-rim), var(--glass-shadow);
+  padding: 0 3px 0 6px;
+}
+
+/* At rest, with Trabajo on: a small briefcase so it is never forgotten. */
+.app-capture__glyph {
+  display: flex;
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin: 0 -6px 0 10px;
+  color: var(--accent);
+}
+
+.app-capture__glyph svg {
+  width: 100%;
+  height: 100%;
 }
 
 .app-capture__input {
@@ -1121,92 +1146,166 @@
   color: var(--label-tertiary);
 }
 
-/* One line that scrolls sideways on a narrow screen: chips, then the Personal │ Trabajo switch. */
-.app-capture__row {
+/* What the focused card adds: it opens (0fr → 1fr) on the spring; inert while closed. */
+.app-capture__more {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--capture-spring-duration) var(--capture-spring);
+}
+
+.app-capture[data-open] .app-capture__more {
+  grid-template-rows: 1fr;
+}
+
+.app-capture__more-inner {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity var(--duration-fast) linear;
+}
+
+.app-capture[data-open] .app-capture__more-inner {
+  opacity: 1;
+}
+
+.app-capture__options,
+.app-capture__extras {
   display: flex;
-  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
-  /* Room for the glass shadow, which the scroll container would clip. */
-  margin: -4px calc(-1 * var(--gutter));
-  padding: 4px var(--gutter);
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  margin: 0 8px 0 12px;
+  border-top: var(--hairline-width) solid var(--hairline);
 }
 
-.app-capture__row::-webkit-scrollbar {
-  display: none;
+.app-capture__options {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
 }
 
-.app-capture__chips {
-  display: flex;
+/* Tarea (fecha, hora), Cita (fecha, inicio, fin), Regalo (para) and Libro (autor). */
+.app-capture__extras {
+  flex-wrap: wrap;
+  gap: 0 16px;
+  padding: 0 6px 3px;
+  animation: app-capture-extras-in 320ms var(--ease-ios);
+}
+
+@keyframes app-capture-extras-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* The type: quiet text with a chevron, not a pill. */
+.app-capture__type,
+.app-capture__work {
+  display: inline-flex;
   flex: none;
-  gap: 6px;
-}
-
-.app-capture__chip,
-.app-capture__field {
-  flex: none;
-  min-height: var(--capture-chip-height);
-  border-radius: var(--radius-pill);
-  background-color: var(--glass-fill-bar);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: var(--glass-rim), var(--glass-shadow);
+  align-items: center;
+  min-height: var(--touch-target);
+  border-radius: 12px;
   font-size: 15px;
-  line-height: 20px;
   letter-spacing: -0.24px;
-}
-
-.app-capture__chip {
-  padding: 0 14px;
-  color: var(--label-secondary);
-  font-weight: 500;
-  white-space: nowrap;
   transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
 }
 
-.app-capture__chip[aria-checked="true"] {
-  background-color: var(--accent-tint);
-  color: var(--accent);
-  font-weight: 600;
+.app-capture__type {
+  gap: 7px;
+  padding: 0 8px 0 6px;
+  color: var(--label-secondary);
+  font-weight: 500;
 }
 
-.app-capture__chip:active {
+.app-capture__type > svg:first-child {
+  width: 19px;
+  height: 19px;
+}
+
+.app-capture__chevron {
+  display: flex;
+  width: 10px;
+  height: 6px;
+  color: var(--label-tertiary);
+  transition: transform var(--duration-fast) var(--ease-ios);
+}
+
+.app-capture__chevron svg {
+  width: 100%;
+  height: 100%;
+}
+
+.app-capture__type[aria-expanded="true"] {
+  background-color: var(--fill-pressed);
+  color: var(--label);
+}
+
+.app-capture__type[aria-expanded="true"] .app-capture__chevron {
+  transform: rotate(180deg);
+}
+
+.app-capture__work {
+  justify-content: center;
+  gap: 6px;
+  min-width: var(--touch-target);
+  padding: 0 11px;
+  color: var(--label-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.08px;
+}
+
+.app-capture__work svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.app-capture__work[aria-pressed="true"] {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .app-capture__type:hover,
+  .app-capture__work:hover {
+    background-color: var(--fill-pressed);
+  }
+
+  .app-capture__work[aria-pressed="true"]:hover {
+    background-color: var(--accent-tint);
+  }
+}
+
+.app-capture__type:active,
+.app-capture__work:active {
   opacity: 0.6;
 }
 
-.app-capture__area {
-  flex: none;
-  margin-left: auto;
+.app-capture__type:focus-visible,
+.app-capture__work:focus-visible,
+.app-capture__field input:focus-visible,
+.app-capture__field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-.app-capture__area .ui-segmented {
-  min-height: var(--capture-chip-height);
-  padding: 2px;
-}
-
-.app-capture__area .ui-segmented__option {
-  flex: none;
-  min-height: calc(var(--capture-chip-height) - 4px);
-}
-
-/* Small inline fields of Tarea (fecha, hora), Cita (fecha, inicio, fin) and Regalo (persona). */
 .app-capture__field {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px 0 14px;
+  gap: 4px;
+  min-height: var(--touch-target);
   color: var(--label-secondary);
+  font-size: 15px;
+  letter-spacing: -0.24px;
 }
 
 .app-capture__field input,
 .app-capture__field select {
-  min-height: var(--capture-chip-height);
-  padding: 0 10px 0 4px;
+  min-height: 34px;
+  padding: 0 6px;
   border: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--accent);
   font: inherit;
@@ -1217,9 +1316,122 @@
   appearance: none;
 }
 
+.app-capture__field input[type="date"] {
+  min-width: 7.5em;
+}
+
+.app-capture__field input[type="time"] {
+  min-width: 4.5em;
+}
+
 .app-capture__field input[type="text"] {
-  width: 9em;
+  width: 10em;
   color: var(--label);
+}
+
+.app-capture__field input[type="text"]::placeholder {
+  color: var(--label-tertiary);
+}
+
+/* The type menu: a small glass popover anchored to the type button (above it on iPhone). */
+.app-capture__menu {
+  position: absolute;
+  left: 8px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 236px;
+  max-width: calc(100% - 16px);
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 16px;
+  background-color: var(--glass-fill-sheet);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+  animation: app-capture-menu-in 200ms var(--ease-ios);
+}
+
+.app-capture__menu[data-placement="above"] {
+  transform-origin: bottom left;
+}
+
+.app-capture__menu[data-placement="below"] {
+  transform-origin: top left;
+}
+
+@keyframes app-capture-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.app-capture__option {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 10px;
+  border-radius: 10px;
+  color: var(--label);
+  font-size: 16px;
+  letter-spacing: -0.32px;
+  text-align: left;
+}
+
+.app-capture__option > svg:first-child {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--label-secondary);
+}
+
+.app-capture__option[data-active] {
+  background-color: var(--fill-pressed);
+}
+
+.app-capture__option[aria-selected="true"],
+.app-capture__option[aria-selected="true"] > svg:first-child {
+  color: var(--accent);
+}
+
+.app-capture__option[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.app-capture__option-label {
+  flex: 1;
+}
+
+.app-capture__hint {
+  color: var(--label-tertiary);
+  font-size: 13px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-capture__check {
+  display: flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.app-capture__check svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* No keyboard shortcuts on a touch screen. */
+@media (pointer: coarse) {
+  .app-capture__hint {
+    display: none;
+  }
 }
 
 /* Room for the capture bar under the content, and toasts above it. */
@@ -1238,14 +1450,22 @@
 }
 
 @media (min-width: 900px) {
-  /* In the column, aligned with the lists and titles (same gutter). */
+  /* In the column, aligned with the lists and titles (same gutter); the open card overlays. */
   .app-capture,
   .app-capture[data-keyboard] {
     position: relative;
     left: auto;
     right: auto;
     bottom: auto;
+    height: var(--capture-bar-height);
     margin: 0 var(--gutter) 16px;
+  }
+
+  .app-capture__card {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
   }
 
   .app-sidebar__capture {
@@ -1255,22 +1475,27 @@
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .app-capture__bar,
-  .app-capture__chip,
-  .app-capture__field {
+  .app-capture__card,
+  .app-capture__menu {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background-color: var(--bg-elevated);
   }
-
-  .app-capture__chip[aria-checked="true"] {
-    background-color: var(--accent-tint);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-capture__chip {
+  .app-capture__card,
+  .app-capture__more,
+  .app-capture__more-inner,
+  .app-capture__type,
+  .app-capture__work,
+  .app-capture__chevron {
     transition: none;
+  }
+
+  .app-capture__extras,
+  .app-capture__menu {
+    animation: none;
   }
 }
 
@@ -1551,10 +1776,64 @@
   border-top: 0;
 }
 
-/* Label suggestions in the date sheet: the capture chips, wrapping. */
+/* Label suggestions in the date sheet: glass chips, wrapping. */
 .app-date-chips {
+  display: flex;
   flex-wrap: wrap;
+  gap: 6px;
   padding: 0 calc(var(--gutter) + 4px) 16px;
+}
+
+.app-date-chip {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--glass-fill-bar);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+  color: var(--label-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) linear, color var(--duration-fast) linear;
+}
+
+@media (pointer: coarse) {
+  .app-date-chip {
+    min-height: var(--touch-target);
+  }
+}
+
+.app-date-chip[aria-checked="true"] {
+  background-color: var(--accent-tint);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.app-date-chip:active {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-date-chip {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: var(--bg-elevated);
+  }
+
+  .app-date-chip[aria-checked="true"] {
+    background-color: var(--accent-tint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-date-chip {
+    transition: none;
+  }
 }
 
 .app-field--switch {

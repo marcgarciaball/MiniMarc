@@ -78,14 +78,14 @@ function DateForm({ personId, date, onDone }: { personId: string; date?: PersonD
 
   return (
     <form id={FORM_ID} onSubmit={handleSubmit} className="app-form" aria-busy={pending}>
-      <div role="radiogroup" aria-label="Tipo de fecha" className="app-capture__chips app-date-chips">
+      <div role="radiogroup" aria-label="Tipo de fecha" className="app-date-chips">
         {[...DATE_LABEL_SUGGESTIONS, OTHER].map((s) => (
           <button
             key={s}
             type="button"
             role="radio"
             aria-checked={s === OTHER ? !suggested : label === s}
-            className="app-capture__chip"
+            className="app-date-chip"
             onClick={() => {
               if (s === OTHER) {
                 setLabel('');

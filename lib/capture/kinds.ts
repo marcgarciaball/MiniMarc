@@ -1,6 +1,7 @@
 /**
- * The CaptureBar's type chips and the chip each screen starts with. No server imports:
- * used by the bar (client) and by quickCapture (lib/capture/web.ts).
+ * The CaptureBar's types (its type menu), the type each screen starts with, and the bar's pure
+ * rules (placeholder, extra fields, Trabajo, Alt+number). No server imports: used by the bar
+ * (client) and by quickCapture (lib/capture/web.ts).
  */
 import type { Area } from '@/lib/db/types';
 
@@ -18,9 +19,61 @@ export const QUICK_KIND_LABELS: Record<QuickKind, string> = {
   cita: 'Cita',
 };
 
-/** Only Auto (Trabajo = no-AI work task) and Tarea use the Personal/Trabajo switch. */
+/** Only Auto (Trabajo = no-AI work task) and Tarea use the Trabajo briefcase; the rest have no area. */
 export function usesArea(kind: QuickKind): boolean {
   return kind === 'auto' || kind === 'tarea';
+}
+
+/** The field's placeholder: it hints at the type the text will be saved as. */
+const PLACEHOLDERS: Record<QuickKind, string> = {
+  auto: 'Apunta algo…',
+  tarea: 'Apunta una tarea…',
+  idea: 'Apunta una idea…',
+  compra: 'Apunta una compra…',
+  regalo: 'Apunta un regalo…',
+  libro: 'Apunta un libro…',
+  cita: 'Apunta una cita…',
+};
+
+export function capturePlaceholder(kind: QuickKind): string {
+  return PLACEHOLDERS[kind];
+}
+
+/** The small fields under the text, per type (none for Auto, Idea and Compra). */
+export type CaptureExtra = 'fecha' | 'hora' | 'fin' | 'persona' | 'autor';
+
+const EXTRAS: Record<QuickKind, readonly CaptureExtra[]> = {
+  auto: [],
+  tarea: ['fecha', 'hora'],
+  idea: [],
+  compra: [],
+  regalo: ['persona'],
+  libro: ['autor'],
+  cita: ['fecha', 'hora', 'fin'],
+};
+
+export function captureExtras(kind: QuickKind): readonly CaptureExtra[] {
+  return EXTRAS[kind];
+}
+
+/** Alt/Option + 1…7 picks the type in QUICK_KINDS order. By `code`: on a Mac, Option+1 types "¡". */
+export function kindForShortcut(e: {
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey?: boolean;
+  code: string;
+}): QuickKind | null {
+  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return null;
+  const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+  if (!m) return null;
+  return QUICK_KINDS[Number(m[1]) - 1] ?? null;
+}
+
+/** The hint shown in the type menu: "⌥1" on Apple keyboards, "Alt+1" elsewhere. */
+export function shortcutHint(kind: QuickKind, apple: boolean): string {
+  const n = QUICK_KINDS.indexOf(kind) + 1;
+  return apple ? `⌥${n}` : `Alt+${n}`;
 }
 
 export type CaptureDefaults = {

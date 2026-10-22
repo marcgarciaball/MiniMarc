@@ -8,6 +8,7 @@
   --wp-base: linear-gradient(180deg, #eef2f7 0%, #dfe7ef 55%, #cfdbe7 100%);
   --surface-glass: rgba(255, 255, 255, 0.58);
   --glass-fill-inner: rgba(255, 255, 255, 0.72);
+  --glass-fill-menu: rgba(244, 247, 250, 0.9);
   --glass-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --glass-shadow: 0 10px 34px rgba(42, 66, 96, 0.1), 0 1px 3px rgba(42, 66, 96, 0.06);
   --hairline: rgba(52, 70, 94, 0.2);
@@ -27,6 +28,7 @@
     --wp-base: linear-gradient(180deg, #121a24 0%, #0c131b 60%, #090e14 100%);
     --surface-glass: rgba(28, 36, 48, 0.55);
     --glass-fill-inner: rgba(255, 255, 255, 0.06);
+    --glass-fill-menu: rgba(24, 32, 43, 0.9);
     --glass-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
     --hairline: rgba(214, 226, 240, 0.14);
@@ -146,60 +148,122 @@ button {
   padding: 7px 16px;
 }
 
-/* Chips and the Personal/Trabajo segment: radio groups. */
-.chips,
-.segment {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  border: 0;
-  margin: 0;
-  padding: 0;
-}
-.chips input,
-.segment input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-.chips label {
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--fill);
-  color: var(--label);
-  cursor: pointer;
-  font-size: 12px;
-}
-.chips input:checked + label {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-.chips input:focus-visible + label,
-.segment input:focus-visible + label {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+/* The capture's row: the type (quiet text + chevron, opens a small glass menu), the Trabajo briefcase, Guardar. */
+.capture {
+  position: relative;
 }
 
-.segment {
-  flex-wrap: nowrap;
-  gap: 0;
-  padding: 2px;
-  border-radius: 9px;
+.capture-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.capture-row .primary {
+  margin-left: auto;
+}
+
+.type,
+.work {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--label-secondary);
+}
+
+.type {
+  gap: 6px;
+  padding: 0 8px 0 4px;
+  font-weight: 500;
+}
+
+.type-icon,
+.type-icon svg,
+.work svg,
+.option svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+.chevron {
+  width: 9px;
+  height: 6px;
+  color: var(--label-tertiary);
+}
+
+.type[aria-expanded="true"],
+.type:hover,
+.work:hover {
   background: var(--fill);
 }
-.segment label {
-  padding: 3px 10px;
-  border-radius: 7px;
-  font-size: 12px;
-  cursor: pointer;
+
+.work {
+  justify-content: center;
+  width: 32px;
+  color: var(--label-tertiary);
 }
-.segment input:checked + label {
-  background: var(--glass-fill-inner);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+
+.work[aria-pressed="true"] {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--glass-fill-menu);
+  backdrop-filter: blur(30px) saturate(180%);
+  box-shadow: var(--glass-rim), var(--glass-shadow);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--label);
+  text-align: left;
+}
+
+.option svg {
+  color: var(--label-secondary);
+}
+
+.option[data-active] {
+  background: var(--fill);
+}
+
+.option[aria-selected="true"],
+.option[aria-selected="true"] svg {
+  color: var(--accent);
   font-weight: 600;
 }
-.segment[disabled] {
-  opacity: 0.4;
+
+.option-label {
+  flex: 1;
+}
+
+.hint {
+  color: var(--label-tertiary);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
 }
 
 .status {

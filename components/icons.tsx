@@ -277,3 +277,31 @@ export function CheckCircle({ checked }: { checked: boolean }) {
     </svg>
   );
 }
+
+/** Auto: the text is routed for Marc (the AI decides where it goes). */
+export function AutoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <path d="M4 12h5.5c1.6 0 2.6-.6 3.5-1.9l1.4-2.2c.8-1.3 1.9-1.9 3.4-1.9H20M4 12h5.5c1.6 0 2.6.6 3.5 1.9l1.4 2.2c.8 1.3 1.9 1.9 3.4 1.9H20" />
+      <path d="M17.5 3.6L20 6l-2.5 2.4M17.5 15.6L20 18l-2.5 2.4" />
+    </svg>
+  );
+}
+
+/** Trabajo (work area). */
+export function BriefcaseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <rect x="3.5" y="7" width="17" height="12.5" rx="2.6" />
+      <path d="M9 7V5.6A1.6 1.6 0 0 1 10.6 4h2.8A1.6 1.6 0 0 1 15 5.6V7M3.5 12.5h17" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 20 12" aria-hidden {...line} strokeWidth={2.2}>
+      <path d="M3 3l7 6.5L17 3" />
+    </svg>
+  );
+}
