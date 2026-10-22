@@ -101,3 +101,42 @@ describe('formatPersonDate', () => {
     expect(formatPersonDate('1604-02-14')).toBe('14 de febrero');
   });
 });
+
+describe('deletePerson: se va con todo lo suyo', () => {
+  async function withEverything() {
+    const mama = await deps.people.upsertPersonByName('Mama');
+    await deps.people.updatePerson(mama.id, { birthday: '1962-01-15' });
+    await people.addPersonDate(deps, mama.id, form({ label: 'Santo', date: '2026-07-26', yearly: 'true' }));
+    const gift = await deps.items.createItem({ type: 'regalo', title: 'Guantes de piel', personId: mama.id });
+    const other = await deps.items.createItem({ type: 'compra', title: 'Pilas AA' });
+    return { mama, gift, other };
+  }
+
+  it('borra la persona y sus fechas', async () => {
+    const { mama } = await withEverything();
+    await people.deletePerson(deps, mama.id);
+    expect(await deps.people.getPerson(mama.id)).toBeNull();
+    expect(await deps.people.listPeople()).toEqual([]);
+    expect(await deps.people.listDates(mama.id)).toEqual([]);
+  });
+
+  it('sus ideas de regalo van a la papelera, no se evaporan', async () => {
+    const { mama, gift } = await withEverything();
+    await people.deletePerson(deps, mama.id);
+    expect(await deps.items.listItems({ type: 'regalo' })).toEqual([]);
+    expect((await deps.items.listDeleted(30)).map((i) => i.id)).toEqual([gift.id]);
+  });
+
+  it('no toca lo que no era suyo', async () => {
+    const { mama, other } = await withEverything();
+    await people.deletePerson(deps, mama.id);
+    expect((await deps.items.listItems({ type: 'compra' })).map((i) => i.id)).toEqual([other.id]);
+  });
+
+  it('una persona que no existe lanza, y no borra nada', async () => {
+    const { other } = await withEverything();
+    await expect(people.deletePerson(deps, 'no-existe')).rejects.toThrow();
+    expect(await deps.people.listPeople()).toHaveLength(1);
+    expect((await deps.items.listItems({ type: 'compra' })).map((i) => i.id)).toEqual([other.id]);
+  });
+});

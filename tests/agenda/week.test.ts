@@ -24,6 +24,7 @@ const at = (date: string, time: string) => madridToUtc(date, time).toISOString()
 
 function item(over: Partial<AgendaItem> & { id: string }): AgendaItem {
   return {
+    calendarId: 'primary',
     title: 'Cita',
     startsAt: at('2026-10-27', '09:00'),
     endsAt: at('2026-10-27', '10:00'),
@@ -289,6 +290,7 @@ describe('toAgendaItems', () => {
     expect(items).toEqual([
       {
         id: 'a',
+        calendarId: 'marc@gmail.com',
         title: 'Cita',
         location: 'Clínica',
         startsAt: at('2026-10-27', '09:00'),
@@ -298,7 +300,7 @@ describe('toAgendaItems', () => {
         isPrimary: true,
         hasRequiredReminders: true,
       },
-      expect.objectContaining({ id: 'b', title: '(Sin título)', isTask: true, isPrimary: false }),
+      expect.objectContaining({ id: 'b', calendarId: 'tareas-id', title: '(Sin título)', isTask: true, isPrimary: false }),
       expect.objectContaining({ id: 'c', allDay: true }),
     ]);
   });

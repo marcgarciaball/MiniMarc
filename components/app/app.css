@@ -479,7 +479,9 @@
   appearance: none;
 }
 
-.app-form__error {
+/* El aviso de una acción destructiva comparte el rojo del error: es la misma voz. */
+.app-form__error,
+.app-form__warning {
   padding: 0 calc(var(--gutter) + 16px) 20px;
   color: var(--destructive);
   font-size: 15px;

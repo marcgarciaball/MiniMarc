@@ -19,3 +19,7 @@ export async function updatePersonDate(id: string, formData: FormData): Promise<
 export async function deletePersonDate(id: string): Promise<ActionResult<void>> {
   return actions.deletePersonDate(id);
 }
+
+export async function deletePerson(id: string): Promise<ActionResult<void>> {
+  return actions.deletePerson(id);
+}

@@ -5,7 +5,7 @@
 import type { UpcomingDate } from '@/lib/db/people';
 import type { Person, PersonDate } from '@/lib/db/types';
 import { dateFormError } from './forms';
-import { listByType, type ActionDeps } from './items';
+import { deleteItem, listByType, type ActionDeps } from './items';
 import { UserError } from './result';
 
 const field = (fd: FormData, name: string) => {
@@ -37,6 +37,19 @@ export async function updatePersonDate(deps: ActionDeps, id: string, fd: FormDat
 
 export async function deletePersonDate(deps: ActionDeps, id: string): Promise<void> {
   await deps.people.deleteDate(id);
+}
+
+/**
+ * Borra una persona con todo lo suyo: sus fechas desaparecen, y sus ideas de regalo van a la
+ * papelera (30 días para recuperarlas), que es lo que "borrar" significa en el resto de la app.
+ * Los items primero: si algo falla, la persona sigue ahí y se puede reintentar.
+ */
+export async function deletePerson(deps: ActionDeps, id: string): Promise<void> {
+  const person = await deps.people.getPerson(id);
+  if (!person) throw new UserError('Esa persona ya no está.');
+  const mine = (await deps.items.listItems()).filter((i) => i.personId === id);
+  for (const item of mine) await deleteItem(deps, item.id);
+  await deps.people.deletePerson(id);
 }
 
 /** How far ahead the Personas list looks for each person's next date (a whole year). */

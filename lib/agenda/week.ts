@@ -9,6 +9,8 @@ import { isValidDate, madridDateTime, madridToUtc } from '@/lib/time';
 /** One event as the Agenda screen sees it (serialisable). */
 export interface AgendaItem {
   id: string;
+  /** El calendario donde vive: hace falta para poder borrarlo. */
+  calendarId: string;
   title: string;
   location?: string;
   /** ISO instants. */
@@ -210,6 +212,7 @@ export function nowMinutes(now: Date, date: string): number | null {
 export function toAgendaItems(events: CalendarEvent[], tasksCalendarId: string | null): AgendaItem[] {
   return events.map((ev) => ({
     id: ev.id,
+    calendarId: ev.calendarId,
     title: ev.title.trim() || '(Sin título)',
     ...(ev.location && { location: ev.location }),
     startsAt: ev.startsAt.toISOString(),

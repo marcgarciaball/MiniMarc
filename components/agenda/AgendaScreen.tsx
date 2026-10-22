@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useRef, useState, useTransition } from 'react';
-import { addReminders } from '@/app/actions/events';
+import { addReminders, deleteAgendaEvent } from '@/app/actions/events';
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from '@/components/icons';
 import { Glass, Toast } from '@/components/ui';
 import { addDays, dayDots, dayTitle, monthTitle, WEEKDAY_INITIALS, type AgendaItem } from '@/lib/agenda/week';
@@ -81,6 +81,28 @@ export function AgendaScreen({ today, selected: initialSelected, days, items, er
   }, []);
 
   const dismissToast = useCallback(() => setToast(null), []);
+
+  async function handleDeleteEvent(item: AgendaItem) {
+    if (savingId) return;
+    setSavingId(item.id);
+    let result: Awaited<ReturnType<typeof deleteAgendaEvent>>;
+    try {
+      result = await deleteAgendaEvent({ eventId: item.id, calendarId: item.calendarId, isTask: item.isTask });
+    } catch {
+      result = { ok: false, error: OFFLINE };
+    }
+    setSavingId(null);
+    if (result.ok) {
+      setOpenId(null);
+      showToast(item.isTask ? 'Tarea borrada; está en la papelera.' : 'Cita borrada de Calendar.');
+      // La lista la sirve el servidor: hay que volver a pedirla para que desaparezca.
+      startNavigation(() => router.refresh());
+    } else if (result.code === 'calendar_auth') {
+      showToast(result.error, { label: 'Entrar', onAction: () => router.push(RECONNECT_HREF) });
+    } else {
+      showToast(result.error);
+    }
+  }
 
   async function handleAddReminders(id: string) {
     if (savingId) return;
@@ -212,6 +234,7 @@ export function AgendaScreen({ today, selected: initialSelected, days, items, er
         date={selected}
         saving={opened !== null && savingId === opened.id}
         onAddReminders={handleAddReminders}
+        onDelete={handleDeleteEvent}
         onClose={() => setOpenId(null)}
       />
       <Toast toast={toast} onDismiss={dismissToast} />

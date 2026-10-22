@@ -2,7 +2,8 @@
 
 import { unstable_rethrow } from 'next/navigation';
 import * as core from '@/lib/actions/events';
-import { EVENT_ERROR_MESSAGES, REMINDER_ERROR_MESSAGES, type EventActionResult } from '@/lib/actions/events';
+import { sessionDeps } from '@/lib/actions/server';
+import { DELETE_ERROR_MESSAGES, EVENT_ERROR_MESSAGES, REMINDER_ERROR_MESSAGES, type EventActionResult } from '@/lib/actions/events';
 import type { SyncErrorCode } from '@/lib/calendar/taskSync';
 import { UserError } from '@/lib/actions/result';
 import { calendarGatewayFor } from '@/lib/calendar/server';
@@ -45,5 +46,27 @@ export async function addReminders(eventId: string): Promise<{ ok: true } | { ok
     unstable_rethrow(e);
     if (e instanceof UserError) return { ok: false, error: e.message };
     return { ok: false, error: REMINDER_ERROR_MESSAGES.calendar_unavailable, code: 'calendar_unavailable' };
+  }
+}
+
+/**
+ * "Eliminar" en la hoja de un evento de la Agenda: lo borra del calendario donde esté, incluidos
+ * los que no gestiona la app. Si era el evento de una tarea, la tarea se va con él a la papelera,
+ * así que invalida también los items.
+ */
+export async function deleteAgendaEvent(
+  event: { eventId: string; calendarId: string; isTask?: boolean },
+): Promise<{ ok: true } | { ok: false; error: string; code?: SyncErrorCode }> {
+  try {
+    // sessionDeps ya exige la sesión: no hace falta pedirla dos veces.
+    const { userId, deps } = await sessionDeps();
+    const result = await core.deleteAgendaEvent({ calendar: () => calendarGatewayFor(userId), items: deps.items }, event);
+    invalidate(userId, WRITES.item);
+    if (!result.ok) return { ok: false, error: DELETE_ERROR_MESSAGES[result.error], code: result.error };
+    return { ok: true };
+  } catch (e) {
+    unstable_rethrow(e);
+    if (e instanceof UserError) return { ok: false, error: e.message };
+    return { ok: false, error: DELETE_ERROR_MESSAGES.calendar_unavailable, code: 'calendar_unavailable' };
   }
 }

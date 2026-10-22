@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addEvent, addReminders, PRIMARY_CALENDAR, type EventDeps } from '@/lib/actions/events';
+import { addEvent, addReminders, deleteAgendaEvent, PRIMARY_CALENDAR, type EventDeps } from '@/lib/actions/events';
+import { createItemsRepo } from '@/lib/db/items';
+import { createMemoryBackend } from '@/lib/db/memory';
 import { UserError } from '@/lib/actions/result';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
 
@@ -196,5 +198,65 @@ describe('addReminders', () => {
         },
       },
     ]);
+  });
+});
+
+describe('deleteAgendaEvent', () => {
+  function gateway(deleteError?: unknown) {
+    const deleted: { calendarId: string; eventId: string }[] = [];
+    const gw: CalendarGateway = {
+      async createEvent() {
+        return 'ev-1';
+      },
+      async updateEvent() {},
+      async setRequiredReminders() {},
+      async deleteEvent(calendarId, eventId) {
+        deleted.push({ calendarId, eventId });
+        if (deleteError) throw deleteError;
+      },
+      async listEvents() {
+        return [];
+      },
+      async ensureCalendar() {
+        return 'tareas-id';
+      },
+    };
+    return { gw, deleted };
+  }
+
+  it('una cita se borra de su propio calendario, sea cual sea', async () => {
+    const { gw, deleted } = gateway();
+    const r = await deleteAgendaEvent({ calendar: async () => gw }, { eventId: 'ev-9', calendarId: 'otro@group.calendar.google.com' });
+    expect(r).toEqual({ ok: true });
+    expect(deleted).toEqual([{ calendarId: 'otro@group.calendar.google.com', eventId: 'ev-9' }]);
+  });
+
+  it('un evento que ya no está cuenta como borrado', async () => {
+    const { gw } = gateway(new CalendarError('not_found', 'gone'));
+    expect(await deleteAgendaEvent({ calendar: async () => gw }, { eventId: 'ev-9', calendarId: 'primary' })).toEqual({ ok: true });
+  });
+
+  it('si Calendar falla, lo dice y no se pierde el motivo', async () => {
+    const { gw } = gateway(new CalendarError('auth', 'token'));
+    expect(await deleteAgendaEvent({ calendar: async () => gw }, { eventId: 'ev-9', calendarId: 'primary' })).toEqual({
+      ok: false,
+      error: 'calendar_auth',
+    });
+  });
+
+  it('el evento de una tarea: la tarea se va a la papelera y suelta su evento', async () => {
+    const backend = createMemoryBackend();
+    const items = createItemsRepo(backend);
+    const task = await items.createItem({ type: 'tarea', title: 'Llamar al gestor', dueAt: '2026-10-26T09:00:00.000Z', hasTime: true });
+    await items.updateItem(task.id, { calendarEventId: 'ev-task' });
+    const { gw, deleted } = gateway();
+
+    const r = await deleteAgendaEvent({ calendar: async () => gw, items }, { eventId: 'ev-task', calendarId: 'tareas-id', isTask: true });
+
+    expect(r).toEqual({ ok: true });
+    expect(deleted).toEqual([{ calendarId: 'tareas-id', eventId: 'ev-task' }]);
+    expect(await items.listItems({ type: 'tarea' })).toEqual([]);
+    const [trashed] = await items.listDeleted(30);
+    expect(trashed).toMatchObject({ id: task.id, calendarEventId: null });
   });
 });

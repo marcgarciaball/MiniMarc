@@ -76,6 +76,8 @@ describe('write actions invalidate through the shared runner', () => {
       ['updatePerson', () => actions.updatePerson(person.value.id, form({ name: 'Ana B.' })), WRITES.person],
       ['updatePersonDate', () => actions.updatePersonDate(date.value.id, form({ label: 'Santo', date: '2020-07-27', yearly: 'true' })), WRITES.personDate],
       ['deletePersonDate', () => actions.deletePersonDate(date.value.id), WRITES.personDate],
+      // El último: se lleva a la persona por delante.
+      ['deletePerson', () => actions.deletePerson(person.value.id), WRITES.person],
     ];
     expect(invalidated).toEqual([
       { userId: 'u1', scopes: WRITES.item },

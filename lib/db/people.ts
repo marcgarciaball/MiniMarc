@@ -22,6 +22,8 @@ export interface PeopleRepo {
   deleteDate(id: string): Promise<void>;
   /** Lanza si no existe o si el nombre queda vacío. */
   updatePerson(id: string, patch: PersonPatch): Promise<Person>;
+  /** Borra la persona y sus fechas. Lanza si no existe. Sus items los trata quien llama. */
+  deletePerson(id: string): Promise<void>;
 }
 
 export type PersonPatch = Partial<Pick<Person, 'name' | 'birthday' | 'notes'>>;
@@ -148,6 +150,14 @@ export function createPeopleRepo(backend: DbBackend): PeopleRepo {
     async getPerson(id) {
       const [row] = await backend.select('people', { eq: { id } });
       return row ? rowToPerson(row) : null;
+    },
+
+    async deletePerson(id) {
+      // Las fechas se borran aquí, no por la clave ajena, para que el backend en memoria y
+      // Supabase hagan lo mismo (0006 las tiene en cascade; esto lo hace explícito).
+      await backend.remove('person_dates', { eq: { person_id: id } });
+      const gone = await backend.remove('people', { eq: { id } });
+      if (gone === 0) throw new Error('La persona no existe');
     },
 
     async upcomingDates(from, days) {

@@ -2,7 +2,8 @@
  * Logic behind the Agenda (app/(app)/agenda) and its server action (app/actions/events.ts).
  * Pure: Calendar comes in through `deps`, so tests use a fake gateway.
  */
-import type { CalendarGateway, EventInput } from '@/lib/calendar/client';
+import { calendarErrorKind, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
+import type { ItemsRepo } from '@/lib/db/items';
 import { toSyncError, type SyncErrorCode } from '@/lib/calendar/taskSync';
 import { isValidDate, madridToUtc } from '@/lib/time';
 import { UserError } from './result';
@@ -24,6 +25,12 @@ export type EventActionResult = { ok: true; value: string } | { ok: false; error
 export const EVENT_ERROR_MESSAGES: Record<SyncErrorCode, string> = {
   calendar_auth: 'Google Calendar necesita que vuelvas a entrar. La cita no se ha guardado.',
   calendar_unavailable: 'Google Calendar no responde. La cita no se ha guardado; inténtalo de nuevo.',
+};
+
+/** Lo que se le dice a Marc cuando no se ha podido borrar. */
+export const DELETE_ERROR_MESSAGES: Record<SyncErrorCode, string> = {
+  calendar_auth: 'Google Calendar necesita que vuelvas a entrar. No se ha borrado nada.',
+  calendar_unavailable: 'Google Calendar no responde. No se ha borrado nada; inténtalo de nuevo.',
 };
 
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -100,4 +107,41 @@ export async function addReminders(deps: EventDeps, eventId: string): Promise<Ad
   } catch (err) {
     return { ok: false, error: toSyncError(err) };
   }
+}
+
+/**
+ * Borrar desde la Agenda lo que se ve en la Agenda, venga del calendario que venga.
+ *
+ * El evento de una tarea no se borra solo: la tarea iría a la papelera igualmente en la próxima
+ * pasada del cron, o peor, el evento volvería a crearse. Así que la tarea se va con él, a la
+ * papelera (recuperable 30 días) y sin su `calendarEventId`, que ya no apunta a nada.
+ */
+export async function deleteAgendaEvent(
+  deps: EventDeps & { items?: ItemsRepo },
+  event: { eventId: string; calendarId: string; isTask?: boolean },
+): Promise<{ ok: true } | { ok: false; error: SyncErrorCode }> {
+  const eventId = event.eventId.trim();
+  const calendarId = event.calendarId.trim();
+  if (!eventId || !calendarId) throw new UserError('Falta el evento.');
+  try {
+    const gw = await deps.calendar();
+    try {
+      await gw.deleteEvent(calendarId, eventId);
+    } catch (err) {
+      // Ya no estaba: el objetivo se ha cumplido igual.
+      if (calendarErrorKind(err) !== 'not_found') throw err;
+    }
+    if (event.isTask && deps.items) await trashTaskOf(deps.items, eventId);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: toSyncError(err) };
+  }
+}
+
+/** La tarea dueña de ese evento, a la papelera y sin el enlace al evento que acaba de irse. */
+async function trashTaskOf(items: ItemsRepo, eventId: string): Promise<void> {
+  const item = (await items.listCalendarState()).find((i) => i.calendarEventId === eventId && !i.deletedAt);
+  if (!item) return;
+  await items.updateItem(item.id, { calendarEventId: null, syncError: null });
+  await items.softDeleteItem(item.id);
 }

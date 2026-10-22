@@ -12,6 +12,8 @@ export type EventDetailSheetProps = {
   date: string;
   saving: boolean;
   onAddReminders: (id: string) => void;
+  /** Borra el evento del calendario donde esté; si era de una tarea, se lleva la tarea. */
+  onDelete: (item: AgendaItem) => void;
   onClose: () => void;
 };
 
@@ -25,8 +27,8 @@ function remindersLabel(item: AgendaItem): string {
   return item.hasRequiredReminders ? '3 h y 1 h antes' : 'Sin avisos de 3 h y 1 h';
 }
 
-/** Details of one event, read only, with "Añadir avisos" for citas of the primary calendar. */
-export function EventDetailSheet({ item, date, saving, onAddReminders, onClose }: EventDetailSheetProps) {
+/** Details of one event, with "Añadir avisos" for citas of the primary calendar, and borrar. */
+export function EventDetailSheet({ item, date, saving, onAddReminders, onDelete, onClose }: EventDetailSheetProps) {
   const footer =
     item && needsReminders(item) && !canAddReminders(item)
       ? item.isTask
@@ -66,6 +68,16 @@ export function EventDetailSheet({ item, date, saving, onAddReminders, onClose }
                 {saving ? 'Añadiendo avisos…' : 'Añadir avisos de 3 h y 1 h'}
               </button>
             )}
+          </InsetList>
+          <InsetList footer={item.isTask ? 'La tarea se irá con él a la papelera.' : undefined}>
+            <button
+              type="button"
+              className="ui-row app-action app-action--destructive"
+              disabled={saving}
+              onClick={() => onDelete(item)}
+            >
+              {saving ? 'Borrando…' : item.isTask ? 'Eliminar la tarea y su evento' : 'Eliminar de Calendar'}
+            </button>
           </InsetList>
         </div>
       )}

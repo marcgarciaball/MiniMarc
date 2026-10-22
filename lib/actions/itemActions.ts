@@ -27,5 +27,6 @@ export function createItemActions(run: ActionRunner<ActionDeps>) {
     updatePersonDate: (id: string, fd: FormData) =>
       run(WRITES.personDate, (d) => people.updatePersonDate(d, id, fd), SAVE_FAILED),
     deletePersonDate: (id: string) => run(WRITES.personDate, (d) => people.deletePersonDate(d, id), SAVE_FAILED),
+    deletePerson: (id: string) => run(WRITES.person, (d) => people.deletePerson(d, id), SAVE_FAILED),
   };
 }
