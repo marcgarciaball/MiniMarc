@@ -12,6 +12,7 @@ export type Section =
   | 'sin-clasificar'
   | 'bandeja'
   | 'listas'
+  | 'buscar'
   | 'ajustes';
 
 const SECTIONS: Section[] = [
@@ -27,6 +28,7 @@ const SECTIONS: Section[] = [
   'sin-clasificar',
   'bandeja',
   'listas',
+  'buscar',
   'ajustes',
 ];
 
@@ -58,6 +60,10 @@ export const RECONNECT_HREF = '/login?reconsent=1';
 
 /** The Bandeja ("Recién añadido"): what was captured in the last 24 h. */
 export const BANDEJA_HREF = '/bandeja';
+
+/** The search screen, and the id of its field (the `/` and ⌘K shortcuts focus it). */
+export const BUSCAR_HREF = '/buscar';
+export const SEARCH_INPUT_ID = 'buscar';
 
 /** id of the CaptureBar's field. "Capturar" focuses it; without it (no JS yet) it opens the Bandeja. */
 export const CAPTURE_INPUT_ID = 'capturar';

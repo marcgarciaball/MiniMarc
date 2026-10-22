@@ -11,6 +11,7 @@ import {
   IdeaIcon,
   ListIcon,
   PersonIcon,
+  SearchIcon,
   SettingsIcon,
   TasksIcon,
   TodayIcon,
@@ -74,6 +75,17 @@ export function AppNav({ active }: { active: Section | null }) {
           </span>
           Capturar
         </CaptureLink>
+        <Link
+          href="/buscar"
+          className="app-sidebar__link"
+          aria-current={active === 'buscar' ? 'page' : undefined}
+          aria-keyshortcuts="/ Meta+K"
+        >
+          <span className="app-sidebar__icon" aria-hidden>
+            <SearchIcon />
+          </span>
+          Buscar
+        </Link>
         {SIDEBAR.map((group, i) => (
           <div key={i} className="app-sidebar__group">
             {group.header && <h2 className="app-sidebar__header">{group.header}</h2>}

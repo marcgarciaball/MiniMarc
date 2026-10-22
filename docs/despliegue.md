@@ -209,6 +209,13 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 3. **Listas → Libros** tiene tres pestañas: **Por leer · Leyendo · Leídos**. Desliza a la derecha (o pulsa «Empezar», «Terminado», «Releer») para pasar el libro al siguiente estado; a la izquierda, para archivarlo. La primera foto es la portada. Un libro leído cuenta como hecho.
 4. **Extensión de Chrome:** recárgala en `chrome://extensions` para ver el chip **Libro** con su campo «Autor».
 
+## 12. Enlaces, vista previa y buscador
+
+1. Aplica la migración `0009_link_preview.sql` (`npx supabase db push`, o pégala en el SQL Editor). Añade a `items` las columnas `link_title`, `link_image` y `link_site` (la vista previa del enlace), la función `public.search_normalize` y las columnas generadas `items.search_text` y `people.search_text` (texto en minúsculas y sin acentos, para buscar). No necesita ninguna extensión: se usa `lower()` + `translate()` en lugar de `unaccent`, porque `unaccent` no es IMMUTABLE y no puede ir en una columna generada sin un envoltorio frágil; la app normaliza lo que buscas con la misma tabla. RLS no cambia. Se puede ejecutar otra vez sin problema. Hasta aplicarla, la app funciona: no hay vistas previas y el buscador no ignora los acentos.
+2. Compruébalo en el SQL Editor: `select public.search_normalize('Café ÁRBOL Ñandú');` debe devolver `cafe arbol nandu`.
+3. **Enlaces:** las URL (http/https) de títulos y notas se pueden pulsar y se ven acortadas («amazon.es/…»). Si un elemento no tiene enlace propio, al guardarlo toma la primera URL del título o de las notas. Tras guardarlo, el servidor descarga la vista previa (título, imagen y sitio) sin retrasar el guardado; si falla, el trabajo horario lo reintenta. Las imágenes se cargan directamente desde la web de origen.
+4. **Buscar:** la lupa de la barra superior (iPhone) o **Buscar** en la barra lateral (ordenador), o las teclas `/` y `⌘K`. Busca en títulos, notas, texto original, autores, títulos de enlaces y personas, sin distinguir mayúsculas ni acentos. Lo eliminado solo aparece con el interruptor **Papelera**.
+
 ## Verificación
 
 Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas deben estar marcadas.

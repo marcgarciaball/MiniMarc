@@ -1572,3 +1572,193 @@
   justify-content: space-between;
   padding-right: 16px;
 }
+
+/* ---------- Links in text (titles, notes) ---------- */
+.app-link {
+  color: var(--accent);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.app-link:hover {
+  text-decoration: underline;
+}
+
+.app-link--inert:hover {
+  text-decoration: none;
+}
+
+/*
+ * A tappable row body that also holds links: the button fills the body underneath, the text
+ * sits on top without taking taps, and only its links take them (an <a> cannot go inside a <button>).
+ */
+.app-press {
+  position: relative;
+}
+
+.app-press__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  transition: background-color var(--duration-fast) linear;
+}
+
+.app-press__hit:active {
+  background: var(--fill-pressed);
+  transition: none;
+}
+
+.app-press > :not(.app-press__hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.app-press a {
+  pointer-events: auto;
+}
+
+/* ---------- Link preview card ---------- */
+.app-link-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--touch-target);
+  padding: 8px 16px;
+  color: var(--label);
+  text-decoration: none;
+  transition: background-color var(--duration-fast) linear;
+}
+
+.app-link-card:active {
+  background: var(--fill-pressed);
+  transition: none;
+}
+
+/* Under a list row: indented to the row's text, a little smaller. */
+.app-link-card--row {
+  margin: -6px 16px 8px 52px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--radius-tile);
+  background: var(--accent-tint);
+}
+
+.app-link-card__image {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-tile);
+  object-fit: cover;
+  background: var(--accent-tint);
+  box-shadow: var(--glass-rim);
+}
+
+.app-link-card--row .app-link-card__image {
+  width: 34px;
+  height: 34px;
+}
+
+.app-link-card__image--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.app-link-card__text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.app-link-card__title,
+.app-link-card__site {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-link-card__title {
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-link-card__site {
+  color: var(--label-secondary);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: -0.08px;
+}
+
+/* ---------- Buscar ---------- */
+.app-search-button {
+  display: inline-flex;
+}
+
+@media (min-width: 900px) {
+  /* The sidebar has its own "Buscar". */
+  .app-shell .app-search-button {
+    display: none;
+  }
+}
+
+.app-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 var(--gutter) 12px;
+  padding: 0 12px;
+  min-height: 40px;
+  border-radius: 12px;
+  background: var(--fill-pressed);
+  color: var(--label-secondary);
+}
+
+.app-search svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.app-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  color: var(--label);
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: -0.41px;
+  outline: none;
+}
+
+.app-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.app-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  margin-right: -12px;
+  color: var(--label-tertiary);
+}
+
+.app-search__options {
+  margin-bottom: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-press__hit,
+  .app-link-card {
+    transition: none;
+  }
+}

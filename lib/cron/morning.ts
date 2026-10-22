@@ -9,6 +9,7 @@
  *      b. Purge of items soft-deleted more than 30 days ago, deleting their event and their photos'
  *         storage objects first (the item_photos rows go with the item, on delete cascade). If
  *         either fails, the item stays and the next hourly run retries.
+ *      c. Link previews never stored (the save's `after` failed or 0009 came later), capped.
  *   3. Weekly summary, Monday 08:00 or Sunday 20:00 (shouldSendWeekly), after the daily one and
  *      apart from it: its own settings read, its own tag, and a failure never touches the daily
  *      result. last_weekly_date is saved before sending, so a week is never pushed twice.
@@ -47,6 +48,8 @@ export interface MorningDeps {
   /** Scoped to the user, like `items`. */
   photos: Pick<PhotosRepo, 'listPhotos'>;
   storage: Pick<PhotoStorage, 'remove'>;
+  /** Fetches link previews that were never stored (fallback for `after`); returns how many. */
+  refreshPreviews?: () => Promise<number>;
 }
 
 export interface MorningResult {
@@ -58,6 +61,8 @@ export interface MorningResult {
   synced: number;
   syncFailed: number;
   purged: number;
+  /** Link previews filled in by this run. */
+  previews: number;
   maintenanceFailed: boolean;
 }
 
@@ -203,6 +208,14 @@ async function maintain(deps: MorningDeps, r: MorningResult): Promise<void> {
   } catch {
     r.maintenanceFailed = true;
   }
+
+  if (deps.refreshPreviews) {
+    try {
+      r.previews = await deps.refreshPreviews();
+    } catch {
+      // Before 0009 (no link_site column) or a database hiccup: previews are only an extra.
+    }
+  }
 }
 
 export async function runMorning(deps: MorningDeps): Promise<MorningResult> {
@@ -215,6 +228,7 @@ export async function runMorning(deps: MorningDeps): Promise<MorningResult> {
     synced: 0,
     syncFailed: 0,
     purged: 0,
+    previews: 0,
     maintenanceFailed: false,
   };
   await sendDigest(deps, r);

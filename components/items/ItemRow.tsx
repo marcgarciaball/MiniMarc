@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { CheckCircle } from '@/components/icons';
+import { LinkPreviewCard } from '@/components/links/LinkPreviewCard';
+import { LinkText } from '@/components/links/LinkText';
 import type { Item } from '@/lib/db/types';
 
 export type ItemRowProps = {
@@ -17,7 +19,10 @@ export type ItemRowProps = {
   thumb?: string;
 };
 
-/** A list row with a completion circle (44pt target) and a tappable body that opens the edit sheet. */
+/**
+ * A list row with a completion circle (44pt target) and a tappable body that opens the edit
+ * sheet. URLs in the title and subtitle are links; the item's link shows as a preview card below.
+ */
 export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, notice, thumb }: ItemRowProps) {
   return (
     <>
@@ -32,17 +37,23 @@ export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, not
         >
           <CheckCircle checked={checked} />
         </button>
-        <button type="button" className="ui-row__body app-item__body" onClick={onOpen}>
+        <div className="ui-row__body app-item__body app-press">
+          <button type="button" className="app-press__hit" aria-label={`Abrir «${item.title}»`} onClick={onOpen} />
           <span className="ui-row__text">
             <span className="ui-row__title" data-done={checked || undefined}>
-              {item.title}
+              <LinkText text={item.title} />
             </span>
-            {subtitle && <span className="ui-row__subtitle">{subtitle}</span>}
+            {subtitle && (
+              <span className="ui-row__subtitle">
+                <LinkText text={subtitle} />
+              </span>
+            )}
           </span>
           {detail && <span className="ui-row__detail">{detail}</span>}
           {thumb && <RowThumb url={thumb} />}
-        </button>
+        </div>
       </div>
+      {item.link && <LinkPreviewCard item={item} inRow />}
       {notice}
     </>
   );

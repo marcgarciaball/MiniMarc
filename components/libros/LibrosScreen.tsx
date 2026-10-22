@@ -5,6 +5,8 @@ import { deleteItem, moveItem, undoDelete } from '@/app/actions/items';
 import { BookIcon, PlusIcon } from '@/components/icons';
 import { RowThumb } from '@/components/items/ItemRow';
 import { SwipeRow } from '@/components/items/SwipeRow';
+import { LinkPreviewCard } from '@/components/links/LinkPreviewCard';
+import { LinkText } from '@/components/links/LinkText';
 import { InsetList, LargeTitle, Segmented, Toast, type ToastProps } from '@/components/ui';
 import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, ReadingState } from '@/lib/db/types';
@@ -150,11 +152,13 @@ export function LibrosScreen({ books, photos }: { books: Item[]; photos: PhotoMa
                   onCommit={(outcome) => (outcome === 'complete' ? advance(book) : archive(book))}
                 >
                   <div className="ui-row app-book">
-                    <button
-                      type="button"
-                      className="ui-row__body app-book__body"
-                      onClick={() => setSheet({ open: true, mode: { kind: 'edit', item: book } })}
-                    >
+                    <div className="ui-row__body app-book__body app-press">
+                      <button
+                        type="button"
+                        className="app-press__hit"
+                        aria-label={`Abrir «${book.title}»`}
+                        onClick={() => setSheet({ open: true, mode: { kind: 'edit', item: book } })}
+                      />
                       {cover ? (
                         <RowThumb url={cover} />
                       ) : (
@@ -163,11 +167,17 @@ export function LibrosScreen({ books, photos }: { books: Item[]; photos: PhotoMa
                         </span>
                       )}
                       <span className="ui-row__text">
-                        <span className="ui-row__title">{book.title}</span>
+                        <span className="ui-row__title">
+                          <LinkText text={book.title} />
+                        </span>
                         {book.author && <span className="ui-row__subtitle">{book.author}</span>}
-                        {note && <span className="ui-row__subtitle app-book__note">{note}</span>}
+                        {note && (
+                          <span className="ui-row__subtitle app-book__note">
+                            <LinkText text={note} />
+                          </span>
+                        )}
                       </span>
-                    </button>
+                    </div>
                     <button
                       type="button"
                       className="app-book__next"
@@ -177,6 +187,7 @@ export function LibrosScreen({ books, photos }: { books: Item[]; photos: PhotoMa
                       {NEXT_ACTION_LABELS[state]}
                     </button>
                   </div>
+                  {book.link && <LinkPreviewCard item={book} inRow />}
                 </SwipeRow>
               );
             })}

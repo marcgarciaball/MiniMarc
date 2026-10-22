@@ -7,6 +7,7 @@ import type { ItemsRepo } from '@/lib/db/items';
 import type { PeopleRepo } from '@/lib/db/people';
 import type { Area, Item, ItemPatch, ItemType, NewItem, Person } from '@/lib/db/types';
 import { READING_STATES } from '@/lib/libros';
+import { deriveLink } from '@/lib/links/linkify';
 import { isValidDate, toDue } from '@/lib/time';
 import { UserError } from './result';
 
@@ -173,6 +174,20 @@ export async function moveItem(deps: ActionDeps, id: string, patch: MovePatch): 
   }
   if (clean.author !== undefined) clean.author = clean.author?.trim() || null;
   if (clean.link !== undefined) clean.link = clean.link?.trim() || null;
+  // No link of its own but a URL in the title or notes: that URL is the link. Only a real change
+  // is written, so the preview is fetched again only when the link changes.
+  const link = deriveLink({
+    title: clean.title ?? current.title,
+    notes: clean.notes !== undefined ? clean.notes : current.notes,
+    link: clean.link !== undefined ? clean.link : current.link,
+  });
+  if (link !== current.link) {
+    clean.link = link;
+    // A stale preview goes with the old link (only once 0009 is there, i.e. it was ever fetched).
+    if (current.linkSite !== null) Object.assign(clean, { linkTitle: null, linkImage: null, linkSite: null });
+  } else {
+    delete clean.link;
+  }
   // Only tasks have a due date: leaving 'tarea' drops it (and, via sync, its Calendar event).
   if (type !== 'tarea' && (current.dueAt || current.hasTime || clean.dueAt || clean.hasTime)) {
     clean.dueAt = null;

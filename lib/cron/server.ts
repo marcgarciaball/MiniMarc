@@ -4,6 +4,8 @@ import { isAllowedEmail } from '@/lib/auth/allowlist';
 import { calendarGatewayFor } from '@/lib/calendar/server';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
 import { createSupabasePhotosRepo } from '@/lib/db/photos';
+import { refreshMissingPreviews } from '@/lib/links/preview';
+import { serverPreviewFetcher } from '@/lib/links/server';
 import { createPushSubscriptionsRepo } from '@/lib/db/push';
 import { createSettingsRepo } from '@/lib/db/settings';
 import { buildDigestFor, buildWeekDigestFor } from '@/lib/digest/server';
@@ -28,10 +30,11 @@ export async function morningRun(now = new Date()): Promise<MorningResult | { sk
   const userId = await resolveUserId(admin);
   if (!userId) return { skipped: 'no_user' };
   const settingsRepo = createSettingsRepo(admin, userId);
+  const items = createSupabaseItemsRepo(admin, { userId });
   return runMorning({
     now,
     settings: settingsRepo,
-    items: createSupabaseItemsRepo(admin, { userId }),
+    items,
     calendar: () => calendarGatewayFor(userId),
     buildDigest: (date, settings) => buildDigestFor({ client: admin, userId, date, now, settings, settingsRepo }),
     buildWeekDigest: (weekStart, settings) => buildWeekDigestFor({ client: admin, userId, weekStart, now, settings, settingsRepo }),
@@ -40,5 +43,6 @@ export async function morningRun(now = new Date()): Promise<MorningResult | { sk
     // Service role, scoped: rows by user_id, objects only under '{userId}/'.
     photos: createSupabasePhotosRepo(admin, { userId }),
     storage: createSupabasePhotoStorage(admin, { userId }),
+    refreshPreviews: () => refreshMissingPreviews(items, serverPreviewFetcher),
   });
 }

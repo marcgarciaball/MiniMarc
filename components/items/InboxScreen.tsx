@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { LinkText } from '@/components/links/LinkText';
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { deleteItem, moveItem, undoDelete } from '@/app/actions/items';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
@@ -126,18 +127,22 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
               <InsetList key={section.key} header={section.header}>
                 {section.items.map((item) => (
                   <div key={item.id} className="ui-row app-item app-inbox-row">
-                    <button
-                      type="button"
-                      className="ui-row__body app-item__body"
-                      onClick={() => setSheet({ open: true, item })}
-                    >
+                    <div className="ui-row__body app-item__body app-press">
+                      <button
+                        type="button"
+                        className="app-press__hit"
+                        aria-label={`Abrir «${item.title}»`}
+                        onClick={() => setSheet({ open: true, item })}
+                      />
                       <span className="ui-row__text">
-                        <span className="ui-row__title">{item.title}</span>
+                        <span className="ui-row__title">
+                          <LinkText text={item.title} />
+                        </span>
                         <span className="ui-row__subtitle">{subtitle(item)}</span>
                       </span>
                       <span className="ui-row__detail">{createdLabel(item, today)}</span>
                       {photos[item.id]?.[0] && <RowThumb url={photos[item.id][0].url} />}
-                    </button>
+                    </div>
                     <button
                       type="button"
                       className="ui-bar-button app-inbox-row__move"

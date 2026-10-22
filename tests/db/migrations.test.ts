@@ -175,3 +175,25 @@ describe('0007_weekly.sql', () => {
     );
   });
 });
+
+describe('0009_link_preview.sql', () => {
+  const s = sql('0009_link_preview.sql');
+
+  it('añade a items la vista previa del enlace, idempotente', () => {
+    expect(s).toMatch(/add column if not exists link_title text/);
+    expect(s).toMatch(/add column if not exists link_image text/);
+    expect(s).toMatch(/add column if not exists link_site text/);
+  });
+
+  it('normaliza la búsqueda con una función IMMUTABLE (lower + translate) y columnas generadas', () => {
+    expect(s).toMatch(/create or replace function public\.search_normalize\(t text\)[\s\S]*?immutable[\s\S]*?translate\(\s*lower\(/);
+    expect(s).toMatch(/alter table public\.items\s+add column if not exists search_text text generated always as \([\s\S]*?title[\s\S]*?notes[\s\S]*?source_text[\s\S]*?author[\s\S]*?link_title[\s\S]*?\) stored;/);
+    expect(s).toMatch(/alter table public\.people\s+add column if not exists search_text text generated always as \([\s\S]*?name[\s\S]*?notes[\s\S]*?\) stored;/);
+  });
+
+  it('no toca RLS y todo es repetible', () => {
+    expect(s).not.toMatch(/policy|row level security|grant |revoke /i);
+    expect(s).not.toMatch(/create (table|index) (?!if not exists)/);
+    expect(s).not.toMatch(/add column (?!if not exists)/);
+  });
+});

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseBackend, type DbBackend, type Row } from './backend';
 import { statusForReading } from '@/lib/libros';
+import { deriveLink } from '@/lib/links/linkify';
 import type { Item, ItemFilter, ItemPatch, NewItem } from './types';
 
 export interface ItemsRepo {
@@ -20,6 +21,8 @@ export interface ItemsRepo {
   listDeletedBefore(days: number): Promise<Item[]>;
   /** Removes the row for good (after its Calendar event is gone). */
   hardDelete(id: string): Promise<void>;
+  /** Undeleted items with a link whose preview was never fetched (link_site null), newest first. */
+  listMissingPreviews(): Promise<Item[]>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -44,6 +47,9 @@ const COLUMNS = {
   author: 'author',
   readingState: 'reading_state',
   link: 'link',
+  linkTitle: 'link_title',
+  linkImage: 'link_image',
+  linkSite: 'link_site',
   createdAt: 'created_at',
   deletedAt: 'deleted_at',
 } as const satisfies Record<keyof Item, string>;
@@ -67,12 +73,15 @@ export function itemToRow(item: Partial<Item>): Row {
   return row;
 }
 
-/** Columns added by 0008: left out of a write while they are null, so the app works before it. */
-const LIBRO_FIELDS = ['author', 'readingState', 'link'] as const;
+/**
+ * Columns added by 0008 and 0009: left out of an insert while they are null, so the app works
+ * before those migrations are applied.
+ */
+const OPTIONAL_FIELDS = ['author', 'readingState', 'link', 'linkTitle', 'linkImage', 'linkSite'] as const;
 
-function withoutEmptyLibroFields(item: Partial<Item>): Partial<Item> {
+function withoutEmptyOptionalFields(item: Partial<Item>): Partial<Item> {
   const out = { ...item };
-  for (const k of LIBRO_FIELDS) if (out[k] == null) delete out[k];
+  for (const k of OPTIONAL_FIELDS) if (out[k] == null) delete out[k];
   return out;
 }
 
@@ -100,15 +109,20 @@ export function createItemsRepo(
         author: null,
         readingState: null,
         link: null,
+        linkTitle: null,
+        linkImage: null,
+        linkSite: null,
         ...input,
       };
+      // No link of its own but a URL in the title or notes: that URL is the link.
+      full.link = deriveLink(full);
       if (full.type === 'libro') {
         full.readingState ??= 'por_leer';
         if (input.status === undefined) full.status = statusForReading(full.readingState);
       } else {
         full.readingState = null;
       }
-      return rowToItem(await backend.insert('items', itemToRow(withoutEmptyLibroFields(full))));
+      return rowToItem(await backend.insert('items', itemToRow(withoutEmptyOptionalFields(full))));
     },
 
     async listItems(f = {}) {
@@ -179,6 +193,11 @@ export function createItemsRepo(
 
     async hardDelete(id) {
       await backend.remove('items', { eq: { id } });
+    },
+
+    async listMissingPreviews() {
+      const rows = await backend.select('items', { notNull: ['link'], isNull: ['link_site', 'deleted_at'] });
+      return rows.map(rowToItem).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     },
   };
 }

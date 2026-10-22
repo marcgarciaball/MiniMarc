@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { PlusIcon } from '@/components/icons';
 import { PersonSheet } from '@/components/items/PersonSheet';
+import { LinkText } from '@/components/links/LinkText';
 import { InsetList, Row } from '@/components/ui';
 import type { UpcomingDate } from '@/lib/db/people';
 import type { Person, PersonDate } from '@/lib/db/types';
@@ -32,11 +33,17 @@ export function PersonDetail({ person, dates, next }: PersonDetailProps) {
   return (
     <>
       <InsetList header="Notas">
-        <button type="button" className="ui-row app-person-notes" onClick={() => setPersonOpen(true)}>
+        <div className="ui-row app-person-notes app-press">
+          <button
+            type="button"
+            className="app-press__hit"
+            aria-label={person.notes ? 'Editar notas' : 'Añadir notas'}
+            onClick={() => setPersonOpen(true)}
+          />
           <span className={person.notes ? 'app-person-notes__text' : 'app-person-notes__text app-person-notes__text--empty'}>
-            {person.notes || 'Añadir notas'}
+            {person.notes ? <LinkText text={person.notes} /> : 'Añadir notas'}
           </span>
-        </button>
+        </div>
       </InsetList>
 
       <InsetList header="Fechas">

@@ -4,6 +4,7 @@ import { isAllowedEmail } from '@/lib/auth/allowlist';
 import { sessionCaptureDeps } from '@/lib/capture/session';
 import { quickCapture } from '@/lib/capture/web';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
+import { withServerPreviews } from '@/lib/links/server';
 import { savePhotoFile } from '@/lib/photos/server';
 import { handleShare } from '@/lib/share/handler';
 import { createClient } from '@/lib/supabase/server';
@@ -22,7 +23,10 @@ export async function POST(request: Request) {
     },
     quickCapture: (fd) => quickCapture(fd, { captureDeps: sessionCaptureDeps, rethrow: unstable_rethrow }),
     async createItem(input) {
-      return createSupabaseItemsRepo(await createClient()).createItem(input);
+      const client = await createClient();
+      const repo = createSupabaseItemsRepo(client);
+      const { data } = await client.auth.getUser();
+      return (data.user ? withServerPreviews(repo, data.user.id) : repo).createItem(input);
     },
     savePhoto: savePhotoFile,
   });

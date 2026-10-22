@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useTransition, type FormEvent, type Transi
 import { addItem, moveItem } from '@/app/actions/items';
 import { ItemPhotos, uploadItemPhotos } from '@/components/items/ItemPhotos';
 import { PhotoPicker } from '@/components/photos';
+import { LinkPreviewCard } from '@/components/links/LinkPreviewCard';
+import { LinkText } from '@/components/links/LinkText';
 import { InsetList, Segmented, Sheet } from '@/components/ui';
 import { editPatchFromForm, newItemFormError } from '@/lib/actions/forms';
 import { settle } from '@/lib/actions/result';
@@ -175,11 +177,7 @@ function LibroForm(props: LibroSheetProps & { startTransition: TransitionStartFu
             autoCapitalize="none"
           />
         </label>
-        {href && (
-          <a className="ui-row app-action" href={href} target="_blank" rel="noopener noreferrer">
-            Abrir enlace
-          </a>
-        )}
+        {book && href && <LinkPreviewCard item={book} />}
       </InsetList>
 
       <InsetList>
@@ -213,7 +211,9 @@ function LibroForm(props: LibroSheetProps & { startTransition: TransitionStartFu
 
       {source && (
         <InsetList header="Texto original">
-          <p className="app-source-text">{source}</p>
+          <p className="app-source-text">
+            <LinkText text={source} />
+          </p>
         </InsetList>
       )}
 

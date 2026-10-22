@@ -3,6 +3,7 @@ import { CaptureBar, CaptureBarFallback } from '@/components/CaptureBar';
 import { AppNav } from '@/components/app/AppNav';
 import { AppShell } from '@/components/app/AppShell';
 import { CurrentAppNav } from '@/components/app/CurrentAppNav';
+import { SearchShortcut } from '@/components/app/SearchShortcut';
 import '@/components/app/app.css';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </Suspense>
       }
     >
+      <SearchShortcut />
       {children}
     </AppShell>
   );

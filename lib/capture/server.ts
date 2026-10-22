@@ -4,6 +4,7 @@ import { verifyApiToken } from '@/lib/auth/tokens';
 import { calendarGatewayFor } from '@/lib/calendar/server';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
 import { createSupabasePeopleRepo } from '@/lib/db/people';
+import { withServerPreviews } from '@/lib/links/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DEFAULT_TZ } from '@/lib/time';
 import type { CaptureRouteDeps } from './handler';
@@ -14,7 +15,7 @@ export const captureRouteDeps: CaptureRouteDeps = {
     const admin = createAdminClient();
     return {
       ai: createGeminiProvider(),
-      items: createSupabaseItemsRepo(admin, { userId }),
+      items: withServerPreviews(createSupabaseItemsRepo(admin, { userId }), userId),
       people: createSupabasePeopleRepo(admin, { userId }),
       calendar: () => calendarGatewayFor(userId),
       now: new Date(),

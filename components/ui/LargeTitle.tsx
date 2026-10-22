@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { SearchIcon } from '@/components/icons';
 import { NavBar } from './NavBar';
 
 export type LargeTitleProps = {
@@ -8,6 +10,8 @@ export type LargeTitleProps = {
   leading?: ReactNode;
   trailing?: ReactNode;
   children?: ReactNode;
+  /** The magnifier to /buscar in the bar (iPhone only: the sidebar has its own). Default true. */
+  search?: boolean;
 };
 
 /** Nearest scrollable ancestor, or null for the window. */
@@ -23,7 +27,7 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
  * iOS large title: a 34pt heading that scrolls under the NavBar; once it is
  * hidden the bar gets its glass material and hairline and shows the inline title.
  */
-export function LargeTitle({ title, leading, trailing, children }: LargeTitleProps) {
+export function LargeTitle({ title, leading, trailing, children, search = true }: LargeTitleProps) {
   const navRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -53,7 +57,24 @@ export function LargeTitle({ title, leading, trailing, children }: LargeTitlePro
 
   return (
     <>
-      <NavBar ref={navRef} title={title} leading={leading} trailing={trailing} collapsed={collapsed} />
+      <NavBar
+        ref={navRef}
+        title={title}
+        leading={leading}
+        trailing={
+          search ? (
+            <>
+              <Link href="/buscar" className="ui-bar-button app-search-button" aria-label="Buscar">
+                <SearchIcon />
+              </Link>
+              {trailing}
+            </>
+          ) : (
+            trailing
+          )
+        }
+        collapsed={collapsed}
+      />
       <h1 ref={titleRef} className="ui-large-title">
         {title}
       </h1>

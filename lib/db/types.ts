@@ -27,8 +27,16 @@ export interface Item {
   author: string | null;
   /** Libro: 'por_leer' (default), 'leyendo' or 'leido'. 'leido' ⇔ status 'hecho'. Null otherwise. */
   readingState: ReadingState | null;
-  /** Libro: an optional link (ficha, tienda, reseña…). */
+  /**
+   * The item's link: a libro's ficha, tienda o reseña, or the first URL of the title or notes
+   * (set on save by deriveLink, lib/links/linkify.ts).
+   */
   link: string | null;
+  /** Link preview (0009), fetched on the server after saving: page title, og:image URL, site name. */
+  linkTitle: string | null;
+  linkImage: string | null;
+  /** Set on every preview attempt (the domain when the page gives no site name); null = not fetched yet. */
+  linkSite: string | null;
   createdAt: string;
   deletedAt: string | null;
 }

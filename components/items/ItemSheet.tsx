@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState, useTransition, type FormEvent, type TransitionStartFunction } from 'react';
+import { LinkPreviewCard } from '@/components/links/LinkPreviewCard';
+import { LinkText } from '@/components/links/LinkText';
 import { InsetList, Segmented, Sheet } from '@/components/ui';
 import { editPatchFromForm, newItemFormError } from '@/lib/actions/forms';
 import type { MovePatch } from '@/lib/actions/items';
@@ -143,9 +145,17 @@ function ItemForm(props: ItemFormProps) {
         />
       </InsetList>
 
+      {item?.link && (
+        <InsetList header="Enlace">
+          <LinkPreviewCard item={item} />
+        </InsetList>
+      )}
+
       {source && (
         <InsetList header="Texto original">
-          <p className="app-source-text">{source}</p>
+          <p className="app-source-text">
+            <LinkText text={source} />
+          </p>
         </InsetList>
       )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { LinkText } from '@/components/links/LinkText';
 import { useOptimistic, useRef, useState, useTransition } from 'react';
 import { undoDelete } from '@/app/actions/items';
 import { ChevronLeftIcon } from '@/components/icons';
@@ -71,7 +72,9 @@ export function TrashScreen({ today, items, people }: TrashScreenProps) {
               <div key={item.id} className="ui-row">
                 <span className="ui-row__body">
                   <span className="ui-row__text">
-                    <span className="ui-row__title">{item.title}</span>
+                    <span className="ui-row__title">
+                      <LinkText text={item.title} />
+                    </span>
                     <span className="ui-row__subtitle">
                       {where(item)} · {deletedLabel(item, today)}
                     </span>
