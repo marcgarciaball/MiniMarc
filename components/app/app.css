@@ -307,7 +307,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 22px;
-  color: #ffffff;
+  color: var(--on-tile);
   font-size: 15px;
   font-weight: 600;
   letter-spacing: -0.24px;
@@ -325,7 +325,7 @@
 
 .app-swipe__action--archive {
   justify-content: flex-end;
-  background: linear-gradient(180deg, #8494a8 0%, #66768b 100%);
+  background: var(--archive-tile);
 }
 
 .app-swipe[data-dir="complete"] .app-swipe__action--complete,
@@ -493,22 +493,11 @@
   color: var(--destructive);
 }
 
-:root {
-  --destructive: #c23a2f;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --destructive: #ff7a6e;
-  }
-}
-
-[data-theme="dark"] {
-  --destructive: #ff7a6e;
-}
-
-[data-theme="light"] {
-  --destructive: #c23a2f;
+/* These containers clip (overflow: hidden): draw the focus ring inside. */
+.app-swipe :focus-visible,
+.app-week :focus-visible,
+.app-event :focus-visible {
+  outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1124,7 +1113,7 @@
   padding: 7px;
   border-radius: var(--radius-pill);
   background: var(--accent-tile);
-  color: #ffffff;
+  color: var(--on-tile);
 }
 
 .app-capture__send:disabled svg {
@@ -1713,7 +1702,7 @@
   gap: 8px;
   margin: 0 var(--gutter) 12px;
   padding: 0 12px;
-  min-height: 40px;
+  min-height: var(--touch-target);
   border-radius: 12px;
   background: var(--fill-pressed);
   color: var(--label-secondary);
@@ -1728,7 +1717,7 @@
 .app-search input {
   flex: 1;
   min-width: 0;
-  min-height: 40px;
+  min-height: var(--touch-target);
   border: 0;
   background: transparent;
   color: var(--label);

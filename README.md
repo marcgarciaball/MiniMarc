@@ -1,6 +1,16 @@
 # Agente Personal
 
-PWA personal (Next.js + Supabase + Google Calendar + Gemini) para capturar tareas, ideas, compras y regalos, de un solo usuario.
+PWA personal (Next.js + Supabase + Google Calendar + Gemini) para capturar tareas, ideas, compras, regalos y libros, de un solo usuario.
+
+## Qué hace
+
+- **Captura** desde la app, Siri, la extensión de Chrome o "Compartir" en Android; Gemini la clasifica (nunca lo de Trabajo) y, si falla, queda en "Sin clasificar".
+- **Hoy, Agenda y Semana:** citas y tareas con hora sincronizadas con Google Calendar (avisos de 3 h y 1 h); resumen de la mañana y semanal por notificación.
+- **Listas:** tareas, ideas, compras, regalos y libros (por leer, leyendo, leídos), con fotos, enlaces con vista previa, papelera de 30 días y buscador sin acentos.
+- **Personas:** cumpleaños y fechas especiales con aviso el mismo día.
+- **Tus datos:** exportación completa en JSON o de los elementos en CSV desde Ajustes.
+
+Despliegue paso a paso en `docs/despliegue.md`.
 
 ## Desarrollo
 

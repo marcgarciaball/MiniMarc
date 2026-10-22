@@ -114,6 +114,14 @@
   .photo-lightbox { animation: none; }
 }
 
+/*
+ * The lightbox is always dark, in light mode too (like Photos): its own white-on-dark colours
+ * are deliberate, not theme tokens. The accent focus ring would vanish on it, so it is white.
+ */
+.photo-lightbox :focus-visible {
+  outline-color: #ffffff;
+}
+
 .photo-lightbox__backdrop {
   position: absolute;
   inset: 0;

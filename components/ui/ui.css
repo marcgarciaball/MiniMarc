@@ -229,6 +229,11 @@
   text-transform: uppercase;
 }
 
+/* The group clips its rows (overflow: hidden), so their focus ring goes inside. */
+.ui-inset-list__group :focus-visible {
+  outline-offset: -2px;
+}
+
 .ui-inset-list__group {
   overflow: hidden;
   border-radius: var(--radius-continuous);
@@ -351,7 +356,7 @@ button.ui-row:active {
   border-radius: var(--radius-tile);
   background: var(--accent-tile);
   box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.35);
-  color: #ffffff;
+  color: var(--on-tile);
 }
 
 .ui-icon-tile svg {

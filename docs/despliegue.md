@@ -15,8 +15,22 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
 1. Entra en https://supabase.com y crea una cuenta.
 2. Pulsa **New project**. Elige la organización, un nombre (por ejemplo `agente-personal`), una contraseña para la base de datos (guárdala) y una región UE: **West EU (Paris)** (`eu-west-3`) o **Central EU (Frankfurt)** (`eu-central-1`). Plan: **Free**.
 3. Espera a que el proyecto termine de crearse.
-4. Aplica el esquema: las migraciones de `supabase/migrations/` **en orden** (`0001_init.sql`, `0002_single_user.sql`, y así sucesivamente). Si ya aplicaste algunas, aplica solo las que falten. Hay dos opciones:
-   - **Editor SQL (sin CLI):** abre **SQL Editor → New query**, pega el contenido completo de `supabase/migrations/0001_init.sql` y pulsa **Run**. Repite con `0002_single_user.sql` en otra consulta nueva.
+4. Aplica el esquema: las nueve migraciones de `supabase/migrations/` **en este orden**. Si ya aplicaste algunas, aplica solo las que falten (de la 0004 en adelante se pueden ejecutar otra vez sin problema):
+
+   | # | Archivo | Qué hace | Sección |
+   |---|---|---|---|
+   | 1 | `0001_init.sql` | Tablas `items`, `people`, `api_tokens`, `google_credentials`, `settings`, `push_subscriptions` con RLS | — |
+   | 2 | `0002_single_user.sql` | Usuario único: `private.app_config`, trigger en `auth.users`, RLS con el correo permitido | 1.5 |
+   | 3 | `0003_source_text.sql` | `items.source_text` (texto original de cada captura) | — |
+   | 4 | `0004_cron.sql` | Trabajo horario de `pg_cron` + `pg_net` y caché del titular del resumen | 7 |
+   | 5 | `0005_photos.sql` | Bucket privado `photos` y tabla `item_photos` | 8 |
+   | 6 | `0006_person_dates.sql` | Tabla `person_dates` (fechas especiales) | 9 |
+   | 7 | `0007_weekly.sql` | Resumen semanal en `settings` | 10 |
+   | 8 | `0008_libros.sql` | Tipo `libro` y columnas `author`, `reading_state`, `link` | 11 |
+   | 9 | `0009_link_preview.sql` | Vista previa de enlaces y columnas de búsqueda sin acentos | 12 |
+
+   Hay dos formas de aplicarlas:
+   - **Editor SQL (sin CLI):** abre **SQL Editor → New query**, pega el contenido completo de `supabase/migrations/0001_init.sql` y pulsa **Run**. Repite con cada archivo siguiente, en orden, cada uno en una consulta nueva.
    - **Con CLI:** `npx supabase login`, luego `npx supabase link --project-ref <ref>` (el `ref` está en la URL del proyecto, `https://supabase.com/dashboard/project/<ref>`), y por último `npx supabase db push`.
 5. **Escribe tu correo permitido en la base de datos.** Es obligatorio y va antes del primer inicio de sesión. La base de datos no ve las variables de Vercel, así que el correo de `ALLOWED_EMAIL` se guarda también aquí, en la tabla `private.app_config`. En **SQL Editor → New query** ejecuta (con tu correo de Google, en minúsculas):
 
@@ -75,7 +89,7 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
 1. Entra en https://vercel.com, crea una cuenta y elige el plan **Hobby**. Hobby es gratuito y solo para uso personal no comercial, que es el caso.
 2. **Add New → Project → Import Git Repository**. Autoriza a Vercel sobre GitHub e importa `marcgarciaball/MiniMarc`. Rama: `main` (o `feat/agente-personal` si aún no has fusionado).
 3. Nombre del proyecto: el que quieras. Determina el dominio `<app>.vercel.app`.
-4. Antes de desplegar, abre **Environment Variables** y crea las siguientes (todas para Production; añade Preview si quieres probar ramas):
+4. Antes de desplegar, abre **Environment Variables** y crea las siguientes (todas para Production; añade Preview si quieres probar ramas). Todas son obligatorias salvo las marcadas como opcionales:
 
    | Variable | Qué es y de dónde sale |
    |---|---|
@@ -85,11 +99,13 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
    | `SUPABASE_SERVICE_ROLE_KEY` | Secret key de Supabase (paso 1.6). Solo servidor. Hace falta desde el primer inicio de sesión: es la única vía para guardar el acceso a Google Calendar. |
    | `GOOGLE_CLIENT_ID` | Client ID del cliente OAuth (paso 2.4). |
    | `GOOGLE_CLIENT_SECRET` | Client secret del cliente OAuth (paso 2.4). Solo servidor. |
-   | `GEMINI_API_KEY` | Clave de Google AI Studio creada en un proyecto **sin facturación** (https://aistudio.google.com/apikey). No hace falta hasta la fase 3: puedes dejarla vacía. |
+   | `GEMINI_API_KEY` | Clave de Google AI Studio creada en un proyecto **sin facturación** (https://aistudio.google.com/apikey). Sin ella la app funciona, pero todo lo capturado queda en "Sin clasificar" y el resumen sale sin frase de la IA. |
    | `VAPID_PUBLIC_KEY` | Clave pública para notificaciones web push. Generar con `npx web-push generate-vapid-keys` (en tu ordenador). |
    | `VAPID_PRIVATE_KEY` | Clave privada de la misma pareja VAPID. Solo servidor. |
    | `CRON_SECRET` | Secreto que protege las rutas que llama el cron. Generar con `openssl rand -hex 32`. Solo servidor. |
    | `APP_TZ` | Valor fijo `Europe/Madrid`. Zona horaria de la app. |
+   | `GEMINI_MODEL` | **Opcional.** Modelo de Gemini. Si falta, `gemini-2.5-flash-lite`. Cámbialo solo si Google retira ese modelo del nivel gratuito. |
+   | `GEMINI_DAILY_CAP` | **Opcional.** Tope de llamadas a Gemini al día (entero positivo). Si falta, 200. Al llegar al tope, las capturas se guardan como "Sin clasificar". |
 
 5. Pulsa **Deploy**. Cuando termine, la URL será `https://<app>.vercel.app`. Vuelve al paso 3 y pon esa URL en Site URL y en Redirect URLs.
 6. Cada vez que cambies una variable, vuelve a desplegar: **Deployments → ⋯ → Redeploy**. Las variables no se aplican a despliegues ya hechos.
@@ -101,28 +117,7 @@ Requisitos: Node.js 20.9 o superior (requisito de Next.js 16) y npm.
 
 1. Clona el repositorio y ejecuta `npm install`.
 2. Crea `.env.local` en la raíz con las mismas variables del paso 4 (con los mismos valores). Este archivo está ignorado por Git y no debe subirse.
-3. `.env.example` todavía no existe; el repositorio lo referencia en el README. Créalo tú con este contenido (solo nombres, sin valores), y así lo podrás commitear:
-
-   ```bash
-   # Correo de Google autorizado (único usuario)
-   ALLOWED_EMAIL=
-   # Supabase (Settings → API Keys)
-   NEXT_PUBLIC_SUPABASE_URL=
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   SUPABASE_SERVICE_ROLE_KEY=
-   # Google OAuth y Calendar
-   GOOGLE_CLIENT_ID=
-   GOOGLE_CLIENT_SECRET=
-   # Gemini (fase 3; puede quedar vacía)
-   GEMINI_API_KEY=
-   # Web push (npx web-push generate-vapid-keys)
-   VAPID_PUBLIC_KEY=
-   VAPID_PRIVATE_KEY=
-   # Secreto de cron (openssl rand -hex 32)
-   CRON_SECRET=
-   # Zona horaria
-   APP_TZ=Europe/Madrid
-   ```
+3. La forma rápida: `cp .env.example .env.local` y rellena los valores. `GEMINI_MODEL` y `GEMINI_DAILY_CAP` son opcionales y no aparecen en la plantilla.
 
 4. Arranca el servidor de desarrollo con `npm run dev` y abre http://localhost:3000. Comprueba que el inicio de sesión funciona (requiere el redirect `http://localhost:3000/auth/callback` del paso 3).
 5. Comprueba la build de producción con `npm run build`. **Esta build nunca se ha ejecutado fuera del entorno de desarrollo automatizado**, así que puede fallar. Si falla, copia el error completo y revisa primero las variables de entorno, que deben estar definidas para que la build compile.
@@ -215,6 +210,13 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 2. Compruébalo en el SQL Editor: `select public.search_normalize('Café ÁRBOL Ñandú');` debe devolver `cafe arbol nandu`.
 3. **Enlaces:** las URL (http/https) de títulos y notas se pueden pulsar y se ven acortadas («amazon.es/…»). Si un elemento no tiene enlace propio, al guardarlo toma la primera URL del título o de las notas. Tras guardarlo, el servidor descarga la vista previa (título, imagen y sitio) sin retrasar el guardado; si falla, el trabajo horario lo reintenta. Las imágenes se cargan directamente desde la web de origen.
 4. **Buscar:** la lupa de la barra superior (iPhone) o **Buscar** en la barra lateral (ordenador), o las teclas `/` y `⌘K`. Busca en títulos, notas, texto original, autores, títulos de enlaces y personas, sin distinguir mayúsculas ni acentos. Lo eliminado solo aparece con el interruptor **Papelera**.
+
+## 13. Exportar tus datos
+
+**Ajustes → Tus datos** descarga una copia (`agente-personal-AAAA-MM-DD.json` o `.csv`). Necesita la sesión iniciada; la ruta es `GET /api/export?fmt=json|csv`.
+
+- **JSON:** todo. Elementos (también los de la papelera, con `deletedAt`), personas, fechas especiales, fotos (solo la ruta en el bucket `photos`, no la imagen), ajustes (hora del resumen, zona, resumen semanal) y los tokens de API (solo nombre y fechas, nunca el hash).
+- **CSV:** solo los elementos, una fila cada uno, con las columnas siempre en el mismo orden. Se abre en Numbers o Excel.
 
 ## Verificación
 
