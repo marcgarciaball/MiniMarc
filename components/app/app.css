@@ -1415,11 +1415,45 @@
 }
 
 /* ---------- Bandeja ---------- */
-.app-inbox-row__move {
-  flex: none;
-  margin-right: 6px;
+/*
+ * One inset row per arrival: title and destination, the time on the right, then a 44 pt "Mover"
+ * icon button, all inside the row body so the separator spans the whole row.
+ */
+.app-inbox-row .ui-row__body {
+  padding-right: 4px;
+}
+
+.app-inbox-row__time {
   font-size: 15px;
   letter-spacing: -0.24px;
+}
+
+.app-press > button.app-inbox-row__move {
+  pointer-events: auto;
+}
+
+.app-inbox-row__move {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  /* Keeps the row at its text height; the tap target still covers 44 × 44. */
+  margin: -11px 0;
+  border-radius: 12px;
+  color: var(--accent);
+  transition: background-color var(--duration-fast) linear;
+}
+
+.app-inbox-row__move svg {
+  width: 22px;
+  height: 22px;
+}
+
+.app-inbox-row__move:active {
+  background: var(--fill-pressed);
+  transition: none;
 }
 
 /* ---------- Tokens ---------- */

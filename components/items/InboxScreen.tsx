@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MoveIcon } from '@/components/icons';
 import { LinkText } from '@/components/links/LinkText';
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { deleteItem, moveItem, undoDelete } from '@/app/actions/items';
@@ -41,7 +42,8 @@ function createdLabel(item: Item, today: string): string {
 
 /**
  * Bandeja "Recién añadido": what came in during the last 24 h, Personal and Trabajo apart.
- * Each row says where the item went; "Mover" opens the usual edit sheet to correct it.
+ * Each row is one inset row: title, where it went, the time on the right and a trailing "Mover"
+ * icon button (44 pt) that opens the usual edit sheet to correct it (so does tapping the row).
  * Rows stay after completing or archiving (this is a log of arrivals); deleting hides the row
  * and offers "Deshacer".
  */
@@ -138,8 +140,9 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
             section.items.length > 0 && (
               <InsetList key={section.key} header={section.header}>
                 {section.items.map((item) => (
-                  <div key={item.id} className="ui-row app-item app-inbox-row">
-                    <div className="ui-row__body app-item__body app-press">
+                  <div key={item.id} className="ui-row app-inbox-row">
+                    {/* The hit button gives the row its press state; "Mover" has its own. */}
+                    <div className="ui-row__body app-press">
                       <button
                         type="button"
                         className="app-press__hit"
@@ -152,17 +155,17 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
                         </span>
                         <span className="ui-row__subtitle">{subtitle(item)}</span>
                       </span>
-                      <span className="ui-row__detail">{createdLabel(item, today)}</span>
+                      <span className="ui-row__detail app-inbox-row__time">{createdLabel(item, today)}</span>
                       {photos[item.id]?.[0] && <RowThumb url={photos[item.id][0].url} />}
+                      <button
+                        type="button"
+                        className="app-inbox-row__move"
+                        aria-label={`Mover «${item.title}»`}
+                        onClick={() => setSheet({ open: true, item })}
+                      >
+                        <MoveIcon />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      className="ui-bar-button app-inbox-row__move"
-                      aria-label={`Mover «${item.title}»`}
-                      onClick={() => setSheet({ open: true, item })}
-                    >
-                      Mover
-                    </button>
                   </div>
                 ))}
               </InsetList>

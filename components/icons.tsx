@@ -297,3 +297,13 @@ export function BriefcaseIcon() {
     </svg>
   );
 }
+
+/** Mover (file the item elsewhere): a folder with an arrow, like Mail's "Move". */
+export function MoveIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <path d="M3.5 7.2A1.7 1.7 0 0 1 5.2 5.5h3.9l2 2.2h7.7a1.7 1.7 0 0 1 1.7 1.7v8.4a1.7 1.7 0 0 1-1.7 1.7H5.2a1.7 1.7 0 0 1-1.7-1.7z" />
+      <path d="M9.5 13.6h5.5M12.8 11.3l2.3 2.3-2.3 2.3" />
+    </svg>
+  );
+}
