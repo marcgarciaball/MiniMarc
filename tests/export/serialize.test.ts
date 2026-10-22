@@ -108,6 +108,23 @@ describe('serializeExport csv', () => {
     expect(csv).toContain('"Dijo ""mañana""\nsin falta"');
   });
 
+  it('neutraliza fórmulas: celdas que empiezan por = + - @ tabulador o CR llevan \' delante (M-5)', () => {
+    const titles = ['=HYPERLINK("http://x")', '+1+1', '-2', '@SUM(A1)', '\tcmd', '\rcmd'];
+    const csv = serializeExport(data({ items: titles.map((t, n) => item({ id: `i${n}`, title: 'ok', linkTitle: t })) }), 'csv');
+    expect(csv).toContain(`"'=HYPERLINK(""http://x"")"`);
+    expect(csv).toContain(",'+1+1,");
+    expect(csv).toContain(",'-2,");
+    expect(csv).toContain(",'@SUM(A1),");
+    expect(csv).toContain(",'\tcmd,");
+    expect(csv).toContain(`"'\rcmd"`);
+    expect(csv).not.toMatch(/,[=+@]/);
+  });
+
+  it('las fechas y textos normales no cambian', () => {
+    const csv = serializeExport(data({ items: [item({ title: 'Leche 2-3', notes: 'a=b' })] }), 'csv');
+    expect(csv).toContain(',Leche 2-3,a=b,');
+  });
+
   it('incluye elementos eliminados con deletedAt, booleanos y nulos', () => {
     const csv = serializeExport(data({ items: [item({ deletedAt: '2026-10-20T09:00:00.000Z', hasTime: true })] }), 'csv');
     const [header, row] = csv.trimEnd().split('\r\n');

@@ -64,9 +64,13 @@ export const CSV_COLUMNS = [
   'deletedAt',
 ] as const satisfies readonly (keyof Item)[];
 
+/** Spreadsheets run a cell starting with one of these as a formula (CSV injection): prefix «'». */
+const FORMULA_START = /^[=+\-@\t\r]/;
+
 function csvCell(v: unknown): string {
   if (v == null) return '';
-  const s = String(v);
+  const raw = String(v);
+  const s = FORMULA_START.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
