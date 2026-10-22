@@ -127,3 +127,27 @@ describe('0005_photos.sql', () => {
     expect(s).not.toMatch(/'photos', 'photos', true/);
   });
 });
+
+describe('0006_person_dates.sql', () => {
+  const s = sql('0006_person_dates.sql');
+
+  it('person_dates: cascada desde people, columnas y valores por defecto', () => {
+    expect(s).toMatch(/create table if not exists public\.person_dates/);
+    expect(s).toMatch(/person_id\s+uuid not null references public\.people\(id\) on delete cascade/);
+    expect(s).toMatch(/user_id\s+uuid not null default auth\.uid\(\)/);
+    expect(s).toMatch(/label\s+text not null/);
+    expect(s).toMatch(/date\s+date not null/);
+    expect(s).toMatch(/yearly\s+boolean not null default true/);
+    expect(s).toMatch(/notes\s+text,/);
+    expect(s).toMatch(/created_at\s+timestamptz not null default now\(\)/);
+  });
+
+  it('RLS como en 0002 (propietario y usuario permitido), idempotente', () => {
+    expect(s).toMatch(/alter table public\.person_dates enable row level security;/);
+    expect(s).toMatch(/drop policy if exists person_dates_owner on public\.person_dates;/);
+    expect(s).toMatch(
+      /create policy person_dates_owner on public\.person_dates[^;]*using \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\)\s+with check \(user_id = \(select auth\.uid\(\)\) and \(select private\.is_allowed_user\(\)\)\);/,
+    );
+    expect(s).not.toMatch(/create (table|index) (?!if not exists)/);
+  });
+});

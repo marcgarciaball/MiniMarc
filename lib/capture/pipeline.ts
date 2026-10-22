@@ -14,7 +14,7 @@ import type { CalendarGateway } from '@/lib/calendar/client';
 import { taskSyncHook } from '@/lib/calendar/taskSync';
 import type { ItemsRepo } from '@/lib/db/items';
 import type { PeopleRepo } from '@/lib/db/people';
-import type { Item, ItemType, NewItem, Origin } from '@/lib/db/types';
+import type { Item, ItemType, NewItem, Origin, PersonDate } from '@/lib/db/types';
 import { DEFAULT_TZ } from '@/lib/time';
 
 export const TITLE_MAX = 200;
@@ -22,7 +22,9 @@ export const MIN_CONFIDENCE = 0.6;
 export const DEDUP_WINDOW_MS = 30_000;
 
 export type CaptureInput = { text: string; area?: 'trabajo'; origin: Origin };
-export type CaptureResult = { items: Item[]; eventIds: string[] };
+/** A special date saved from a capture (`kind: 'fecha'`); a birthday has no `id`. */
+export type CapturedDate = Pick<PersonDate, 'personId' | 'label' | 'date'> & { personName: string };
+export type CaptureResult = { items: Item[]; eventIds: string[]; dates?: CapturedDate[] };
 
 export interface CaptureDeps {
   ai: AiProvider;
@@ -128,7 +130,7 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
   } catch {
     // Keep whatever was saved; only a capture that saved nothing at all fails.
   }
-  if (out.items.length === 0 && out.eventIds.length === 0) throw failure;
+  if (out.items.length === 0 && out.eventIds.length === 0 && !out.dates?.length) throw failure;
   return out;
 }
 
@@ -151,6 +153,11 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
     return;
   }
 
+  if (c.kind === 'fecha' && confident && c.personName && c.label && c.date) {
+    (out.dates ??= []).push(await savePersonDate(deps, c.personName, c.label, c.date, c.notes));
+    return;
+  }
+
   const fields: NewItem = { ...fromClassification(c, origin), needsReview: !confident, sourceText: text };
   if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
   const item = await deps.items.createItem(fields);
@@ -164,8 +171,9 @@ export function textFields(text: string): Pick<NewItem, 'title' | 'notes'> {
 }
 
 function fromClassification(c: Classification, origin: Origin): NewItem & { type: ItemType } {
-  // A cita that does not end up in Calendar is kept as a task with its date.
-  const type: ItemType = c.kind === 'cita' ? 'tarea' : c.kind;
+  // A cita that does not end up in Calendar is kept as a task with its date; a doubtful fecha
+  // goes to Sin clasificar as a task too.
+  const type: ItemType = c.kind === 'cita' || c.kind === 'fecha' ? 'tarea' : c.kind;
   const { title, notes } = textFields(c.title);
   return {
     type,
@@ -177,6 +185,31 @@ function fromClassification(c: Classification, origin: Origin): NewItem & { type
     confidence: c.confidence,
     origin,
   };
+}
+
+/**
+ * A person's special date: creates (or reuses) the person by name. "Cumpleaños" sets the
+ * birthday; any other label adds a yearly person date, unless the same one is already there
+ * (a retried capture). Throws if saving fails (the text then goes to Sin clasificar).
+ */
+async function savePersonDate(
+  deps: CaptureDeps,
+  name: string,
+  label: string,
+  date: string,
+  notes: string | undefined,
+): Promise<CapturedDate> {
+  const person = await deps.people.upsertPersonByName(name);
+  const saved = { personId: person.id, personName: person.name, date };
+  if (/^cumplea/i.test(label)) {
+    await deps.people.updatePerson(person.id, { birthday: date });
+    return { ...saved, label: 'Cumpleaños' };
+  }
+  const existing = await deps.people.listDates(person.id);
+  if (!existing.some((d) => d.date === date && d.label.toLowerCase() === label.toLowerCase())) {
+    await deps.people.addDate({ personId: person.id, label, date, notes: notes ?? null });
+  }
+  return { ...saved, label };
 }
 
 /** Links a gift to its person; if that fails the gift is still saved, just without a person. */

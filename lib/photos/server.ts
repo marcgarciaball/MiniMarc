@@ -29,6 +29,15 @@ export async function loadPhotoMap(items: { id: string }[]): Promise<PhotoMap> {
   }
 }
 
+/** itemId → number of photos (no signed URLs: the Personas cards only count). */
+export async function countPhotos(itemIds: string[]): Promise<Record<string, number>> {
+  if (itemIds.length === 0) return {};
+  const client = await createClient();
+  const counts: Record<string, number> = {};
+  for (const p of await createSupabasePhotosRepo(client).listPhotosFor(itemIds)) counts[p.itemId] = (counts[p.itemId] ?? 0) + 1;
+  return counts;
+}
+
 /** Uploads a file (already a reasonable size) to the user's folder and records it on the item. */
 export async function savePhotoFile(userId: string, itemId: string, file: File): Promise<void> {
   const client = await createClient();

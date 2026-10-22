@@ -24,7 +24,7 @@ export function usesArea(kind: QuickKind): boolean {
 
 export type CaptureDefaults = {
   kind: QuickKind;
-  /** Regalo's person, under /regalos/[personId]. */
+  /** Regalo's person, under /personas/[id]. */
   personId: string | null;
   /** The switch follows the Tareas screen (`?area`); null leaves it as Marc set it. */
   area: Area | null;
@@ -39,7 +39,10 @@ export function captureDefaults(pathname: string, areaParam: string | null): Cap
     case 'ideas':
       return { kind: 'idea', personId: null, area: null };
     case 'regalos':
-      return { kind: 'regalo', personId: sub ? decodeURIComponent(sub) : null, area: null };
+      return { kind: 'regalo', personId: null, area: null };
+    case 'personas':
+      // A person's page: gift ideas for them. The list itself: Auto ("el 14 de febrero es…").
+      return sub ? { kind: 'regalo', personId: decodeURIComponent(sub), area: null } : { kind: 'auto', personId: null, area: null };
     case 'agenda':
       return { kind: 'cita', personId: null, area: null };
     case 'tareas':

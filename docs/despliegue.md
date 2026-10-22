@@ -190,6 +190,12 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 3. **Compartir en Android:** "Agente" aparece en el menú **Compartir** de Android (texto, enlaces e imágenes) solo después de **reinstalar o actualizar la PWA** en el Pixel: Chrome lee el `share_target` del manifiesto al instalarla. Si no aparece, desinstala la app de la pantalla de inicio y vuelve a instalarla desde Chrome (**⋮ → Instalar aplicación**). Lo compartido acaba en **Recién añadido** con un aviso de dónde se ha guardado: texto y enlaces pasan por la captura automática; las imágenes crean una idea con la foto.
 4. **iPhone:** iOS no admite `share_target` en las PWA, así que "Agente" no saldrá en la hoja de Compartir de Safari. Más adelante lo cubrirá un atajo de Siri (ver `docs/siri.md`).
 
+## 9. Personas y fechas especiales
+
+1. Aplica la migración `0006_person_dates.sql` (`npx supabase db push`, o pégala en el SQL Editor). Crea la tabla `person_dates` (aniversario, santo, el día que os conocisteis…) con RLS como las demás (propietario y correo permitido). Hasta aplicarla, **Personas**, **Hoy** y el resumen de la mañana fallan al leer fechas.
+2. **Listas → Personas** muestra una tarjeta por persona, ordenadas por la fecha más cercana. `/regalos/<id>` lleva ahora a `/personas/<id>`.
+3. El día de una fecha, el aviso de la mañana se titula con ella, por ejemplo «Hoy: aniversario con Ainhoa (5 años)». A la IA solo llegan nombres y etiquetas, nunca notas.
+
 ## Verificación
 
 Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas deben estar marcadas.

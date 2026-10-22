@@ -175,11 +175,13 @@ function parseBirthday(fd: FormData): string | null {
   return b;
 }
 
-/** Reads name and birthday ('YYYY-MM-DD', optional) and creates (or reuses) the person. */
+/** Reads name, birthday ('YYYY-MM-DD', optional) and notes, and creates (or reuses) the person. */
 export async function addPerson(deps: ActionDeps, fd: FormData): Promise<Person> {
   const birthday = parseBirthday(fd);
+  const notes = field(fd, 'notes');
   const person = await deps.people.upsertPersonByName(field(fd, 'name'));
-  return birthday ? deps.people.updatePerson(person.id, { birthday }) : person;
+  if (!birthday && !notes) return person;
+  return deps.people.updatePerson(person.id, { ...(birthday && { birthday }), ...(notes && { notes }) });
 }
 
 export async function updatePerson(deps: ActionDeps, id: string, fd: FormData): Promise<Person> {

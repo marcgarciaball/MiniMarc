@@ -130,6 +130,15 @@ export function GiftIcon() {
   );
 }
 
+export function PersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <circle cx="12" cy="8.2" r="3.7" />
+      <path d="M4.8 20.2c.6-3.7 3.5-6 7.2-6s6.6 2.3 7.2 6" />
+    </svg>
+  );
+}
+
 export function TrayIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...line}>

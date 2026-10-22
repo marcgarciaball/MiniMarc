@@ -75,7 +75,7 @@ const ITEM_HREF: Record<Exclude<ItemType, 'tarea' | 'regalo'>, string> = { idea:
 
 function itemHref(item: Item): string {
   if (item.type === 'tarea') return `/tareas?area=${item.area ?? 'personal'}`;
-  if (item.type === 'regalo') return item.personId ? `/regalos/${item.personId}` : '/regalos';
+  if (item.type === 'regalo') return item.personId ? `/personas/${item.personId}` : '/regalos';
   return ITEM_HREF[item.type];
 }
 

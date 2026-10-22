@@ -167,7 +167,7 @@ describe('people repo', () => {
     expect(await people.listPeople()).toHaveLength(1);
   });
 
-  it('upcomingBirthdays incluye 14 días hacia delante y cruza fin de año', async () => {
+  it('upcomingDates (cumpleaños) incluye 14 días hacia delante y cruza fin de año', async () => {
     const backend = createMemoryBackend();
     const repo = createPeopleRepo(backend);
     await backend.insert('people', { name: 'Hoy', birthday: '1990-12-25' });
@@ -176,8 +176,8 @@ describe('people repo', () => {
     await backend.insert('people', { name: 'Fuera', birthday: '2000-01-09' });
     await backend.insert('people', { name: 'Ayer', birthday: '2000-12-24' });
     await backend.insert('people', { name: 'SinFecha', birthday: null });
-    const res = await repo.upcomingBirthdays('2026-12-25', 14);
-    expect(res.map((p) => p.name)).toEqual(['Hoy', 'FinDeAño', 'Enero']);
+    const res = await repo.upcomingDates('2026-12-25', 14);
+    expect(res.map((d) => d.person.name)).toEqual(['Hoy', 'FinDeAño', 'Enero']);
   });
 });
 

@@ -7,7 +7,7 @@ import { createPhotosRepo } from '@/lib/db/photos';
 import type { PushSub } from '@/lib/db/push';
 import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item, NewItem } from '@/lib/db/types';
-import type { Digest } from '@/lib/digest/build';
+import type { Digest, DigestDate } from '@/lib/digest/build';
 import type { PushPayload } from '@/lib/push/send';
 import { madridToUtc } from '@/lib/time';
 
@@ -52,7 +52,7 @@ function digest(over: Partial<Digest> = {}): Digest {
       trabajo: { items: [{ item: item({ id: 't1', title: 'SENTINELA_TRABAJO informe', area: 'trabajo' }), overdue: true }], more: 2 },
     },
     unclassified: 1,
-    birthdays: [],
+    dates: [],
     headline: 'Hoy toca comprar pan.',
     ...over,
   };
@@ -242,6 +242,43 @@ describe('digestPayload', () => {
     expect(digestPayload(empty).body).toBe('Buenos días\n1 cita');
     const none = digest({ ...empty, events: [] });
     expect(digestPayload(none).body).toBe('Buenos días');
+  });
+
+  const person = (name: string) => ({ id: `p-${name}`, name, birthday: null, notes: 'SENTINELA_NOTA_PERSONA' });
+  const date = (over: Partial<DigestDate>): DigestDate => ({
+    person: person('Ainhoa'),
+    kind: 'date',
+    dateId: 'd1',
+    label: 'Aniversario',
+    date: '2026-10-22',
+    daysUntil: 0,
+    giftIdeas: [],
+    ...over,
+  });
+
+  it('con una fecha hoy, el título es la fecha: "Hoy: aniversario con Ainhoa (5 años)"', () => {
+    const p = digestPayload(digest({ dates: [date({ yearsSince: 5 }), date({ person: person('Ana'), daysUntil: 3 })] }));
+    expect(p.title).toBe('Hoy: aniversario con Ainhoa (5 años)');
+    expect(p.body).toContain('2 fechas');
+    expect(JSON.stringify(p)).not.toContain('SENTINELA_NOTA_PERSONA');
+  });
+
+  it('cumpleaños, santo, años desconocidos y varias fechas hoy', () => {
+    const bday = date({ kind: 'birthday', dateId: null, label: 'Cumpleaños', person: person('Ana'), yearsSince: 35 });
+    expect(digestPayload(digest({ dates: [bday] })).title).toBe('Hoy: cumpleaños de Ana (35 años)');
+    expect(digestPayload(digest({ dates: [date({ label: 'Santo', person: person('Luis') })] })).title).toBe('Hoy: santo de Luis');
+    expect(digestPayload(digest({ dates: [date({ label: 'Nos conocimos', yearsSince: 1 })] })).title).toBe(
+      'Hoy: nos conocimos con Ainhoa (1 año)',
+    );
+    expect(digestPayload(digest({ dates: [date({ yearsSince: 5 }), bday] })).title).toBe(
+      'Hoy: aniversario con Ainhoa (5 años) y 1 más',
+    );
+  });
+
+  it('sin fechas hoy (solo próximas) el título sigue siendo "Hoy"', () => {
+    const p = digestPayload(digest({ dates: [date({ daysUntil: 1 })] }));
+    expect(p.title).toBe('Hoy');
+    expect(p.body).toContain('1 fecha');
   });
 });
 

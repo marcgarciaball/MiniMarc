@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isValidDate } from '@/lib/time';
 
-export const CLASSIFICATION_KINDS = ['tarea', 'idea', 'compra', 'regalo', 'cita'] as const;
+export const CLASSIFICATION_KINDS = ['tarea', 'idea', 'compra', 'regalo', 'cita', 'fecha'] as const;
 export type ClassificationKind = (typeof CLASSIFICATION_KINDS)[number];
 
 const optionalText = z
@@ -15,6 +15,10 @@ export const modelItemSchema = z.object({
   title: z.string(),
   notes: optionalText,
   personName: optionalText,
+  /** fecha: "Aniversario", "Santo", "Nos conocimos"… */
+  label: optionalText,
+  /** fecha: whether `date` carries the original year. */
+  yearKnown: z.boolean().nullish(),
   /** Local date in the user's zone, "YYYY-MM-DD". */
   date: z.string().refine(isValidDate, 'Fecha no válida').nullish(),
   /** Local time in the user's zone, "HH:mm". */

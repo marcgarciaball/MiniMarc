@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AppShell
       nav={
-        // usePathname suspends under /regalos/[personId] while prerendering; the fallback is the same nav, unhighlighted.
+        // usePathname suspends under /personas/[id] while prerendering; the fallback is the same nav, unhighlighted.
         <Suspense fallback={<AppNav active={null} />}>
           <CurrentAppNav />
         </Suspense>

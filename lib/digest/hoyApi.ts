@@ -1,7 +1,7 @@
 /**
  * `GET /api/hoy` (app/api/hoy/route.ts), testable: the token check and the digest come in
  * through `HoyRouteDeps`. Same auth and CORS as POST /api/capture. A lean JSON for the
- * extension's popup: no notes, no source text, no birthdays. A Trabajo token still gets both
+ * extension's popup: no notes, no source text, no special dates. A Trabajo token still gets both
  * areas (it is Marc's own data; the Trabajo rule only concerns the AI). Never logs the header.
  */
 import { extensionCors, extensionPreflight } from '@/lib/auth/extensionCors';

@@ -46,7 +46,13 @@ function destination(item: Item): string {
 
 /** "Guardado en Compras, Tareas · Personal y Calendar": short, for Siri to speak. */
 export function captureMessage(res: CaptureResult): string {
-  const places = [...new Set([...res.items.map(destination), ...(res.eventIds.length ? ['Calendar'] : [])])];
+  const places = [
+    ...new Set([
+      ...res.items.map(destination),
+      ...(res.eventIds.length ? ['Calendar'] : []),
+      ...(res.dates?.length ? ['Personas'] : []),
+    ]),
+  ];
   const list = places.length > 1 ? `${places.slice(0, -1).join(', ')} y ${places.at(-1)}` : (places[0] ?? 'Sin clasificar');
   return `Guardado en ${list}`;
 }

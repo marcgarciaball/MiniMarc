@@ -31,7 +31,7 @@ const DIGEST: Digest = {
     trabajo: { items: [{ item: item({ id: 't1', title: 'Informe', area: 'trabajo', hasTime: false }), overdue: true }], more: 2 },
   },
   unclassified: 3,
-  birthdays: [],
+  dates: [],
 };
 
 function setup(tokenName = 'Extensión') {

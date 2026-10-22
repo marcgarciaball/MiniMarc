@@ -152,11 +152,13 @@ describe('buildDigest', () => {
 
     const d = await buildDigest(DATE, s.deps);
 
-    expect(d.birthdays).toHaveLength(1);
-    expect(d.birthdays[0].person.name).toBe('Ana');
-    expect(d.birthdays[0].daysLeft).toBe(10);
-    expect(d.birthdays[0].date).toBe('2026-11-01');
-    expect(d.birthdays[0].giftIdeas.map((g) => g.title)).toEqual(['Libro de cocina']);
+    expect(d.dates).toHaveLength(1);
+    expect(d.dates[0].person.name).toBe('Ana');
+    expect(d.dates[0].label).toBe('Cumpleaños');
+    expect(d.dates[0].daysUntil).toBe(10);
+    expect(d.dates[0].date).toBe('2026-11-01');
+    expect(d.dates[0].yearsSince).toBe(36);
+    expect(d.dates[0].giftIdeas.map((g) => g.title)).toEqual(['Libro de cocina']);
     expect(prompts[0]).toContain('Ana');
     expect(prompts[0]).toContain('10');
     expect(prompts[0]).not.toContain('Luis');
@@ -167,7 +169,47 @@ describe('buildDigest', () => {
     const p = await s.people.upsertPersonByName('Eva');
     await s.people.updatePerson(p.id, { birthday: '2000-01-03' });
     const d = await buildDigest('2026-12-25', s.deps);
-    expect(d.birthdays.map((b) => [b.person.name, b.daysLeft, b.date])).toEqual([['Eva', 9, '2027-01-03']]);
+    expect(d.dates.map((b) => [b.person.name, b.daysUntil, b.date])).toEqual([['Eva', 9, '2027-01-03']]);
+  });
+
+  it('one dates list: today\'s anniversary first, then birthdays, each with its own gift ideas', async () => {
+    const { ai, prompts } = fakeAi();
+    const s = setup({ ai });
+    const ainhoa = await s.people.upsertPersonByName('Ainhoa');
+    await s.people.addDate({ personId: ainhoa.id, label: 'Aniversario', date: '2021-10-22' });
+    const ana = await s.people.upsertPersonByName('Ana');
+    await s.people.updatePerson(ana.id, { birthday: '1990-10-30' });
+    await s.add({ type: 'regalo', title: 'Flores', personId: ainhoa.id });
+
+    const d = await buildDigest(DATE, s.deps);
+
+    expect(d.dates.map((x) => [x.person.name, x.label, x.daysUntil, x.yearsSince, x.giftIdeas.map((g) => g.title)])).toEqual([
+      ['Ainhoa', 'Aniversario', 0, 5, ['Flores']],
+      ['Ana', 'Cumpleaños', 8, 36, []],
+    ]);
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain('Aniversario');
+    expect(prompts[0]).toContain('Ainhoa');
+    expect(prompts[0]).toMatch(/Ainhoa[^\n]*hoy/);
+    expect(prompts[0]).toContain('Cumpleaños');
+  });
+
+  it('never sends person notes, date notes or gift ideas to the AI (sentinels)', async () => {
+    const { ai, prompts } = fakeAi();
+    const s = setup({ ai });
+    const ainhoa = await s.people.upsertPersonByName('Ainhoa');
+    await s.people.updatePerson(ainhoa.id, { notes: 'SENTINELA_PERSONA', birthday: '1991-10-25' });
+    await s.people.addDate({ personId: ainhoa.id, label: 'Aniversario', date: '2021-10-22', notes: 'SENTINELA_FECHA' });
+    await s.add({ type: 'regalo', title: 'SENTINELA_REGALO', notes: 'SENTINELA_NOTA_REGALO', personId: ainhoa.id });
+
+    const d = await buildDigest(DATE, s.deps);
+
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain('Ainhoa');
+    for (const sentinel of ['SENTINELA_PERSONA', 'SENTINELA_FECHA', 'SENTINELA_REGALO', 'SENTINELA_NOTA_REGALO']) {
+      expect(prompts[0]).not.toContain(sentinel);
+    }
+    expect(d.dates).toHaveLength(2);
   });
 
   it('splits overdue and today tasks by area, overdue first, then timed, then untimed', async () => {

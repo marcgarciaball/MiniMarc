@@ -18,7 +18,7 @@ export function PeopleSection({ groups }: PeopleSectionProps) {
         {groups.map(({ person, count }) => (
           <Row
             key={person.id}
-            href={`/regalos/${person.id}`}
+            href={`/personas/${person.id}`}
             title={person.name}
             subtitle={person.birthday ? `Cumple el ${formatBirthday(person.birthday)}` : undefined}
             detail={count ? String(count) : undefined}

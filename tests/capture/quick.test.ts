@@ -114,7 +114,7 @@ describe('quickCapture', () => {
     const res = await quickCapture(form({ text: 'Bufanda de lana', kind: 'regalo', personName: '  Lucía ' }), deps);
     const [lucia] = await people.listPeople();
     expect(lucia).toMatchObject({ name: 'Lucía' });
-    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Regalos', href: `/regalos/${lucia.id}` } });
+    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Regalos', href: `/personas/${lucia.id}` } });
     expect(await items.listItems()).toMatchObject([
       { type: 'regalo', title: 'Bufanda de lana', personId: lucia.id, area: null, sourceText: 'Bufanda de lana' },
     ]);
@@ -301,7 +301,8 @@ describe('captureDefaults', () => {
     ['/compras', null, { kind: 'compra', personId: null, area: null }],
     ['/ideas', null, { kind: 'idea', personId: null, area: null }],
     ['/regalos', null, { kind: 'regalo', personId: null, area: null }],
-    ['/regalos/p-1', null, { kind: 'regalo', personId: 'p-1', area: null }],
+    ['/personas/p-1', null, { kind: 'regalo', personId: 'p-1', area: null }],
+    ['/personas', null, { kind: 'auto', personId: null, area: null }],
     ['/agenda', null, { kind: 'cita', personId: null, area: null }],
     ['/tareas', null, { kind: 'tarea', personId: null, area: 'personal' }],
     ['/tareas', 'trabajo', { kind: 'tarea', personId: null, area: 'trabajo' }],

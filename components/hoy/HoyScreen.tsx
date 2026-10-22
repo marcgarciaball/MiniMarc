@@ -2,8 +2,9 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import type { Area } from '@/lib/db/types';
-import type { Digest, DigestArea, DigestBirthday, DigestEvent, DigestTask } from '@/lib/digest/build';
+import type { Digest, DigestArea, DigestDate, DigestEvent, DigestTask } from '@/lib/digest/build';
 import { formatDay, formatDue } from '@/lib/format';
+import { yearsText } from '@/lib/people/format';
 import { RECONNECT_HREF } from '@/lib/nav';
 import { formatLongDate, madridDateTime, madridToUtc } from '@/lib/time';
 import { PushButton } from './PushButton';
@@ -54,20 +55,22 @@ function taskRows(area: DigestArea, today: string, key: Area): ReactNode[] {
   return rows;
 }
 
-function birthdayWhen(b: DigestBirthday, today: string): string {
-  if (b.daysLeft <= 1) return formatDay(b.date, today);
-  return `En ${b.daysLeft} días · ${formatDay(b.date, today)}`;
+function dateWhen(d: DigestDate, today: string): string {
+  const day = d.daysUntil <= 1 ? formatDay(d.date, today) : `En ${d.daysUntil} días · ${formatDay(d.date, today)}`;
+  const years = yearsText(d.yearsSince);
+  return years ? `${day} · ${years}` : day;
 }
 
-function birthdayRow(b: DigestBirthday, today: string) {
-  const ideas = b.giftIdeas.map((g) => g.title).join(', ');
+/** "Aniversario · Ainhoa", when, and the person's gift ideas. */
+function dateRow(d: DigestDate, today: string) {
+  const ideas = d.giftIdeas.map((g) => g.title).join(', ');
   return (
     <Row
-      key={b.person.id}
-      href={`/regalos/${b.person.id}`}
-      title={b.person.name}
-      subtitle={ideas ? `${birthdayWhen(b, today)} · Ideas: ${ideas}` : birthdayWhen(b, today)}
-      detail={b.giftIdeas.length ? undefined : 'Sin ideas'}
+      key={`${d.person.id}-${d.dateId ?? 'birthday'}-${d.date}`}
+      href={`/personas/${d.person.id}`}
+      title={`${d.label} · ${d.person.name}`}
+      subtitle={ideas ? `${dateWhen(d, today)} · Ideas: ${ideas}` : dateWhen(d, today)}
+      detail={d.giftIdeas.length ? undefined : 'Sin ideas'}
     />
   );
 }
@@ -109,9 +112,9 @@ export function HoyScreen({ digest, tz, vapidPublicKey }: HoyScreenProps) {
       <Section header="Tareas · Trabajo" rows={taskRows(digest.tasks.trabajo, today, 'trabajo')} empty="Nada de trabajo para hoy." />
 
       <Section
-        header="Cumpleaños"
-        rows={digest.birthdays.map((b) => birthdayRow(b, today))}
-        empty="Ningún cumpleaños en las próximas dos semanas."
+        header="Fechas"
+        rows={digest.dates.map((d) => dateRow(d, today))}
+        empty="Ninguna fecha especial en las próximas dos semanas."
       />
 
       {digest.unclassified > 0 ? (

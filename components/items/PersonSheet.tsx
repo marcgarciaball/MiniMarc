@@ -16,7 +16,7 @@ export type PersonSheetProps = {
 
 const FORM_ID = 'person-sheet-form';
 
-/** Add a person or change their name and birthday. */
+/** Add a person or change their name, birthday and notes. */
 export function PersonSheet({ open, person, onClose }: PersonSheetProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +77,16 @@ export function PersonSheet({ open, person, onClose }: PersonSheetProps) {
             <input className="app-input" type="date" name="birthday" defaultValue={person?.birthday ?? undefined} />
           </label>
         </InsetList>
-        {person && <input type="hidden" name="notes" value={person.notes ?? ''} />}
+        <InsetList>
+          <textarea
+            className="app-input app-input--notes app-input--person-notes"
+            name="notes"
+            defaultValue={person?.notes ?? undefined}
+            placeholder="Notas (gustos, tallas, lo que te contó…)"
+            aria-label="Notas"
+            rows={4}
+          />
+        </InsetList>
         {error && (
           <p className="app-form__error" role="alert">
             {error}

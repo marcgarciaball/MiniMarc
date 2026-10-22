@@ -47,3 +47,22 @@ export interface Person {
   birthday: string | null;
   notes: string | null;
 }
+
+/** A special date of a person besides the birthday (person_dates row). */
+export interface PersonDate {
+  id: string;
+  personId: string;
+  /** "Aniversario", "Santo", "Nos conocimos"… */
+  label: string;
+  /** 'YYYY-MM-DD'. Year NO_YEAR (1604, as Apple Contacts does) = year unknown. */
+  date: string;
+  /** Repeats every year (default); false = a one-off date. */
+  yearly: boolean;
+  notes: string | null;
+  createdAt: string;
+}
+
+export type NewPersonDate = Pick<PersonDate, 'personId' | 'label' | 'date'> &
+  Partial<Pick<PersonDate, 'yearly' | 'notes'>>;
+
+export type PersonDatePatch = Partial<Pick<PersonDate, 'label' | 'date' | 'yearly' | 'notes'>>;

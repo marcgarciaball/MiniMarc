@@ -119,4 +119,57 @@ describe('classify', () => {
     const [item] = await classify('cena con Ainhoa el viernes', ctx, ai);
     expect(item.confidence).toBe(0);
   });
+
+  it('fecha: "el 14 de febrero es nuestro aniversario con Ainhoa" → persona, etiqueta y fecha sin año', async () => {
+    const { ai, prompts } = fakeAi({
+      items: [
+        {
+          kind: 'fecha',
+          title: 'Aniversario con Ainhoa',
+          personName: 'Ainhoa',
+          label: ' Aniversario ',
+          date: '2027-02-14',
+          yearKnown: false,
+          confidence: 0.9,
+        },
+      ],
+    });
+    const out = await classify('el 14 de febrero es nuestro aniversario con Ainhoa', ctx, ai);
+    expect(out).toEqual([
+      {
+        kind: 'fecha',
+        title: 'Aniversario con Ainhoa',
+        personName: 'Ainhoa',
+        label: 'Aniversario',
+        date: '1604-02-14',
+        hasTime: false,
+        confidence: 0.9,
+      },
+    ]);
+    expect(prompts[0]).toMatch(/- fecha:/);
+    expect(prompts[0]).toContain('yearKnown');
+  });
+
+  it('fecha con año conocido y ya pasada conserva el año y la confianza', async () => {
+    const { ai } = fakeAi({
+      items: [
+        { kind: 'fecha', title: 'Nos conocimos', personName: 'Ainhoa', label: 'Nos conocimos', date: '2019-05-03', yearKnown: true, confidence: 0.85 },
+      ],
+    });
+    const [item] = await classify('conocí a Ainhoa el 3 de mayo de 2019', ctx, ai);
+    expect(item).toMatchObject({ kind: 'fecha', date: '2019-05-03', confidence: 0.85 });
+    expect(item.startsAt).toBeUndefined();
+  });
+
+  it('fecha sin persona, etiqueta o fecha → confianza 0', async () => {
+    const { ai } = fakeAi({
+      items: [
+        { kind: 'fecha', title: 'Aniversario', label: 'Aniversario', date: '2027-02-14', confidence: 0.9 },
+        { kind: 'fecha', title: 'Algo de Ainhoa', personName: 'Ainhoa', date: '2027-02-14', confidence: 0.9 },
+        { kind: 'fecha', title: 'Santo de Ainhoa', personName: 'Ainhoa', label: 'Santo', confidence: 0.9 },
+      ],
+    });
+    const out = await classify('algo', ctx, ai);
+    expect(out.map((o) => o.confidence)).toEqual([0, 0, 0]);
+  });
 });

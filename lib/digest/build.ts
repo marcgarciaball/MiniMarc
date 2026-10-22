@@ -1,19 +1,21 @@
 /**
- * Morning digest: today's Calendar events, pending tasks (overdue + today) per area, upcoming
- * birthdays with gift ideas, and a one-line headline.
+ * Morning digest: today's Calendar events, pending tasks (overdue + today) per area, special
+ * dates (birthdays are one kind) in the next 14 days with gift ideas, and a one-line headline.
  *
- * Privacy: the headline prompt only ever holds personal tasks due today (titles), birthday names
- * with days left, and the date. Nothing from Trabajo, no event titles, no notes, no source text.
+ * Privacy: the headline prompt only ever holds personal tasks due today (titles), each date's
+ * person name and label with days left, and the date. Nothing from Trabajo, no event titles, no
+ * notes (of items, people or dates), no gift ideas, no source text.
  */
 import type { AiProvider } from '@/lib/ai/provider';
 import { calendarErrorKind, type CalendarGateway } from '@/lib/calendar/client';
 import type { ItemsRepo } from '@/lib/db/items';
-import type { PeopleRepo } from '@/lib/db/people';
-import type { Area, Item, Person } from '@/lib/db/types';
+import type { PeopleRepo, UpcomingDate } from '@/lib/db/people';
+import type { Area, Item } from '@/lib/db/types';
 import { formatLongDate, madridToUtc } from '@/lib/time';
 
 export const MAX_TASKS_PER_AREA = 5;
-export const BIRTHDAY_WINDOW_DAYS = 14;
+/** Dates (birthdays included) shown from today to today + 14. */
+export const DATES_WINDOW_DAYS = 14;
 export const HEADLINE_TIMEOUT_MS = 6000;
 export const HEADLINE_MAX = 140;
 /** Headline when the AI fails, or when there is something to show but nothing personal to say. */
@@ -53,11 +55,8 @@ export interface DigestArea {
   more: number;
 }
 
-export interface DigestBirthday {
-  person: Person;
-  /** This year's (or next year's) occurrence, "YYYY-MM-DD". */
-  date: string;
-  daysLeft: number;
+/** A birthday or special date in the window (today first), with the person's gift ideas. */
+export interface DigestDate extends UpcomingDate {
   /** The person's pending `regalo` items. */
   giftIdeas: Item[];
 }
@@ -72,7 +71,8 @@ export interface Digest {
   tasks: Record<Area, DigestArea>;
   /** Pending items waiting in "Sin clasificar" (left out of the lists). */
   unclassified: number;
-  birthdays: DigestBirthday[];
+  /** Birthdays and special dates, today to today + 14, nearest first. */
+  dates: DigestDate[];
   headline: string;
 }
 
@@ -87,10 +87,10 @@ export async function buildDigest(date: string, deps: DigestDeps): Promise<Diges
   const dayStart = madridToUtc(date, '00:00', deps.tz);
   const dayEnd = madridToUtc(addDays(date, 1), '00:00', deps.tz);
 
-  const [eventsResult, pending, birthdays] = await Promise.all([
+  const [eventsResult, pending, upcoming] = await Promise.all([
     loadEvents(deps, dayStart, dayEnd),
     deps.items.listItems({ status: 'pendiente' }),
-    loadBirthdays(date, deps),
+    deps.people.upcomingDates(date, DATES_WINDOW_DAYS),
   ]);
 
   const dueTasks: Record<Area, DigestTask[]> = { personal: [], trabajo: [] };
@@ -106,8 +106,14 @@ export async function buildDigest(date: string, deps: DigestDeps): Promise<Diges
     dueTasks[item.area ?? 'personal'].push({ item, overdue: t < dayStart.getTime() });
   }
 
+  // Pending gifts are already among `pending` (any area; gifts have none).
+  const dates: DigestDate[] = upcoming.map((u) => ({
+    ...u,
+    giftIdeas: pending.filter((i) => i.type === 'regalo' && !i.needsReview && i.personId === u.person.id),
+  }));
+
   const todayPersonal = dueTasks.personal.filter((t) => !t.overdue).sort(byOrder);
-  const headline = await buildHeadline(date, deps, todayPersonal, birthdays, {
+  const headline = await buildHeadline(date, deps, todayPersonal, dates, {
     anything: eventsResult.events.length > 0 || dueTasks.personal.length + dueTasks.trabajo.length > 0,
   });
 
@@ -117,7 +123,7 @@ export async function buildDigest(date: string, deps: DigestDeps): Promise<Diges
     calendarError: eventsResult.error,
     tasks: { personal: toArea(dueTasks.personal), trabajo: toArea(dueTasks.trabajo) },
     unclassified,
-    birthdays,
+    dates,
     headline,
   };
 }
@@ -155,33 +161,17 @@ async function loadEvents(
   }
 }
 
-async function loadBirthdays(date: string, deps: DigestDeps): Promise<DigestBirthday[]> {
-  const people = await deps.people.upcomingBirthdays(date, BIRTHDAY_WINDOW_DAYS);
-  if (people.length === 0) return [];
-  const gifts = await deps.items.listItems({ type: 'regalo', status: 'pendiente' });
-  return people.map((person) => {
-    let daysLeft = 0;
-    while (addDays(date, daysLeft).slice(5) !== person.birthday!.slice(5) && daysLeft < BIRTHDAY_WINDOW_DAYS) daysLeft++;
-    return {
-      person,
-      date: addDays(date, daysLeft),
-      daysLeft,
-      giftIdeas: gifts.filter((g) => g.personId === person.id),
-    };
-  });
-}
-
 async function buildHeadline(
   date: string,
   deps: DigestDeps,
   todayPersonal: DigestTask[],
-  birthdays: DigestBirthday[],
+  dates: DigestDate[],
   ctx: { anything: boolean },
 ): Promise<string> {
-  if (todayPersonal.length === 0 && birthdays.length === 0) {
+  if (todayPersonal.length === 0 && dates.length === 0) {
     return ctx.anything ? FALLBACK_HEADLINE : CALM_HEADLINE;
   }
-  const prompt = headlinePrompt(date, deps.tz, todayPersonal, birthdays);
+  const prompt = headlinePrompt(date, deps.tz, todayPersonal, dates);
   const timeoutMs = deps.aiTimeoutMs ?? HEADLINE_TIMEOUT_MS;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -200,8 +190,8 @@ async function buildHeadline(
   }
 }
 
-/** Only personal data: today's personal task titles, birthday names + days left, and the date. */
-function headlinePrompt(date: string, tz: string, todayPersonal: DigestTask[], birthdays: DigestBirthday[]): string {
+/** Only personal data: today's personal task titles, each date's name + label + days left, and the date. */
+function headlinePrompt(date: string, tz: string, todayPersonal: DigestTask[], dates: DigestDate[]): string {
   const lines = [
     'Escribe una sola frase corta en español (máximo 120 caracteres) que resuma el día de Marc.',
     'Sin frases motivacionales, sin consejos de productividad, sin emojis, sin comillas.',
@@ -209,10 +199,11 @@ function headlinePrompt(date: string, tz: string, todayPersonal: DigestTask[], b
     `Tareas personales para hoy: ${todayPersonal.length}.`,
     ...todayPersonal.map((t) => `- ${t.item.title}`),
   ];
-  if (birthdays.length > 0) {
-    lines.push('Cumpleaños próximos:');
-    for (const b of birthdays) {
-      lines.push(`- ${b.person.name}: ${b.daysLeft === 0 ? 'hoy' : `dentro de ${b.daysLeft} días`}`);
+  if (dates.length > 0) {
+    lines.push('Fechas especiales próximas:');
+    for (const d of dates) {
+      const when = d.daysUntil === 0 ? 'hoy' : d.daysUntil === 1 ? 'mañana' : `dentro de ${d.daysUntil} días`;
+      lines.push(`- ${d.label} · ${d.person.name}: ${when}`);
     }
   }
   return lines.join('\n');

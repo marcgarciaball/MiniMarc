@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import type { AiProvider } from '@/lib/ai/provider';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
+import { captureMessage } from '@/lib/capture/handler';
 import { captureText, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
 import { createItemsRepo, type ItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
 
 type ModelItem = {
-  kind: 'tarea' | 'idea' | 'compra' | 'regalo' | 'cita';
+  kind: 'tarea' | 'idea' | 'compra' | 'regalo' | 'cita' | 'fecha';
+  label?: string | null;
+  yearKnown?: boolean | null;
   title: string;
   notes?: string | null;
   personName?: string | null;
@@ -565,5 +568,70 @@ describe('captureText: duplicados (en la base de datos)', () => {
     const items = { ...deps.items, listRecentCaptures: async () => Promise.reject(new Error('db down')) };
     await captureText({ text: 'comprar leche', origin: 'siri' }, { ...deps, items });
     expect(db.tables.items).toHaveLength(1);
+  });
+});
+
+describe('captureText: fechas especiales', () => {
+  const aniversario: ModelItem = {
+    kind: 'fecha',
+    title: 'Aniversario con Ainhoa',
+    personName: 'Ainhoa',
+    label: 'Aniversario',
+    date: '2027-02-14',
+    yearKnown: false,
+    notes: 'Reservar cena',
+    confidence: 0.9,
+  };
+  const TEXT = 'el 14 de febrero es nuestro aniversario con Ainhoa';
+
+  it('crea (o reutiliza) la persona y guarda su fecha, sin elementos', async () => {
+    const { db, deps, people } = setup(aiReturning([aniversario]).ai);
+    await people.upsertPersonByName('ainhoa');
+
+    const res = await captureText({ text: TEXT, origin: 'siri' }, deps);
+
+    expect(res.items).toEqual([]);
+    expect(db.tables.items).toHaveLength(0);
+    expect(db.tables.people).toHaveLength(1);
+    const [ainhoa] = await people.listPeople();
+    expect(await people.listDates(ainhoa.id)).toMatchObject([
+      { label: 'Aniversario', date: '1604-02-14', yearly: true, notes: 'Reservar cena' },
+    ]);
+    expect(res.dates).toMatchObject([{ personName: 'ainhoa', label: 'Aniversario', date: '1604-02-14' }]);
+    expect(captureMessage(res)).toBe('Guardado en Personas');
+  });
+
+  it('un reintento no duplica la fecha', async () => {
+    const { db, deps } = setup(aiReturning([aniversario]).ai);
+    await captureText({ text: TEXT, origin: 'siri' }, deps);
+    await captureText({ text: TEXT, origin: 'siri' }, deps);
+    expect(db.tables.person_dates).toHaveLength(1);
+  });
+
+  it('"Cumpleaños" va al cumpleaños de la persona', async () => {
+    const { db, deps, people } = setup(
+      aiReturning([{ kind: 'fecha', title: 'Cumple de Eva', personName: 'Eva', label: 'Cumpleaños', date: '1990-05-03', yearKnown: true, confidence: 0.9 }]).ai,
+    );
+    await captureText({ text: 'Eva nació el 3 de mayo de 1990', origin: 'siri' }, deps);
+    expect(db.tables.person_dates).toHaveLength(0);
+    expect((await people.listPeople())[0]).toMatchObject({ name: 'Eva', birthday: '1990-05-03' });
+  });
+
+  it('con poca confianza va a Sin clasificar y no crea persona ni fecha', async () => {
+    const { db, deps } = setup(aiReturning([{ ...aniversario, confidence: 0.4 }]).ai);
+    const res = await captureText({ text: TEXT, origin: 'siri' }, deps);
+    expect(db.tables.person_dates).toHaveLength(0);
+    expect(db.tables.people).toHaveLength(0);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0]).toMatchObject({ needsReview: true, sourceText: TEXT });
+  });
+
+  it('si guardar la fecha falla, el texto va a Sin clasificar', async () => {
+    const { db, deps } = setup(aiReturning([aniversario]).ai);
+    const people = { ...deps.people, addDate: async () => Promise.reject(new Error('db down')) };
+    const res = await captureText({ text: TEXT, origin: 'siri' }, { ...deps, people });
+    expect(db.tables.person_dates).toHaveLength(0);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0]).toMatchObject({ needsReview: true, title: TEXT });
   });
 });

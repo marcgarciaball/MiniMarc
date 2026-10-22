@@ -21,6 +21,7 @@ import type { Settings, SettingsRepo } from '@/lib/db/settings';
 import type { Item } from '@/lib/db/types';
 import type { Digest } from '@/lib/digest/build';
 import type { PhotoStorage } from '@/lib/photos/storage';
+import { dateWithPerson } from '@/lib/people/format';
 import type { PushPayload } from '@/lib/push/send';
 import { toMadrid } from '@/lib/time';
 import { shouldSendDigest } from './shouldSendDigest';
@@ -53,17 +54,28 @@ export interface MorningResult {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** Short push: "Hoy", the headline and counts. No task or event titles (Trabajo stays private). */
+/**
+ * "Hoy", or the date when there is one today: "Hoy: aniversario con Ainhoa (5 años)" (name and
+ * label only, never notes). A second date today adds "y 1 más".
+ */
+export function pushTitle(d: Digest): string {
+  const today = d.dates.filter((x) => x.daysUntil === 0);
+  if (today.length === 0) return 'Hoy';
+  const more = today.length > 1 ? ` y ${today.length - 1} más` : '';
+  return `Hoy: ${dateWithPerson(today[0])}${more}`;
+}
+
+/** Short push: the title, the headline and counts. No task or event titles (Trabajo stays private). */
 export function digestPayload(d: Digest): PushPayload {
   const tasks = d.tasks.personal.items.length + d.tasks.personal.more + d.tasks.trabajo.items.length + d.tasks.trabajo.more;
   const counts = [
     d.events.length ? plural(d.events.length, 'cita', 'citas') : '',
     tasks ? plural(tasks, 'tarea', 'tareas') : '',
-    d.birthdays.length ? `${d.birthdays.length} cumpleaños` : '',
+    d.dates.length ? plural(d.dates.length, 'fecha', 'fechas') : '',
     d.unclassified ? `${d.unclassified} sin clasificar` : '',
   ].filter(Boolean);
   return {
-    title: 'Hoy',
+    title: pushTitle(d),
     body: counts.length ? `${d.headline}\n${counts.join(' · ')}` : d.headline,
     url: '/hoy',
     tag: `digest-${d.date}`,

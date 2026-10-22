@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { BagIcon, ClockIcon, GiftIcon, IdeaIcon, TrayIcon } from '@/components/icons';
+import { BagIcon, ClockIcon, GiftIcon, IdeaIcon, PersonIcon, TrayIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import { listByType, listSinClasificar } from '@/lib/actions/items';
 import { getDeps } from '@/lib/actions/server';
@@ -48,6 +48,7 @@ function Hub({ counts }: { counts: Counts | null }) {
       <Row href="/ideas" leading={tile(<IdeaIcon />)} title="Ideas" detail={count(counts?.ideas)} />
       <Row href="/compras" leading={tile(<BagIcon />)} title="Compras" detail={count(counts?.compras)} />
       <Row href="/regalos" leading={tile(<GiftIcon />)} title="Regalos" detail={count(counts?.regalos)} />
+      <Row href="/personas" leading={tile(<PersonIcon />)} title="Personas" subtitle="Fechas especiales e ideas de regalo" />
       <Row
         href="/sin-clasificar"
         leading={tile(<TrayIcon />)}

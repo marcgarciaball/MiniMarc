@@ -3,7 +3,7 @@
  * Validation errors come back as results: the sheet shows them and keeps the typed text.
  */
 import type { Area, ItemType } from '@/lib/db/types';
-import { toDue } from '@/lib/time';
+import { isValidDate, toDue } from '@/lib/time';
 import type { MovePatch } from './items';
 import { fail, ok, type ActionResult } from './result';
 
@@ -15,6 +15,13 @@ export function newItemFormError(fd: FormData): string | null {
 
 export function personFormError(fd: FormData): string | null {
   return text(fd, 'name') ? null : 'Escribe un nombre.';
+}
+
+/** The person-date sheet: a label and a real date. */
+export function dateFormError(fd: FormData): string | null {
+  if (!text(fd, 'label')) return 'Escribe una etiqueta.';
+  if (!isValidDate(text(fd, 'date'))) return 'La fecha no es válida.';
+  return null;
 }
 
 /** The edit sheet's fields → the patch for moveItem. `type`/`area` come from the sheet's controls. */
