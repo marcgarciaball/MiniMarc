@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { DigestSection } from '@/components/ajustes/DigestSection';
+import { ExportSection } from '@/components/ajustes/ExportSection';
 import { SignOutButton } from '@/components/ajustes/SignOutButton';
 import { TokensSection } from '@/components/ajustes/TokensSection';
 import { WeeklySection } from '@/components/ajustes/WeeklySection';
@@ -62,6 +63,8 @@ export default function AjustesPage() {
       <Suspense fallback={<TokensSection tokens={null} today="" />}>
         <Tokens />
       </Suspense>
+
+      <ExportSection />
 
       <InsetList header="Cuenta">
         <Suspense fallback={<Row title="Correo" />}>
