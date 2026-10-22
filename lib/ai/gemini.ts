@@ -6,7 +6,7 @@ import { DEFAULT_TZ, toMadrid } from '@/lib/time';
 // The only module allowed to import the Gemini SDK (enforced by tests/ai/gemini.test.ts).
 // Never log prompts, responses or the key here.
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 export const DEFAULT_TIMEOUT_MS = 8000;
 export const DEFAULT_DAILY_CAP = 200;
 

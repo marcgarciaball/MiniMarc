@@ -104,8 +104,10 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
   try {
     const people = (await deps.people.listPeople()).map((p) => p.name);
     classified = await classify(text, { now: deps.now, tz: deps.tz ?? DEFAULT_TZ, people }, deps.ai);
-  } catch {
+  } catch (err) {
     // ClassifyError (timeout, daily cap, invalid JSON) or anything else: fall through to "Sin clasificar".
+    // Logged (never the text) so a capture that lands in Sin clasificar says why.
+    console.error('classify failed:', causeMessage(err));
   }
   const unclassified = (): NewItem => ({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text });
   if (classified.length === 0) {
@@ -162,6 +164,31 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
   if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
   const item = await deps.items.createItem(fields);
   out.items.push(await syncTimedTask(deps, item));
+}
+
+/**
+ * Why a classification failed, as a fixed word. Never the error's own message: a JSON or schema
+ * failure carries a piece of the model's output, which is the note's text.
+ */
+export function causeMessage(err: unknown): string {
+  const seen = new Set<unknown>();
+  for (let e: unknown = err; e && typeof e === 'object' && !seen.has(e); e = (e as { cause?: unknown }).cause) {
+    seen.add(e);
+    const { name, message } = e as { name?: unknown; message?: unknown };
+    if (name === 'ZodError' || name === 'SyntaxError') return 'invalid_output';
+    if (typeof message !== 'string') continue;
+    if (message.includes('Tiempo de espera agotado')) return 'timeout';
+    if (message.includes('Tope diario')) return 'daily_cap';
+    if (message.includes('Falta GEMINI_API_KEY')) return 'no_api_key';
+    if (message.includes('Respuesta vacía')) return 'empty_response';
+    // Billing, not rate limiting: waiting does not fix it. Checked first, as it also says
+    // RESOURCE_EXHAUSTED.
+    if (/\b402\b|prepayment|credits are depleted/i.test(message)) return 'no_credit';
+    if (/RESOURCE_EXHAUSTED|\b429\b/.test(message)) return 'quota';
+    // A retired model: every capture fails at once, so it must not read as a generic error.
+    if (/NOT_FOUND|\b404\b|no longer available/.test(message)) return 'model_not_found';
+  }
+  return 'unknown';
 }
 
 /** Title (max 200 chars) from the original text; a longer text is kept whole in `notes`. */

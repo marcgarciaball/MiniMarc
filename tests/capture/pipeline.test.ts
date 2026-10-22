@@ -3,7 +3,8 @@ import type { ZodType } from 'zod';
 import type { AiProvider } from '@/lib/ai/provider';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
 import { captureMessage } from '@/lib/capture/handler';
-import { captureText, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
+import { ClassifyError } from '@/lib/ai/classify';
+import { captureText, causeMessage, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
 import { createItemsRepo, type ItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
@@ -664,5 +665,35 @@ describe('captureText: libros', () => {
     const { deps } = setup(aiReturning([{ kind: 'libro', title: 'Dune', author: 'Herbert', confidence: 0.3 }]).ai);
     const [item] = (await captureText({ text: 'dune herbert', origin: 'web' }, deps)).items;
     expect(item).toMatchObject({ type: 'libro', author: 'Herbert', needsReview: true });
+  });
+});
+
+describe('causeMessage', () => {
+  it.each([
+    ['timeout', new Error('Tiempo de espera agotado')],
+    ['daily_cap', new Error('Tope diario de llamadas a Gemini alcanzado')],
+    ['no_api_key', new Error('Falta GEMINI_API_KEY')],
+    ['empty_response', new Error('Respuesta vacía de Gemini')],
+    ['quota', new Error('{"code": 429, "status": "RESOURCE_EXHAUSTED"}')],
+    ['no_credit', new Error('{"error":{"code":402,"message":"Your prepayment credits are depleted.","status":"RESOURCE_EXHAUSTED"}}')],
+    ['model_not_found', new Error('{"error":{"code":404,"message":"This model models/gemini-2.5-flash-lite is no longer available to new users.","status":"NOT_FOUND"}}')],
+    ['unknown', new TypeError('fetch failed')],
+  ])('%s', (expected, err) => {
+    expect(causeMessage(new ClassifyError('No se pudo clasificar', { cause: err }))).toBe(expected);
+  });
+
+  it('un fallo de esquema o de JSON es invalid_output, nunca el mensaje del error', () => {
+    const zod = Object.assign(new Error('… "title": "llamar al fontanero" …'), { name: 'ZodError' });
+    expect(causeMessage(new ClassifyError('x', { cause: zod }))).toBe('invalid_output');
+    const json = new SyntaxError('Unexpected token, "{"items":[{"title":"llamar al..." is not valid JSON');
+    expect(causeMessage(new ClassifyError('x', { cause: json }))).toBe('invalid_output');
+  });
+
+  it('una cadena de causas cíclica termina', () => {
+    const a = new Error('a') as Error & { cause?: unknown };
+    const b = new Error('b') as Error & { cause?: unknown };
+    a.cause = b;
+    b.cause = a;
+    expect(causeMessage(a)).toBe('unknown');
   });
 });

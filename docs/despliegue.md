@@ -104,7 +104,7 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
    | `VAPID_PRIVATE_KEY` | Clave privada de la misma pareja VAPID. Solo servidor. |
    | `CRON_SECRET` | Secreto que protege las rutas que llama el cron. Generar con `openssl rand -hex 32`. Solo servidor. |
    | `APP_TZ` | Valor fijo `Europe/Madrid`. Zona horaria de la app. |
-   | `GEMINI_MODEL` | **Opcional.** Modelo de Gemini. Si falta, `gemini-2.5-flash-lite`. Cámbialo solo si Google retira ese modelo del nivel gratuito. |
+   | `GEMINI_MODEL` | **Opcional.** Modelo de Gemini. Si falta, `gemini-3.5-flash-lite`. Cámbialo solo si Google retira ese modelo del nivel gratuito. |
    | `GEMINI_DAILY_CAP` | **Opcional.** Tope de llamadas a Gemini al día (entero positivo). Si falta, 200. Al llegar al tope, las capturas se guardan como "Sin clasificar". |
 
 5. Pulsa **Deploy**. Cuando termine, la URL será `https://<app>.vercel.app`. Vuelve al paso 3 y pon esa URL en Site URL y en Redirect URLs.
@@ -143,7 +143,8 @@ Verificados el 2026-10-21 contra la documentación oficial. Los límites cambian
 | Supabase Free | Pausa por inactividad | Tras 1 semana sin actividad; se reactiva desde el panel | https://supabase.com/pricing | verificado el 2026-10-21 |
 | Supabase | `pg_cron` y `pg_net` en Free | **No confirmado** en la documentación consultada; comprobar en Database → Extensions | https://supabase.com/docs/guides/database/extensions/pg_cron | pendiente |
 | Supabase | `pg_net` (si está disponible) | 200 peticiones/s; timeout por defecto 2.000 ms; respuestas guardadas 6 h | https://supabase.com/docs/guides/database/extensions/pg_net | verificado el 2026-10-21 |
-| Gemini API (nivel gratuito) | Modelo recomendado | `gemini-2.5-flash-lite`; el más barato de los Flash-Lite con nivel gratuito (0,10 $ / 0,40 $ por 1M tokens de entrada/salida en pago). Los `gemini-3.x-flash-lite` cuestan más | https://ai.google.dev/gemini-api/docs/pricing | verificado el 2026-10-21 |
+| Gemini API (nivel gratuito) | Modelo recomendado | `gemini-3.5-flash-lite` (GA), con nivel gratuito; 0,30 $ / 2,50 $ por 1M tokens de entrada/salida en pago. Sustituye a `gemini-2.5-flash-lite`, que Google retiró para proyectos nuevos y devuelve 404 | https://ai.google.dev/gemini-api/docs/pricing | verificado el 2026-10-22 |
+| Gemini API | Retirada de modelos | Un modelo retirado devuelve `404 NOT_FOUND` al instante, no un error de cuota. `npx tsx scripts/probe-classify.ts "…"` lo enseña | https://ai.google.dev/gemini-api/docs/models | verificado el 2026-10-22 |
 | Gemini API (nivel gratuito) | Peticiones por minuto y día | **No verificado** en fuentes oficiales; una fuente secundaria indica 15 RPM y 1.000 RPD. Confirmar en AI Studio | https://aistudio.google.com/rate-limit | pendiente |
 | Gemini API (nivel gratuito) | Ámbito y reinicio | Por proyecto (no por clave); el RPD se reinicia a medianoche hora del Pacífico | https://ai.google.dev/gemini-api/docs/rate-limits | verificado el 2026-10-21 |
 | Gemini API (nivel gratuito) | Uso de datos | Google usa el contenido para mejorar sus productos; revisores humanos pueden leerlo. No enviar datos personales o confidenciales | https://ai.google.dev/gemini-api/terms | verificado el 2026-10-21 |
