@@ -2,9 +2,18 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
 import { isPublicPath } from '@/lib/auth/publicPaths';
+import { isDirectSharePost, SHARE_PATH } from '@/lib/share/payload';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Share target (I-1, CSRF): a share POST that reaches the server (a cross-site form, or no
+  // service worker yet) never saves anything. 303 to the confirm page, before any session work.
+  if (isDirectSharePost(request.method, pathname, request.headers)) {
+    const url = request.nextUrl.clone();
+    url.pathname = SHARE_PATH;
+    url.search = '';
+    return NextResponse.redirect(url, 303);
+  }
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -44,7 +53,7 @@ export async function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   url.pathname = '/login';
   url.search = data?.claims ? '?error=no_autorizado' : '';
-  // 303 for a POST (the Android share target, /compartir), so the browser follows with a GET.
+  // 303 for a POST (e.g. a server action without a session), so the browser follows with a GET.
   const status = request.method === 'GET' || request.method === 'HEAD' ? 307 : 303;
   return withCookies(NextResponse.redirect(url, status), response);
 }

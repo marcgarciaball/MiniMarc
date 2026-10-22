@@ -1,9 +1,11 @@
 /*
  * Read-only cache for Agente Personal. No offline capture: writes (POST, server actions) and /api/*
  * always go to the network and are never cached.
- *   - Android share target (POST /compartir): never cached. Shared images are shrunk here first
- *     (long side 1600 px, WebP/JPEG 0.8, like lib/photos/resize.ts) so camera photos fit the
- *     request size limit; if that fails, the original request goes through untouched.
+ *   - Android share target (POST /compartir navigation): never sent to the server (I-1, CSRF:
+ *     any page could post a share form). Shared images are shrunk here (long side 1600 px,
+ *     WebP/JPEG 0.8, like lib/photos/resize.ts); title, text, url and images are kept in
+ *     IndexedDB under a random id (lib/share/stash.ts reads it), then a 303 to
+ *     /compartir?id=…, where Marc confirms with «Guardar» or drops it with «Descartar».
  *   - Page navigations: network first; offline, the last cached copy of that page.
  *   - Static assets (/_next/static, /icons, manifest): cache first.
  * Push (morning digest, weekly summary): shows the notification; a tap focuses an open window
@@ -36,8 +38,9 @@ function isStatic(url) {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  if (request.method === 'POST' && url.origin === self.location.origin && url.pathname === '/compartir') {
-    event.respondWith(forwardShare(request));
+  // Only the share navigation; the confirm page's server actions (fetch POSTs) go to the network.
+  if (request.method === 'POST' && request.mode === 'navigate' && url.origin === self.location.origin && url.pathname === '/compartir') {
+    event.respondWith(stashShare(request));
     return;
   }
   if (request.method !== 'GET') return;
@@ -51,7 +54,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// ---------- Share target: shrink images, then POST to the server (no cache) ----------
+// ---------- Share target: shrink images, keep them on the device, confirm on /compartir ----------
 const MAX_SIDE = 1600;
 const QUALITY = 0.8;
 
@@ -79,22 +82,63 @@ async function shrink(file) {
   }
 }
 
-async function forwardShare(request) {
-  const original = request.clone();
+// Same names as lib/share/stash.ts (keep them in step).
+const SHARE_DB = 'agente-compartir';
+const SHARE_STORE = 'shares';
+const SHARE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_SHARED_FILES = 10;
+
+function openShareDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SHARE_DB, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(SHARE_STORE, { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Saves the entry and drops entries older than a day (shares never confirmed nor discarded). */
+async function putShare(entry) {
+  const db = await openShareDb();
+  try {
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(SHARE_STORE, 'readwrite');
+      const store = tx.objectStore(SHARE_STORE);
+      store.put(entry);
+      const cursor = store.openCursor();
+      cursor.onsuccess = () => {
+        const c = cursor.result;
+        if (!c) return;
+        if (entry.createdAt - (c.value.createdAt || 0) > SHARE_MAX_AGE_MS) c.delete();
+        c.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/** Keeps the share on this device and opens the confirm page. Never forwards it to the server. */
+async function stashShare(request) {
+  const target = (query) => Response.redirect(new URL(`/compartir${query}`, self.location.origin).href, 303);
   try {
     const form = await request.formData();
-    const out = new FormData();
-    for (const [name, value] of form.entries()) {
-      if (typeof value === 'string') out.append(name, value);
-      else {
-        const file = await shrink(value);
-        out.append(name, file, file.name);
-      }
+    const str = (name) => (typeof form.get(name) === 'string' ? form.get(name) : '');
+    const files = [];
+    for (const value of form.getAll('photos')) {
+      if (typeof value === 'string' || !value.type.startsWith('image/') || value.size === 0) continue;
+      if (files.length >= MAX_SHARED_FILES) break;
+      const file = await shrink(value);
+      files.push({ name: file.name, type: file.type, blob: file });
     }
-    // 'manual': the server answers 303 to /bandeja (or /login); the navigation follows it.
-    return await fetch('/compartir', { method: 'POST', body: out, credentials: 'same-origin', redirect: 'manual' });
+    const id = crypto.randomUUID();
+    await putShare({ id, createdAt: Date.now(), title: str('title'), text: str('text'), url: str('url'), files });
+    return target(`?id=${id}`);
   } catch {
-    return fetch(original);
+    return target('?error=1');
   }
 }
 

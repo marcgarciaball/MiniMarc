@@ -1,48 +1,35 @@
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { NextRequest } from 'next/server';
 import { describe, expect, it } from 'vitest';
 import type { ActionResult } from '@/lib/actions/result';
 import type { QuickCapture } from '@/lib/capture/web';
 import type { Item, NewItem } from '@/lib/db/types';
-import { handleShare, shareText, type ShareDeps } from '@/lib/share/handler';
+import { createSharedIdea, saveSharedText, type ShareDeps } from '@/lib/share/handler';
+import { isDirectSharePost, MAX_SHARED_PHOTOS, pickSharedImages, sharedPhotosMessage, shareText } from '@/lib/share/payload';
+import { proxy } from '@/proxy';
 
-const BASE = 'https://agente.test';
-
-function shareRequest(fields: Record<string, string>, files: File[] = []): Request {
-  const fd = new FormData();
-  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
-  for (const f of files) fd.append('photos', f);
-  return new Request(`${BASE}/compartir`, { method: 'POST', body: fd });
-}
-
+const ROOT = join(__dirname, '..', '..');
 const jpeg = (name = 'foto.jpg', bytes = 100) => new File([new Uint8Array(bytes)], name, { type: 'image/jpeg' });
 
-function fakeDeps(over: { user?: string | null; capture?: ActionResult<QuickCapture>; failUpload?: boolean; failCreate?: boolean } = {}) {
+function fakeDeps(over: { noSession?: boolean; capture?: ActionResult<QuickCapture>; failCreate?: boolean } = {}) {
   const captured: { text: string; kind: string; area: string | null }[] = [];
   const created: NewItem[] = [];
-  const uploaded: { userId: string; itemId: string; name: string }[] = [];
-  const deps: ShareDeps = {
-    async userId() {
-      return over.user === undefined ? 'user-1' : over.user;
-    },
-    async quickCapture(fd) {
-      captured.push({ text: String(fd.get('text')), kind: String(fd.get('kind')), area: fd.get('area') as string | null });
-      return over.capture ?? { ok: true, value: { message: 'Guardado en Compras', href: '/bandeja' } };
-    },
-    async createItem(input) {
-      if (over.failCreate) throw new Error('db down');
-      created.push(input);
-      return { id: 'item-1', ...input } as Item;
-    },
-    async savePhoto(userId, itemId, file) {
-      if (over.failUpload) throw new Error('storage down');
-      uploaded.push({ userId, itemId, name: file.name });
-    },
+  const deps = async (): Promise<ShareDeps> => {
+    if (over.noSession) throw new Error('NEXT_REDIRECT /login');
+    return {
+      async quickCapture(fd) {
+        captured.push({ text: String(fd.get('text')), kind: String(fd.get('kind')), area: fd.get('area') as string | null });
+        return over.capture ?? { ok: true, value: { message: 'Guardado en Compras', href: '/bandeja' } };
+      },
+      async createItem(input) {
+        if (over.failCreate) throw new Error('db down');
+        created.push(input);
+        return { id: 'item-1', ...input } as Item;
+      },
+    };
   };
-  return { deps, captured, created, uploaded };
-}
-
-function location(res: Response): URL {
-  expect(res.status).toBe(303);
-  return new URL(res.headers.get('Location')!, BASE);
+  return { deps, captured, created };
 }
 
 describe('shareText', () => {
@@ -54,90 +41,123 @@ describe('shareText', () => {
   });
 });
 
-describe('handleShare', () => {
-  it('sin sesión: redirige a /login y no guarda nada', async () => {
-    const t = fakeDeps({ user: null });
-    const res = await handleShare(shareRequest({ text: 'Comprar leche' }), t.deps);
-    expect(location(res).pathname).toBe('/login');
-    expect(t.captured).toEqual([]);
-    expect(t.created).toEqual([]);
-  });
-
-  it('solo texto: va a la captura rápida en modo Auto y vuelve a la Bandeja con el aviso', async () => {
-    const t = fakeDeps();
-    const res = await handleShare(shareRequest({ title: '', text: 'Comprar leche', url: '' }), t.deps);
-    expect(t.captured).toEqual([{ text: 'Comprar leche', kind: 'auto', area: null }]);
-    const to = location(res);
-    expect(to.pathname).toBe('/bandeja');
-    expect(to.searchParams.get('guardado')).toBe('Guardado en Compras');
-    expect(t.created).toEqual([]);
-  });
-
-  it('una URL: el texto de la captura lleva el título y la URL', async () => {
-    const t = fakeDeps({ capture: { ok: true, value: { message: 'Guardado en Ideas', href: '/bandeja' } } });
-    const res = await handleShare(shareRequest({ title: 'Sofá nórdico', text: '', url: 'https://tienda.es/sofa' }), t.deps);
-    expect(t.captured.map((c) => c.text)).toEqual(['Sofá nórdico\nhttps://tienda.es/sofa']);
-    expect(location(res).searchParams.get('guardado')).toBe('Guardado en Ideas');
-  });
-
-  it('si la captura falla, el aviso dice el error', async () => {
-    const t = fakeDeps({ capture: { ok: false, error: 'No se ha podido guardar.' } });
-    const res = await handleShare(shareRequest({ text: 'algo' }), t.deps);
-    expect(location(res).searchParams.get('guardado')).toBe('No se ha podido guardar.');
-  });
-
-  it('una imagen sin texto: crea una idea «Foto compartida» con la foto adjunta, sin IA', async () => {
-    const t = fakeDeps();
-    const res = await handleShare(shareRequest({}, [jpeg()]), t.deps);
-    expect(t.captured).toEqual([]);
-    expect(t.created).toEqual([expect.objectContaining({ type: 'idea', title: 'Foto compartida', origin: 'web' })]);
-    expect(t.uploaded).toEqual([{ userId: 'user-1', itemId: 'item-1', name: 'foto.jpg' }]);
-    const to = location(res);
-    expect(to.pathname).toBe('/bandeja');
-    expect(to.searchParams.get('guardado')).toBe('Guardado en Ideas con la foto');
-  });
-
-  it('imágenes con texto: el texto es el título de la idea y se adjuntan todas', async () => {
-    const t = fakeDeps();
-    const res = await handleShare(shareRequest({ text: 'Lámpara para el salón' }, [jpeg('a.jpg'), jpeg('b.jpg')]), t.deps);
-    expect(t.created[0]).toMatchObject({ type: 'idea', title: 'Lámpara para el salón', sourceText: 'Lámpara para el salón' });
-    expect(t.uploaded.map((u) => u.name)).toEqual(['a.jpg', 'b.jpg']);
-    expect(location(res).searchParams.get('guardado')).toBe('Guardado en Ideas con 2 fotos');
-  });
-
-  it('si la foto no se puede subir, la idea queda guardada y el aviso lo dice', async () => {
-    const t = fakeDeps({ failUpload: true });
-    const res = await handleShare(shareRequest({ text: 'Lámpara' }, [jpeg()]), t.deps);
-    expect(t.created).toHaveLength(1);
-    expect(location(res).searchParams.get('guardado')).toBe('Guardado en Ideas, pero no se ha podido subir la foto');
-  });
-
-  it('ignora archivos que no son imágenes o son demasiado grandes', async () => {
-    const t = fakeDeps();
+describe('pickSharedImages', () => {
+  it('ignora lo que no es imagen, lo vacío o demasiado grande, y corta en el máximo', () => {
     const pdf = new File([new Uint8Array(10)], 'doc.pdf', { type: 'application/pdf' });
     const huge = jpeg('enorme.jpg', 9 * 1024 * 1024);
-    const res = await handleShare(shareRequest({ text: 'Nota' }, [pdf, huge]), t.deps);
+    const empty = jpeg('vacia.jpg', 0);
+    expect(pickSharedImages([pdf, huge, empty, jpeg('a.jpg')]).map((f) => f.name)).toEqual(['a.jpg']);
+    const many = Array.from({ length: MAX_SHARED_PHOTOS + 3 }, (_, i) => jpeg(`${i}.jpg`));
+    expect(pickSharedImages(many)).toHaveLength(MAX_SHARED_PHOTOS);
+  });
+});
+
+describe('sharedPhotosMessage', () => {
+  it('dice cuántas fotos se subieron', () => {
+    expect(sharedPhotosMessage(1, 1)).toBe('Guardado en Ideas con la foto');
+    expect(sharedPhotosMessage(2, 2)).toBe('Guardado en Ideas con 2 fotos');
+    expect(sharedPhotosMessage(0, 1)).toBe('Guardado en Ideas, pero no se ha podido subir la foto');
+    expect(sharedPhotosMessage(0, 3)).toBe('Guardado en Ideas, pero no se ha podido subir ninguna foto');
+    expect(sharedPhotosMessage(1, 3)).toBe('Guardado en Ideas con 1 de 3 fotos');
+  });
+});
+
+describe('saveSharedText (acción «Guardar» de /compartir)', () => {
+  it('sin sesión: no guarda nada', async () => {
+    const t = fakeDeps({ noSession: true });
+    const r = await saveSharedText('Comprar leche', t.deps);
+    expect(r.ok).toBe(false);
+    expect(t.captured).toEqual([]);
+  });
+
+  it('va a la captura rápida en modo Auto y devuelve el aviso', async () => {
+    const t = fakeDeps();
+    const r = await saveSharedText('Comprar leche', t.deps);
+    expect(t.captured).toEqual([{ text: 'Comprar leche', kind: 'auto', area: null }]);
+    expect(r).toEqual({ ok: true, value: { message: 'Guardado en Compras' } });
     expect(t.created).toEqual([]);
-    expect(t.captured.map((c) => c.text)).toEqual(['Nota']);
-    expect(location(res).searchParams.get('guardado')).toBe('Guardado en Compras');
+  });
+
+  it('si la captura falla, devuelve el error', async () => {
+    const t = fakeDeps({ capture: { ok: false, error: 'No se ha podido guardar.' } });
+    expect(await saveSharedText('algo', t.deps)).toEqual({ ok: false, error: 'No se ha podido guardar.' });
+  });
+
+  it('texto vacío o que no es texto: nada que guardar', async () => {
+    const t = fakeDeps();
+    expect(await saveSharedText('  ', t.deps)).toEqual({ ok: false, error: 'No había nada que guardar' });
+    expect(await saveSharedText(42, t.deps)).toEqual({ ok: false, error: 'No había nada que guardar' });
+    expect(t.captured).toEqual([]);
+  });
+});
+
+describe('createSharedIdea (acción «Guardar» con fotos)', () => {
+  it('sin sesión: no crea nada', async () => {
+    const t = fakeDeps({ noSession: true });
+    expect((await createSharedIdea('', t.deps)).ok).toBe(false);
+    expect(t.created).toEqual([]);
+  });
+
+  it('sin texto: una idea «Foto compartida», sin IA', async () => {
+    const t = fakeDeps();
+    const r = await createSharedIdea('', t.deps);
+    expect(r).toEqual({ ok: true, value: { itemId: 'item-1' } });
+    expect(t.captured).toEqual([]);
+    expect(t.created).toEqual([expect.objectContaining({ type: 'idea', title: 'Foto compartida', origin: 'web', sourceText: null })]);
+  });
+
+  it('con texto: el texto es el título de la idea', async () => {
+    const t = fakeDeps();
+    await createSharedIdea('Lámpara para el salón', t.deps);
+    expect(t.created[0]).toMatchObject({ type: 'idea', title: 'Lámpara para el salón', sourceText: 'Lámpara para el salón' });
   });
 
   it('si no se puede crear la idea, el aviso lo dice', async () => {
     const t = fakeDeps({ failCreate: true });
-    const res = await handleShare(shareRequest({}, [jpeg()]), t.deps);
-    expect(location(res).searchParams.get('guardado')).toBe('No se ha podido guardar. Inténtalo de nuevo.');
+    expect(await createSharedIdea('x', t.deps)).toEqual({ ok: false, error: 'No se ha podido guardar. Inténtalo de nuevo.' });
   });
 
-  it('nada que guardar: vuelve a la Bandeja sin capturar', async () => {
+  it('texto demasiado largo: no crea nada', async () => {
     const t = fakeDeps();
-    const res = await handleShare(shareRequest({ title: ' ', text: '' }), t.deps);
-    expect(t.captured).toEqual([]);
-    expect(location(res).searchParams.get('guardado')).toBe('No había nada que guardar');
+    expect((await createSharedIdea('x'.repeat(2001), t.deps)).ok).toBe(false);
+    expect(t.created).toEqual([]);
+  });
+});
+
+describe('POST directo a /compartir (CSRF, I-1)', () => {
+  it('isDirectSharePost: solo un POST a /compartir que no es una acción de servidor', () => {
+    const h = (o: Record<string, string> = {}) => new Headers(o);
+    expect(isDirectSharePost('POST', '/compartir', h())).toBe(true);
+    expect(isDirectSharePost('POST', '/compartir', h({ 'next-action': 'abc' }))).toBe(false);
+    expect(isDirectSharePost('GET', '/compartir', h())).toBe(false);
+    expect(isDirectSharePost('POST', '/bandeja', h())).toBe(false);
   });
 
-  it('un cuerpo que no es un formulario no rompe: vuelve a la Bandeja', async () => {
-    const t = fakeDeps();
-    const res = await handleShare(new Request(`${BASE}/compartir`, { method: 'POST', body: 'x' }), t.deps);
-    expect(location(res).pathname).toBe('/bandeja');
+  it('el proxy responde 303 a /compartir sin tocar nada (ni sesión ni base de datos)', async () => {
+    const fd = new FormData();
+    fd.set('text', 'Cita mañana a las 9 con el dentista');
+    fd.append('photos', jpeg());
+    const req = new NextRequest('https://agente.test/compartir', {
+      method: 'POST',
+      body: fd,
+      headers: { origin: 'https://malo.example', cookie: 'sb-access-token=x' },
+    });
+    const res = await proxy(req);
+    expect(res.status).toBe(303);
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/compartir');
+    expect(new URL(res.headers.get('location')!).search).toBe('');
+  });
+
+  it('ya no existe ningún manejador POST de /compartir en el servidor', () => {
+    expect(existsSync(join(ROOT, 'app/compartir/route.ts'))).toBe(false);
+    expect(existsSync(join(ROOT, 'app/(app)/compartir/route.ts'))).toBe(false);
+  });
+
+  it('el service worker guarda lo compartido en el dispositivo y nunca lo envía al servidor', () => {
+    const sw = readFileSync(join(ROOT, 'public/sw.js'), 'utf8');
+    expect(sw).toMatch(/indexedDB\.open/);
+    expect(sw).not.toMatch(/fetch\(\s*['"]\/compartir/);
+    expect(sw).not.toMatch(/fetch\(original\)/);
+    expect(sw).toMatch(/\/compartir\?id=/);
   });
 });

@@ -1,9 +1,8 @@
-/** Photo wiring for pages, server actions and /compartir: the session client (RLS). Server only. */
+/** Photo wiring for pages and server actions: the session client (RLS). Server only. */
 import { createSupabasePhotosRepo } from '@/lib/db/photos';
 import { createClient, requireUser } from '@/lib/supabase/server';
 import type { PhotoActionDeps } from './actions';
-import { extensionFor } from './resize';
-import { createSupabasePhotoStorage, photoPath } from './storage';
+import { createSupabasePhotoStorage } from './storage';
 import { buildPhotoMap, type PhotoMap } from './view';
 
 /** Redirects to /login without an allowed session. */
@@ -36,18 +35,4 @@ export async function countPhotos(itemIds: string[]): Promise<Record<string, num
   const counts: Record<string, number> = {};
   for (const p of await createSupabasePhotosRepo(client).listPhotosFor(itemIds)) counts[p.itemId] = (counts[p.itemId] ?? 0) + 1;
   return counts;
-}
-
-/** Uploads a file (already a reasonable size) to the user's folder and records it on the item. */
-export async function savePhotoFile(userId: string, itemId: string, file: File): Promise<void> {
-  const client = await createClient();
-  const storage = createSupabasePhotoStorage(client);
-  const path = photoPath(userId, itemId, extensionFor(file.type));
-  await storage.upload(path, file, file.type);
-  try {
-    await createSupabasePhotosRepo(client).addPhoto({ itemId, path, width: null, height: null });
-  } catch (err) {
-    await storage.remove([path]).catch(() => {});
-    throw err;
-  }
 }
