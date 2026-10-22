@@ -38,6 +38,10 @@ export const WRITES = {
   capture: ['items', 'people', 'calendar'],
   /** Ajustes. */
   settings: ['settings'],
+  /** A link preview stored after a save (after() or the hourly job). */
+  preview: ['items'],
+  /** The hourly job: task sync, trash purge, previews, and the digest marks in settings. */
+  maintenance: ['items', 'calendar', 'settings'],
 } as const satisfies Record<string, readonly DataScope[]>;
 
 /** Expires the tags of `scopes` for `userId` with `update` (Next's updateTag on the server). */

@@ -8,6 +8,7 @@ import { UserError } from '@/lib/actions/result';
 import { extensionCors, extensionPreflight } from '@/lib/auth/extensionCors';
 import type { VerifiedToken } from '@/lib/auth/tokens';
 import { isWorkTokenName } from '@/lib/auth/workToken';
+import { WRITES, type DataScope } from '@/lib/cache/tags';
 import type { Item } from '@/lib/db/types';
 import { captureText, EmptyCaptureError, type CaptureDeps, type CaptureResult } from './pipeline';
 import { saveTypedItem } from './typed';
@@ -17,6 +18,8 @@ export const MAX_CAPTURE_LENGTH = 2000;
 export interface CaptureRouteDeps {
   verify(authHeader: string | null): Promise<VerifiedToken | null>;
   captureDeps(userId: string): Promise<CaptureDeps>;
+  /** Expires the user's cached data (revalidateTag on the server) once a capture may have written. */
+  invalidate(userId: string, scopes: readonly DataScope[]): void;
 }
 
 const bodySchema = z.object({
@@ -93,9 +96,15 @@ export async function handleCapture(req: Request, deps: CaptureRouteDeps): Promi
     const area = isWorkToken(owner) ? 'trabajo' : parsed.data.area;
 
     const captureDeps = await deps.captureDeps(owner.userId);
-    const result = type
-      ? { items: [await saveTypedItem(type, text, { area, author: parsed.data.author }, captureDeps, origin)], eventIds: [] }
-      : await captureText({ text, area, origin }, captureDeps);
+    let result: CaptureResult;
+    try {
+      result = type
+        ? { items: [await saveTypedItem(type, text, { area, author: parsed.data.author }, captureDeps, origin)], eventIds: [] }
+        : await captureText({ text, area, origin }, captureDeps);
+    } finally {
+      // Every branch, even one that failed half-way: the app must show it at once.
+      deps.invalidate(owner.userId, WRITES.capture);
+    }
     return reply(200, {
       items: result.items.map(({ id, type, title, area, needsReview }) => ({ id, type, title, area, needsReview })),
       eventIds: result.eventIds,

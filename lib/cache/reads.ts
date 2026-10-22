@@ -10,7 +10,9 @@
  * Every read is tagged with the scopes it shows (lib/cache/tags.ts) and every write action
  * invalidates them (lib/actions/run.ts); a Server Action that invalidates also clears the whole
  * client router cache, so Marc never sees stale data after his own write. Writes from elsewhere
- * (Siri, the extension, another device) show up within the stale time or on a reload.
+ * (Siri, the extension, the hourly job, after() previews) call revalidateTag for the user's tags,
+ * and the app refreshes its screen when it returns to the foreground (RefreshOnReturn), since
+ * the private results live in the client router where a server-side revalidation cannot reach.
  */
 import { cacheLife } from 'next/cache';
 import { listByType, listLibros, listPapelera, listRecent, listRegalos, listSinClasificar, listTareas } from '@/lib/actions/items';

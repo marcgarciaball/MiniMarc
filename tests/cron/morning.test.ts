@@ -179,6 +179,7 @@ function setup(opts: {
       removedObjects.push(...paths);
     },
   };
+  const invalidated: (readonly string[])[] = [];
   const deps: MorningDeps = {
     now: opts.now ?? AT_8,
     settings: settings.repo,
@@ -205,10 +206,11 @@ function setup(opts: {
     },
     photos,
     storage,
+    invalidate: (scopes) => void invalidated.push(scopes),
   };
   const create = (n: NewItem) => items.createItem(n);
   const setNow = (d: Date) => (now = d);
-  return { deps, db, items, settings, cal, sent, built, builtWeeks, create, setNow, photos, removedObjects };
+  return { deps, db, items, settings, cal, sent, built, builtWeeks, create, setNow, photos, removedObjects, invalidated };
 }
 
 describe('runMorning · resumen', () => {
@@ -594,5 +596,25 @@ describe('handleMorningRequest', () => {
     });
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain('secret detail');
+  });
+});
+
+describe('runMorning invalida la caché del usuario', () => {
+  it('tras el mantenimiento (sync, purga, previews) invalida items, calendario y ajustes', async () => {
+    const t = setup({ now: AT_7 });
+    const old = await t.create({ type: 'idea', title: 'vieja' });
+    t.setNow(new Date(AT_7.getTime() - 31 * DAY));
+    await t.items.softDeleteItem(old.id);
+    t.setNow(AT_7);
+    const r = await runMorning({ ...t.deps, refreshPreviews: async () => 1 });
+    expect(r.purged).toBe(1);
+    expect(r.previews).toBe(1);
+    expect(t.invalidated).toEqual([expect.arrayContaining(['items', 'calendar', 'settings'])]);
+  });
+
+  it('también cuando el resumen o el mantenimiento fallan', async () => {
+    const t = setup({ digest: new Error('ai down'), storageFail: true });
+    await runMorning(t.deps);
+    expect(t.invalidated).toHaveLength(1);
   });
 });

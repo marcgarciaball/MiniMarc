@@ -15,6 +15,7 @@
  *      result. last_weekly_date is saved before sending, so a week is never pushed twice.
  * The response holds counts only: no titles, no headline.
  */
+import { WRITES, type DataScope } from '@/lib/cache/tags';
 import { timingSafeEqual, createHash } from 'node:crypto';
 import type { CalendarGateway } from '@/lib/calendar/client';
 import { taskSyncHook, wantsEvent } from '@/lib/calendar/taskSync';
@@ -50,6 +51,8 @@ export interface MorningDeps {
   storage: Pick<PhotoStorage, 'remove'>;
   /** Fetches link previews that were never stored (fallback for `after`); returns how many. */
   refreshPreviews?: () => Promise<number>;
+  /** Expires the user's cached data after the run (revalidateTag on the server). */
+  invalidate: (scopes: readonly DataScope[]) => void;
 }
 
 export interface MorningResult {
@@ -234,9 +237,14 @@ export async function runMorning(deps: MorningDeps): Promise<MorningResult> {
     previews: 0,
     maintenanceFailed: false,
   };
-  await sendDigest(deps, r);
-  await sendWeekly(deps, r);
-  await maintain(deps, r);
+  try {
+    await sendDigest(deps, r);
+    await sendWeekly(deps, r);
+    await maintain(deps, r);
+  } finally {
+    // Sync, purge and previews change items and Calendar; the digest marks settings.
+    deps.invalidate(WRITES.maintenance);
+  }
   return r;
 }
 

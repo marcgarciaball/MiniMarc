@@ -43,7 +43,9 @@ function setup(
 ) {
   const db = createMemoryBackend();
   const built: string[] = [];
+  const invalidated: { userId: string; scopes: readonly string[] }[] = [];
   const deps: CaptureRouteDeps = {
+    invalidate: (userId, scopes) => void invalidated.push({ userId, scopes }),
     async verify(h) {
       return h === `Bearer ${TOKEN}` ? { userId: 'user-marc', tokenId: 't1', name: tokenName } : null;
     },
@@ -58,7 +60,7 @@ function setup(
       };
     },
   };
-  return { db, deps, built };
+  return { db, deps, built, invalidated };
 }
 
 function post(body: unknown, opts: { auth?: string | null; origin?: string; raw?: boolean } = {}) {
@@ -341,5 +343,44 @@ describe('POST /api/capture con type (chips de la extensión)', () => {
       },
     });
     expect(res.status).toBe(500);
+  });
+});
+
+describe('POST /api/capture invalida la caché del usuario', () => {
+  const capture = ['items', 'people', 'calendar'];
+
+  it('Auto (con IA): invalida items, personas y calendario del dueño del token', async () => {
+    const { deps, invalidated } = setup();
+    const res = await handleCapture(post({ text: 'Llamar a mamá mañana' }), deps);
+    expect(res.status).toBe(200);
+    expect(invalidated).toEqual([{ userId: 'user-marc', scopes: expect.arrayContaining(capture) }]);
+  });
+
+  it.each(['tarea', 'idea', 'compra', 'regalo', 'libro'])('type %s: invalida', async (type) => {
+    const { deps, invalidated } = setup();
+    const res = await handleCapture(post({ text: 'Algo', type, origin: 'extension' }), deps);
+    expect(res.status).toBe(200);
+    expect(invalidated).toEqual([{ userId: 'user-marc', scopes: expect.arrayContaining(capture) }]);
+  });
+
+  it('también si la escritura falla a medias', async () => {
+    const { deps, invalidated } = setup();
+    const failing: CaptureRouteDeps = {
+      ...deps,
+      async captureDeps(u) {
+        const d = await deps.captureDeps(u);
+        return { ...d, items: { ...d.items, createItem: async () => Promise.reject(new Error('db down')) } };
+      },
+    };
+    const res = await handleCapture(post({ text: 'Algo', type: 'idea' }), failing);
+    expect(res.status).toBe(500);
+    expect(invalidated).toHaveLength(1);
+  });
+
+  it('sin token válido o sin texto no invalida nada', async () => {
+    const { deps, invalidated } = setup();
+    await handleCapture(post({ text: 'x' }, { auth: 'Bearer nope' }), deps);
+    await handleCapture(post({ text: '   ' }), deps);
+    expect(invalidated).toEqual([]);
   });
 });

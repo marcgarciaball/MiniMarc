@@ -1,6 +1,7 @@
 /** Real wiring for /api/cron/morning: service-role client scoped to Marc. Server only. */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
+import { revalidateUser } from '@/lib/cache/server';
 import { calendarGatewayFor } from '@/lib/calendar/server';
 import { createSupabaseItemsRepo } from '@/lib/db/items';
 import { createSupabasePhotosRepo } from '@/lib/db/photos';
@@ -44,5 +45,6 @@ export async function morningRun(now = new Date()): Promise<MorningResult | { sk
     photos: createSupabasePhotosRepo(admin, { userId }),
     storage: createSupabasePhotoStorage(admin, { userId }),
     refreshPreviews: () => refreshMissingPreviews(items, serverPreviewFetcher),
+    invalidate: (scopes) => revalidateUser(userId, scopes),
   });
 }
