@@ -13,6 +13,12 @@ export interface ItemsRepo {
   /** Undeleted items made by a capture (with sourceText) created at or after `since` (capture dedup). */
   listRecentCaptures(since: string): Promise<Item[]>;
   purgeDeletedOlderThan(days: number): Promise<number>;
+  /** Every item, deleted or not, with a syncError or a Calendar event (cron maintenance). */
+  listCalendarState(): Promise<Item[]>;
+  /** Items soft-deleted more than `days` days ago, oldest first. */
+  listDeletedBefore(days: number): Promise<Item[]>;
+  /** Removes the row for good (after its Calendar event is gone). */
+  hardDelete(id: string): Promise<void>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -129,6 +135,26 @@ export function createItemsRepo(
     async purgeDeletedOlderThan(days) {
       const cutoff = new Date(now().getTime() - days * DAY_MS);
       return backend.remove('items', { notNull: ['deleted_at'], lt: { deleted_at: cutoff.toISOString() } });
+    },
+
+    async listCalendarState() {
+      const [withError, withEvent] = await Promise.all([
+        backend.select('items', { notNull: ['sync_error'] }),
+        backend.select('items', { notNull: ['calendar_event_id'] }),
+      ]);
+      const byId = new Map<string, Item>();
+      for (const row of [...withError, ...withEvent]) byId.set(String(row.id), rowToItem(row));
+      return [...byId.values()];
+    },
+
+    async listDeletedBefore(days) {
+      const cutoff = new Date(now().getTime() - days * DAY_MS).toISOString();
+      const rows = await backend.select('items', { notNull: ['deleted_at'], lt: { deleted_at: cutoff } });
+      return rows.map(rowToItem).sort((a, b) => Date.parse(a.deletedAt!) - Date.parse(b.deletedAt!));
+    },
+
+    async hardDelete(id) {
+      await backend.remove('items', { eq: { id } });
     },
   };
 }

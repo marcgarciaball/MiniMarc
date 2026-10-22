@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { DigestSection } from '@/components/ajustes/DigestSection';
 import { SignOutButton } from '@/components/ajustes/SignOutButton';
 import { TokensSection } from '@/components/ajustes/TokensSection';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import { madridToday } from '@/lib/actions/today';
 import { listApiTokens } from '@/lib/auth/tokens';
-import { requireUser } from '@/lib/supabase/server';
+import { createSettingsRepo } from '@/lib/db/settings';
+import { createClient, requireUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Ajustes' };
 
@@ -45,6 +47,10 @@ export default function AjustesPage() {
         <Row href="/ajustes/iphone" title="Guía completa" />
       </InsetList>
 
+      <Suspense fallback={<DigestSection hour={null} tz={null} />}>
+        <Digest />
+      </Suspense>
+
       <Suspense fallback={<TokensSection tokens={null} today="" />}>
         <Tokens />
       </Suspense>
@@ -69,4 +75,10 @@ async function Tokens() {
   await requireUser();
   const tokens = await listApiTokens();
   return <TokensSection tokens={tokens} today={madridToday()} />;
+}
+
+async function Digest() {
+  const user = await requireUser();
+  const settings = await createSettingsRepo(await createClient(), user.id).get();
+  return <DigestSection hour={settings.digestHour} tz={settings.tz} />;
 }

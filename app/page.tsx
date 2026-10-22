@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Hoy lands in a later task; until then the app opens on Tareas. */
+/** The app opens on Hoy (the morning digest). */
 export default function Home() {
-  redirect('/tareas');
+  redirect('/hoy');
 }

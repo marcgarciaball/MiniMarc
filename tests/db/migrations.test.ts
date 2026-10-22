@@ -58,3 +58,34 @@ describe('0003_source_text.sql', () => {
     );
   });
 });
+
+describe('0004_cron.sql', () => {
+  const raw = readFileSync(path.join(__dirname, '../../supabase/migrations/0004_cron.sql'), 'utf8');
+  const s = sql('0004_cron.sql');
+
+  it('añade el titular cacheado a settings', () => {
+    expect(s).toMatch(/add column if not exists last_digest_headline text/);
+    expect(s).toMatch(/add column if not exists last_digest_headline_date date/);
+  });
+
+  it('activa pg_cron y pg_net y programa un trabajo cada hora en el minuto 0', () => {
+    expect(s).toMatch(/create extension if not exists pg_cron/);
+    expect(s).toMatch(/create extension if not exists pg_net/);
+    expect(s).toMatch(/cron\.schedule\(\s*'agente-resumen-manana',\s*'0 \* \* \* \*'/);
+    expect(s).toMatch(/net\.http_post\(/);
+    expect(s).toMatch(/'\/api\/cron\/morning'/);
+  });
+
+  it('es idempotente: desprograma el trabajo antes de programarlo', () => {
+    expect(s.indexOf("cron.unschedule('agente-resumen-manana')")).toBeGreaterThan(-1);
+    expect(s.indexOf("cron.unschedule('agente-resumen-manana')")).toBeLessThan(s.indexOf('cron.schedule('));
+  });
+
+  it('lee la URL y el secreto de Vault; ningún secreto en el SQL', () => {
+    expect(s).toMatch(/from vault\.decrypted_secrets where name = 'app_url'/);
+    expect(s).toMatch(/from vault\.decrypted_secrets where name = 'cron_secret'/);
+    expect(s).toMatch(/'Authorization', 'Bearer ' \|\|/);
+    expect(raw).not.toMatch(/[0-9a-f]{32,}/i);
+    expect(s).not.toMatch(/vault\.create_secret/);
+  });
+});

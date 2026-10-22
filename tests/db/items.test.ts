@@ -193,3 +193,30 @@ describe('people repo · updatePerson', () => {
     await expect(people.updatePerson(ana.id, { name: '  ' })).rejects.toThrow();
   });
 });
+
+describe('items repo · mantenimiento del cron (Tarea 14)', () => {
+  it('listCalendarState devuelve, incluidos eliminados, los que tienen syncError o evento', async () => {
+    const err = await items.createItem({ type: 'tarea', title: 'con error', syncError: 'calendar_unavailable' });
+    const ev = await items.createItem({ type: 'tarea', title: 'con evento', calendarEventId: 'ev-1' });
+    const both = await items.createItem({ type: 'tarea', title: 'ambos', calendarEventId: 'ev-2', syncError: 'calendar_auth' });
+    await items.createItem({ type: 'tarea', title: 'nada' });
+    await items.softDeleteItem(ev.id);
+    const ids = (await items.listCalendarState()).map((i) => i.id).sort();
+    expect(ids).toEqual([err.id, ev.id, both.id].sort());
+  });
+
+  it('listDeletedBefore(30) devuelve los eliminados hace más de 30 días; hardDelete los borra', async () => {
+    const old = await items.createItem({ type: 'idea', title: 'vieja' });
+    const recent = await items.createItem({ type: 'idea', title: 'reciente' });
+    const start = now;
+    now = new Date(start.getTime() - 31 * DAY);
+    await items.softDeleteItem(old.id);
+    now = new Date(start.getTime() - 29 * DAY);
+    await items.softDeleteItem(recent.id);
+    now = start;
+    expect((await items.listDeletedBefore(30)).map((i) => i.id)).toEqual([old.id]);
+    await items.hardDelete(old.id);
+    expect(await items.listDeletedBefore(30)).toEqual([]);
+    expect((await items.listDeleted(30)).map((i) => i.id)).toEqual([recent.id]);
+  });
+});

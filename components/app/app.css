@@ -693,3 +693,49 @@
   color: var(--accent);
   font-weight: 600;
 }
+
+/* ---------- Hoy ---------- */
+.app-hoy__intro {
+  padding: 0 calc(var(--gutter) + var(--safe-right)) 24px calc(var(--gutter) + var(--safe-left));
+}
+
+.app-hoy__date {
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-hoy__headline {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 25px;
+  letter-spacing: -0.45px;
+}
+
+/* An empty section: one quiet line where the rows would be. */
+.app-hoy__empty {
+  padding: 0 16px;
+  color: var(--label-secondary);
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: -0.24px;
+}
+
+.app-hoy__empty--solo {
+  padding: 0 calc(var(--gutter) + 16px + var(--safe-right)) 28px calc(var(--gutter) + 16px + var(--safe-left));
+}
+
+/* Native select as a row value (Ajustes → Resumen de la mañana). */
+.app-select {
+  min-height: var(--touch-target);
+  padding: 0 16px 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 17px;
+  letter-spacing: -0.41px;
+  text-align: right;
+}

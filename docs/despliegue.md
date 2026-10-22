@@ -15,7 +15,7 @@ Orden recomendado: Supabase (1), Google Cloud (2), Supabase Auth (3), Vercel (4)
 1. Entra en https://supabase.com y crea una cuenta.
 2. Pulsa **New project**. Elige la organización, un nombre (por ejemplo `agente-personal`), una contraseña para la base de datos (guárdala) y una región UE: **West EU (Paris)** (`eu-west-3`) o **Central EU (Frankfurt)** (`eu-central-1`). Plan: **Free**.
 3. Espera a que el proyecto termine de crearse.
-4. Aplica el esquema: las migraciones de `supabase/migrations/` **en orden** (`0001_init.sql` y luego `0002_single_user.sql`). Si ya aplicaste `0001` antes, aplica solo `0002`. Hay dos opciones:
+4. Aplica el esquema: las migraciones de `supabase/migrations/` **en orden** (`0001_init.sql`, `0002_single_user.sql`, y así sucesivamente). Si ya aplicaste algunas, aplica solo las que falten. Hay dos opciones:
    - **Editor SQL (sin CLI):** abre **SQL Editor → New query**, pega el contenido completo de `supabase/migrations/0001_init.sql` y pulsa **Run**. Repite con `0002_single_user.sql` en otra consulta nueva.
    - **Con CLI:** `npx supabase login`, luego `npx supabase link --project-ref <ref>` (el `ref` está en la URL del proyecto, `https://supabase.com/dashboard/project/<ref>`), y por último `npx supabase db push`.
 5. **Escribe tu correo permitido en la base de datos.** Es obligatorio y va antes del primer inicio de sesión. La base de datos no ve las variables de Vercel, así que el correo de `ALLOWED_EMAIL` se guarda también aquí, en la tabla `private.app_config`. En **SQL Editor → New query** ejecuta (con tu correo de Google, en minúsculas):
@@ -156,6 +156,32 @@ Verificados el 2026-10-21 contra la documentación oficial. Los límites cambian
 | Google Calendar API | Por usuario y proyecto | 600 peticiones por minuto | https://developers.google.com/calendar/api/guides/quota | verificado el 2026-10-21 |
 | Google Calendar API | Por proyecto | 10.000 peticiones por minuto | https://developers.google.com/calendar/api/guides/quota | verificado el 2026-10-21 |
 | Google Calendar API | Umbral diario de facturación | 1.000.000 peticiones al día por proyecto; sin cargo por debajo. Google anunció cargos "later in 2026" por encima de ese umbral, con ≥90 días de aviso; irrelevante para un solo usuario (ver aviso inicial) | https://developers.google.com/calendar/pricing | verificado el 2026-10-21 |
+
+## 7. Resumen de la mañana
+
+Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + `pg_net` (migración `0004_cron.sql`). La ruta envía el resumen una vez al día, a la hora elegida en **Ajustes → Resumen de la mañana**, y aprovecha cada llamada para reintentar la sincronización con Calendar y purgar la papelera (más de 30 días).
+
+1. Aplica las migraciones pendientes (`npx supabase db push`, o pega `0004_cron.sql` en el SQL Editor).
+2. Guarda la URL de la app y el secreto del cron en Supabase Vault. En **SQL Editor → New query** (el secreto, el mismo valor que `CRON_SECRET` en Vercel):
+
+   ```sql
+   select vault.create_secret('https://mini-marc-personal.vercel.app', 'app_url');
+   select vault.create_secret('EL_MISMO_VALOR_QUE_CRON_SECRET', 'cron_secret');
+   ```
+
+   Para cambiar uno después: `select vault.update_secret((select id from vault.secrets where name = 'cron_secret'), 'NUEVO_VALOR');`. No guardes estos valores en git.
+3. Comprueba el trabajo y sus últimas ejecuciones:
+
+   ```sql
+   select jobname, schedule, active from cron.job;
+   select * from cron.job_run_details order by start_time desc limit 5;
+   select id, status_code, created from net._http_response order by created desc limit 5;
+   ```
+
+   `status_code` 200 es correcto; 401 indica que `cron_secret` no coincide con `CRON_SECRET`.
+4. Prueba manual (desde tu ordenador): `curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://mini-marc-personal.vercel.app/api/cron/morning`. Devuelve solo recuentos, por ejemplo `{"digest":"not_due","pushed":0,...}`.
+
+**Si `pg_cron` o `pg_net` no están disponibles en el plan Free:** la migración se aplica igual, sin el trabajo, y muestra un aviso. Usa un cron externo gratuito, por ejemplo https://cron-job.org: crea un trabajo que llame cada hora (minuto 0) a `https://mini-marc-personal.vercel.app/api/cron/morning`, método `POST` (vale también `GET`), con la cabecera `Authorization: Bearer <CRON_SECRET>`.
 
 ## Verificación
 
