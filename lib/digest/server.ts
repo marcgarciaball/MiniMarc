@@ -8,9 +8,10 @@ import { createSupabasePeopleRepo } from '@/lib/db/people';
 import { createSettingsRepo, loadSettingsOrDefaults, type Settings, type SettingsRepo } from '@/lib/db/settings';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toMadrid } from '@/lib/time';
-import { buildDigest, type Digest } from './build';
+import { askOneLine, buildDigest, FALLBACK_HEADLINE, type Digest } from './build';
+import { deferHeadline, DEFERRED_HEADLINE } from './deferredHeadline';
 import { buildWeekDigest, type WeekDigest } from './week';
-import { cachedHeadlineOnly, noHeadline, withHeadlineCache, type WeekHeadlineMode } from './headlineCache';
+import { cachedHeadlineOnly, noHeadline, withHeadlineCache, type HeadlineSlot, type WeekHeadlineMode } from './headlineCache';
 import type { HoyRouteDeps } from './hoyApi';
 
 export function buildDigestFor(opts: {
@@ -35,6 +36,74 @@ export function buildDigestFor(opts: {
     now,
   });
 }
+
+/**
+ * /hoy without waiting on the AI: the digest with today's cached headline, or with
+ * `headlinePrompt` set when the line is still to be generated (see generateHeadline).
+ */
+export async function buildDigestDeferred(opts: {
+  client: SupabaseClient;
+  userId: string;
+  date: string;
+  now: Date;
+  settings: Settings;
+}): Promise<{ digest: Digest; headlinePrompt: string | null }> {
+  const { client, userId, date, now, settings } = opts;
+  const deferred = deferHeadline(cachedHeadlineOnly(date, settings));
+  const digest = await buildDigest(date, {
+    items: createSupabaseItemsRepo(client, { userId }),
+    people: createSupabasePeopleRepo(client, { userId }),
+    calendar: () => calendarGatewayFor(userId),
+    ai: deferred.ai,
+    tz: settings.tz,
+    now,
+  });
+  return { digest, headlinePrompt: digest.headline === DEFERRED_HEADLINE ? deferred.prompt() : null };
+}
+
+/** /semana without waiting on the AI (mode 'generate' only defers; the others never call it). */
+export async function buildWeekDigestDeferred(opts: {
+  client: SupabaseClient;
+  userId: string;
+  weekStart: string;
+  now: Date;
+  settings: Settings;
+  headline: WeekHeadlineMode;
+}): Promise<{ week: WeekDigest; headlinePrompt: string | null }> {
+  const { client, userId, weekStart, now, settings, headline } = opts;
+  const deferred = deferHeadline(cachedHeadlineOnly(weekStart, settings, 'week'));
+  const week = await buildWeekDigest(weekStart, {
+    items: createSupabaseItemsRepo(client, { userId }),
+    people: createSupabasePeopleRepo(client, { userId }),
+    calendar: () => calendarGatewayFor(userId),
+    ai: headline === 'generate' ? deferred.ai : headline === 'cached' ? cachedHeadlineOnly(weekStart, settings, 'week') : noHeadline(),
+    tz: settings.tz,
+    now,
+  });
+  if (week.headline !== DEFERRED_HEADLINE) return { week, headlinePrompt: null };
+  return { week: { ...week, headline: null }, headlinePrompt: deferred.prompt() };
+}
+
+/**
+ * The AI line for a deferred prompt, streamed by the page in its own Suspense. Cached per day
+ * (or week) in settings, like buildDigestFor, so the morning push and /hoy share one call.
+ */
+export async function generateHeadline<F extends string | null>(opts: {
+  client: SupabaseClient;
+  userId: string;
+  /** The local date (slot 'day') or the week's Monday (slot 'week'). */
+  key: string;
+  settings: Settings;
+  prompt: string;
+  slot: HeadlineSlot;
+  fallback: F;
+}): Promise<string | F> {
+  const repo = createSettingsRepo(opts.client, opts.userId);
+  const ai = withHeadlineCache(createGeminiProvider(), opts.key, repo, opts.settings, opts.slot);
+  return askOneLine({ ai }, opts.prompt, opts.fallback);
+}
+
+export { FALLBACK_HEADLINE };
 
 /**
  * Real wiring of buildWeekDigest (/semana and the weekly push). The AI line is cached per week

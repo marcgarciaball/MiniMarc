@@ -1,26 +1,30 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
 import { attempt, type ActionResult } from '@/lib/actions/result';
+import { invalidate } from '@/lib/cache/server';
+import { WRITES } from '@/lib/cache/tags';
 import * as core from '@/lib/photos/actions';
 import { sessionPhotoDeps } from '@/lib/photos/server';
 
 /*
  * The browser uploads the image itself to the private `photos` bucket with Marc's session
- * (never the service role); these record or remove it and refresh every screen.
+ * (never the service role); these record or remove it and invalidate the cached lists.
  */
 
 async function run(fn: (deps: core.PhotoActionDeps) => Promise<unknown>, fallback: string): Promise<ActionResult<null>> {
+  let userId: string | null = null;
   const result = await attempt(
     async () => {
-      await fn(await sessionPhotoDeps());
+      const deps = await sessionPhotoDeps();
+      userId = deps.userId;
+      await fn(deps);
       return null;
     },
     fallback,
     unstable_rethrow,
   );
-  if (result.ok) revalidatePath('/', 'layout');
+  if (userId) invalidate(userId, WRITES.photo);
   return result;
 }
 

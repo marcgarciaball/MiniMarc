@@ -78,8 +78,9 @@ async function defaultDeps(): Promise<TokenDeps> {
   return {
     store: supabaseTokenStore(),
     async userId() {
-      const { requireUser } = await import('@/lib/supabase/server');
-      return (await requireUser()).id;
+      // Token management asks the Auth server (a revoked session cannot mint or list tokens).
+      const { requireFreshUser } = await import('@/lib/supabase/server');
+      return (await requireFreshUser()).id;
     },
   };
 }

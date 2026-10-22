@@ -6,10 +6,15 @@ import { auth } from 'googleapis/build/src/apis/calendar';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireUser } from '@/lib/supabase/server';
 import { CalendarError, createCalendarClient, withCachedCalendar, type CalendarGateway } from './client';
+import { createAccessTokenCache } from './tokenCache';
+
+/** Access tokens of this server instance (lib/calendar/tokenCache.ts). */
+const accessTokens = createAccessTokenCache();
 
 /**
- * Gateway for `userId`. Throws CalendarError('auth') when no refresh token is stored; the
- * OAuth2 client renews the access token on each request, and a revoked/expired refresh token
+ * Gateway for `userId`. Throws CalendarError('auth') when no refresh token is stored. The access
+ * token is reused from memory until it is about to expire (no refresh round-trip per request);
+ * a refused one is renewed once (forceRefreshOnFailure), and a revoked/expired refresh token
  * surfaces as CalendarError('auth') from the gateway call. The "Tareas" calendar id is cached
  * in google_credentials.calendar_tasks_id.
  */
@@ -23,8 +28,18 @@ export async function calendarGatewayFor(userId: string): Promise<CalendarGatewa
   if (error) throw error;
   if (!data?.refresh_token) throw new CalendarError('auth', 'No refresh token stored');
 
-  const oauth = new auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-  oauth.setCredentials({ refresh_token: data.refresh_token });
+  const refreshToken: string = data.refresh_token;
+  const oauth = new auth.OAuth2({
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    forceRefreshOnFailure: true,
+  });
+  const cached = accessTokens.get(userId, refreshToken);
+  oauth.setCredentials({
+    refresh_token: refreshToken,
+    ...(cached && { access_token: cached.accessToken, expiry_date: cached.expiresAt }),
+  });
+  oauth.on('tokens', (t) => accessTokens.set(userId, refreshToken, { accessToken: t.access_token, expiresAt: t.expiry_date }));
 
   return withCachedCalendar(createCalendarClient(oauth), {
     get: async () => data.calendar_tasks_id ?? null,

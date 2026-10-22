@@ -1,12 +1,13 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
 import * as core from '@/lib/actions/events';
 import { EVENT_ERROR_MESSAGES, REMINDER_ERROR_MESSAGES, type EventActionResult } from '@/lib/actions/events';
 import type { SyncErrorCode } from '@/lib/calendar/taskSync';
 import { UserError } from '@/lib/actions/result';
 import { calendarGatewayFor } from '@/lib/calendar/server';
+import { invalidate } from '@/lib/cache/server';
+import { WRITES } from '@/lib/cache/tags';
 import { requireUser } from '@/lib/supabase/server';
 
 /**
@@ -19,8 +20,8 @@ export async function addEvent(formData: FormData): Promise<EventActionResult> {
     // Outside core.addEvent: its Calendar catch must not swallow the redirect to /login.
     const user = await requireUser();
     const result = await core.addEvent({ calendar: () => calendarGatewayFor(user.id) }, formData);
+    invalidate(user.id, WRITES.event);
     if (!result.ok) return { ok: false, error: EVENT_ERROR_MESSAGES[result.error], code: result.error };
-    revalidatePath('/agenda');
     return { ok: true, value: result.eventId };
   } catch (e) {
     unstable_rethrow(e);
@@ -37,8 +38,8 @@ export async function addReminders(eventId: string): Promise<{ ok: true } | { ok
   try {
     const user = await requireUser();
     const result = await core.addReminders({ calendar: () => calendarGatewayFor(user.id) }, String(eventId ?? ''));
+    invalidate(user.id, WRITES.event);
     if (!result.ok) return { ok: false, error: REMINDER_ERROR_MESSAGES[result.error], code: result.error };
-    revalidatePath('/agenda');
     return { ok: true };
   } catch (e) {
     unstable_rethrow(e);

@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { BagIcon, BookIcon, ClockIcon, GiftIcon, IdeaIcon, PersonIcon, TrayIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
-import { listByType, listLibros, listSinClasificar } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
+import { readListCounts } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Listas' };
 
@@ -20,26 +19,7 @@ export default function ListasPage() {
 }
 
 async function HubWithCounts() {
-  const deps = await getDeps();
-  const [ideas, compras, regalos, libros, sinClasificar] = await Promise.all([
-    listByType(deps, 'idea'),
-    listByType(deps, 'compra'),
-    listByType(deps, 'regalo'),
-    listLibros(deps),
-    listSinClasificar(deps),
-  ]);
-  return (
-    <Hub
-      counts={{
-        ideas: ideas.length,
-        compras: compras.length,
-        regalos: regalos.length,
-        // Books still to read or being read; the read ones are a record, not a to-do.
-        libros: libros.filter((b) => b.readingState !== 'leido').length,
-        sinClasificar: sinClasificar.length,
-      }}
-    />
-  );
+  return <Hub counts={await readListCounts()} />;
 }
 
 const tile = (icon: React.ReactNode) => <span className="ui-icon-tile">{icon}</span>;

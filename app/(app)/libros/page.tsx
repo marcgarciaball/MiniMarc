@@ -2,9 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { LibrosScreen } from '@/components/libros/LibrosScreen';
-import { listLibros } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readLibros } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Libros' };
 
@@ -17,7 +15,6 @@ export default function LibrosPage() {
 }
 
 async function Libros() {
-  const books = await listLibros(await getDeps());
-  const photos = await loadPhotoMap(books);
+  const { books, photos } = await readLibros();
   return <LibrosScreen books={books} photos={photos} />;
 }

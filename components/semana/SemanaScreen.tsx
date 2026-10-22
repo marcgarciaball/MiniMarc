@@ -15,6 +15,8 @@ export type SemanaScreenProps = {
   week: WeekDigest;
   /** Monday of the current week (shows "Esta semana" when looking at another one). */
   thisWeek: string;
+  /** The AI line streaming in its own Suspense (then the counts go below it). */
+  headline?: ReactNode;
 };
 
 /** Entries shown per day row before "+N más". */
@@ -120,7 +122,7 @@ function dateRow(d: DigestDate, today: string) {
 }
 
 /** The week at a glance (~30 s): 7 day rows, then the week's dates and tasks per area. */
-export function SemanaScreen({ week, thisWeek }: SemanaScreenProps) {
+export function SemanaScreen({ week, thisWeek, headline }: SemanaScreenProps) {
   const { weekStart, today } = week;
   const counts = weekSummaryLine(week);
   const prev = addDays(weekStart, -7);
@@ -149,8 +151,8 @@ export function SemanaScreen({ week, thisWeek }: SemanaScreenProps) {
     >
       <div className="app-hoy__intro">
         <p className="app-hoy__date">{weekLabel(weekStart)}</p>
-        <p className="app-hoy__headline">{week.headline ?? counts}</p>
-        {week.headline && <p className="app-hoy__date app-semana__counts">{counts}</p>}
+        <p className="app-hoy__headline">{headline ?? week.headline ?? counts}</p>
+        {(headline || week.headline) && <p className="app-hoy__date app-semana__counts">{counts}</p>}
         {week.calendarError && (
           <p className="app-hoy__date app-semana__counts" role="status">
             {week.calendarError === 'calendar_auth' ? (

@@ -1,9 +1,11 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
 import type { ActionResult } from '@/lib/actions/result';
 import { getDeps } from '@/lib/actions/server';
+import { invalidate } from '@/lib/cache/server';
+import { WRITES } from '@/lib/cache/tags';
+import { requireUser } from '@/lib/supabase/server';
 import { sessionCaptureDeps } from '@/lib/capture/session';
 import { quickCapture } from '@/lib/capture/web';
 import * as core from '@/lib/share/handler';
@@ -22,13 +24,15 @@ const shareDeps: core.ShareDepsFactory = async () => {
 };
 
 export async function saveSharedText(text: string): Promise<ActionResult<{ message: string }>> {
+  const user = await requireUser();
   const result = await core.saveSharedText(text, shareDeps, unstable_rethrow);
-  if (result.ok) revalidatePath('/', 'layout');
+  invalidate(user.id, WRITES.capture);
   return result;
 }
 
 export async function createSharedIdea(text: string): Promise<ActionResult<{ itemId: string }>> {
+  const user = await requireUser();
   const result = await core.createSharedIdea(text, shareDeps, unstable_rethrow);
-  if (result.ok) revalidatePath('/', 'layout');
+  invalidate(user.id, WRITES.capture);
   return result;
 }

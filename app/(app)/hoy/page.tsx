@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { HoyScreen } from '@/components/hoy/HoyScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { createSettingsRepo, loadSettingsOrDefaults } from '@/lib/db/settings';
-import { buildDigestFor } from '@/lib/digest/server';
+import { readHoy } from '@/lib/cache/reads';
+import type { Settings } from '@/lib/db/settings';
+import { FALLBACK_HEADLINE, generateHeadline } from '@/lib/digest/server';
 import { createClient, requireUser } from '@/lib/supabase/server';
-import { toMadrid } from '@/lib/time';
 
 export const metadata: Metadata = { title: 'Hoy' };
 
@@ -18,11 +18,19 @@ export default function HoyPage() {
 }
 
 async function Hoy() {
-  const user = await requireUser();
-  const client = await createClient();
-  const { settings, repo } = await loadSettingsOrDefaults(createSettingsRepo(client, user.id));
-  const now = new Date();
-  const date = toMadrid(now, settings.tz).date;
-  const digest = await buildDigestFor({ client, userId: user.id, date, now, settings, settingsRepo: repo });
-  return <HoyScreen digest={digest} tz={settings.tz} vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ''} />;
+  const { digest, headlinePrompt, settings } = await readHoy();
+  // The AI line never holds the page: it streams in on its own when it is not cached yet.
+  const headline = headlinePrompt ? (
+    <Suspense fallback={<span className="app-headline-pending" aria-hidden />}>
+      <Headline date={digest.date} settings={settings} prompt={headlinePrompt} />
+    </Suspense>
+  ) : undefined;
+  return (
+    <HoyScreen digest={digest} headline={headline} tz={settings.tz} vapidPublicKey={process.env.VAPID_PUBLIC_KEY ?? ''} />
+  );
+}
+
+async function Headline({ date, settings, prompt }: { date: string; settings: Settings; prompt: string }) {
+  const [user, client] = await Promise.all([requireUser(), createClient()]);
+  return generateHeadline({ client, userId: user.id, key: date, settings, prompt, slot: 'day', fallback: FALLBACK_HEADLINE });
 }

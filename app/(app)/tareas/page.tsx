@@ -3,10 +3,7 @@ import { Suspense } from 'react';
 import { AreaSelector } from '@/components/items/AreaSelector';
 import { ItemsScreen } from '@/components/items/ItemsScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { listTareas } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readTareas } from '@/lib/cache/reads';
 import type { Area } from '@/lib/db/types';
 
 export const metadata: Metadata = { title: 'Tareas' };
@@ -23,15 +20,13 @@ export default function TareasPage({ searchParams }: { searchParams: SearchParam
 
 async function Tareas({ searchParams }: { searchParams: SearchParams }) {
   const area: Area = (await searchParams).area === 'trabajo' ? 'trabajo' : 'personal';
-  const deps = await getDeps();
-  const items = await listTareas(deps, area);
-  const photos = await loadPhotoMap(items);
+  const { items, photos, today } = await readTareas(area);
   return (
     <ItemsScreen
       // A fresh screen per area: the two lists never share state.
       key={area}
       title="Tareas"
-      today={madridToday()}
+      today={today}
       before={<AreaSelector area={area} />}
       sections={[{ key: area, items }]}
       syncNotices

@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { InboxScreen } from '@/components/items/InboxScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { listRecent } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readRecent } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Recién añadido' };
 
@@ -20,18 +17,14 @@ export default function BandejaPage({ searchParams }: { searchParams: SearchPara
 }
 
 async function Bandeja({ searchParams }: { searchParams: SearchParams }) {
-  const deps = await getDeps();
-  // After getDeps (a request read), so the 24 h window is computed per request.
-  const [recent, people] = await Promise.all([listRecent(deps, new Date()), deps.people.listPeople()]);
-  const photos = await loadPhotoMap([...recent.personal, ...recent.trabajo]);
   // Where an Android share was saved (/compartir redirects here with ?guardado=).
-  const { guardado } = await searchParams;
+  const [{ personal, trabajo, people, photos, today }, { guardado }] = await Promise.all([readRecent(), searchParams]);
   const notice = typeof guardado === 'string' ? guardado.slice(0, 200) : undefined;
   return (
     <InboxScreen
-      today={madridToday()}
-      personal={recent.personal}
-      trabajo={recent.trabajo}
+      today={today}
+      personal={personal}
+      trabajo={trabajo}
       people={people}
       photos={photos}
       notice={notice}

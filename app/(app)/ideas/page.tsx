@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ItemsScreen } from '@/components/items/ItemsScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { listByType } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readByType } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Ideas' };
 
@@ -18,12 +15,11 @@ export default function IdeasPage() {
 }
 
 async function Ideas() {
-  const items = await listByType(await getDeps(), 'idea');
-  const photos = await loadPhotoMap(items);
+  const { items, photos, today } = await readByType('idea');
   return (
     <ItemsScreen
       title="Ideas"
-      today={madridToday()}
+      today={today}
       sections={[{ key: 'ideas', items }]}
       emptyText="Aún no hay ideas."
       newItem={{ type: 'idea', label: 'Nueva idea' }}

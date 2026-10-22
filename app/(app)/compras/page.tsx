@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ItemsScreen } from '@/components/items/ItemsScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { listByType } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readByType } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Compras' };
 
@@ -18,12 +15,11 @@ export default function ComprasPage() {
 }
 
 async function Compras() {
-  const items = await listByType(await getDeps(), 'compra');
-  const photos = await loadPhotoMap(items);
+  const { items, photos, today } = await readByType('compra');
   return (
     <ItemsScreen
       title="Compras"
-      today={madridToday()}
+      today={today}
       sections={[{ key: 'compras', items }]}
       emptyText="No hay nada en la lista de la compra."
       newItem={{ type: 'compra', label: 'Nueva compra' }}

@@ -3,10 +3,7 @@ import { Suspense } from 'react';
 import { AreaSelector } from '@/components/items/AreaSelector';
 import { ItemsScreen } from '@/components/items/ItemsScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { listSinClasificar } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readSinClasificar } from '@/lib/cache/reads';
 import type { Area } from '@/lib/db/types';
 
 export const metadata: Metadata = { title: 'Sin clasificar' };
@@ -24,14 +21,12 @@ export default function SinClasificarPage({ searchParams }: { searchParams: Sear
 async function SinClasificar({ searchParams }: { searchParams: SearchParams }) {
   // Personal and Trabajo are separate views, as on /tareas: they never share a list.
   const area: Area = (await searchParams).area === 'trabajo' ? 'trabajo' : 'personal';
-  const deps = await getDeps();
-  const [items, people] = await Promise.all([listSinClasificar(deps, area), deps.people.listPeople()]);
-  const photos = await loadPhotoMap(items);
+  const { items, people, photos, today } = await readSinClasificar(area);
   return (
     <ItemsScreen
       key={area}
       title="Sin clasificar"
-      today={madridToday()}
+      today={today}
       before={<AreaSelector area={area} basePath="/sin-clasificar" />}
       sections={[
         {

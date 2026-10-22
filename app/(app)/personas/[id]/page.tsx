@@ -6,11 +6,7 @@ import { ChevronLeftIcon } from '@/components/icons';
 import { ItemsScreen } from '@/components/items/ItemsScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { PersonDetail, type PersonDetailProps } from '@/components/people/PersonDetail';
-import { listRegalos } from '@/lib/actions/items';
-import { NEXT_DATE_WINDOW_DAYS } from '@/lib/actions/people';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { loadPhotoMap } from '@/lib/photos/server';
+import { readPersona } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Personas' };
 
@@ -34,23 +30,15 @@ export default function PersonaPage({ params }: { params: Params }) {
 /** A person: notes, dates (birthday included) and their gift ideas (also reached from /regalos/[id]). */
 async function Persona({ params }: { params: Params }) {
   const { id } = await params;
-  const deps = await getDeps();
-  const today = madridToday();
-  const [{ people }, dates, upcoming] = await Promise.all([
-    listRegalos(deps),
-    deps.people.listDates(id),
-    deps.people.upcomingDates(today, NEXT_DATE_WINDOW_DAYS),
-  ]);
-  const group = people.find((g) => g.person.id === id);
-  if (!group) notFound();
+  const data = await readPersona(id);
+  if (!data) notFound();
+  const { group, people, dates, upcoming, photos, today } = data;
   const { person, items } = group;
   const next: PersonDetailProps['next'] = {};
   for (const u of upcoming) {
-    if (u.person.id !== id) continue;
     const key = u.dateId ?? 'birthday';
     next[key] ??= { daysUntil: u.daysUntil, yearsSince: u.yearsSince };
   }
-  const photos = await loadPhotoMap(items);
   return (
     <ItemsScreen
       key={person.id}
@@ -60,7 +48,7 @@ async function Persona({ params }: { params: Params }) {
       before={<PersonDetail person={person} dates={dates} next={next} />}
       sections={[{ key: 'regalos', header: 'Ideas de regalo', items }]}
       emptyText={`Sin ideas de regalo para ${person.name}.`}
-      people={people.map((g) => g.person)}
+      people={people}
       hidePerson
       photos={photos}
       newItem={{ type: 'regalo', personId: person.id, label: 'Nuevo regalo' }}

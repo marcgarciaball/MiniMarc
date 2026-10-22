@@ -2,14 +2,20 @@ import { createServerClient } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { connection } from 'next/server';
+import { cache } from 'react';
 import { isAllowedEmail } from '@/lib/auth/allowlist';
+import { userFromClaims, type ClaimsAuth, type SessionUser } from '@/lib/auth/session';
 
-/** Supabase client bound to the request cookies (Server Components, Route Handlers, Server Actions). */
-export async function createClient() {
-  // The auth client reads the clock (Date.now) while loading the session; with cacheComponents
-  // that must happen at request time, never during prerender.
-  await connection();
+export type { SessionUser } from '@/lib/auth/session';
+
+/**
+ * Supabase client bound to the request cookies (Server Components, Route Handlers, Server
+ * Actions). One per request in a render (React `cache`): every helper of a page shares it.
+ *
+ * Reading `cookies()` first makes the caller request-time (and is allowed inside
+ * `'use cache: private'`), so the auth client's clock reads never happen while prerendering.
+ */
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,10 +38,25 @@ export async function createClient() {
       },
     },
   );
-}
+});
 
-/** Returns the signed-in, allowed user or redirects to /login. */
-export async function requireUser(): Promise<User> {
+/**
+ * The signed-in, allowed user, from the verified JWT claims (no Auth round-trip with
+ * asymmetric keys; see lib/auth/session.ts for the trade-off). Redirects to /login otherwise.
+ * Once per request in a render.
+ */
+export const requireUser = cache(async (): Promise<SessionUser> => {
+  const supabase = await createClient();
+  const user = await userFromClaims(supabase.auth as unknown as ClaimsAuth);
+  if (!user) redirect('/login');
+  return user;
+});
+
+/**
+ * Like requireUser, but asks the Auth server (`getUser()`), so a revoked session is refused at
+ * once. For the few places where a fresh check matters: API token management.
+ */
+export async function requireFreshUser(): Promise<User> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user || !isAllowedEmail(data.user.email)) {

@@ -11,6 +11,8 @@ import { PushButton } from './PushButton';
 
 export type HoyScreenProps = {
   digest: Digest;
+  /** Replaces `digest.headline` (e.g. the AI line streaming in its own Suspense). */
+  headline?: ReactNode;
   tz: string;
   /** VAPID public key (server env); empty hides "Activar notificaciones". */
   vapidPublicKey: string;
@@ -76,7 +78,7 @@ function dateRow(d: DigestDate, today: string) {
 }
 
 /** The morning digest as a screen: readable in ~20 s, one calm section per area. */
-export function HoyScreen({ digest, tz, vapidPublicKey }: HoyScreenProps) {
+export function HoyScreen({ digest, headline, tz, vapidPublicKey }: HoyScreenProps) {
   const today = digest.date;
   const longDate = formatLongDate(madridToUtc(today, '12:00', tz), tz);
 
@@ -86,7 +88,7 @@ export function HoyScreen({ digest, tz, vapidPublicKey }: HoyScreenProps) {
     <LargeTitle title="Hoy">
       <div className="app-hoy__intro">
         <p className="app-hoy__date">{longDate.charAt(0).toUpperCase() + longDate.slice(1)}</p>
-        <p className="app-hoy__headline">{digest.headline}</p>
+        <p className="app-hoy__headline">{headline ?? digest.headline}</p>
       </div>
 
       <Section

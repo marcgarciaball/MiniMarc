@@ -2,12 +2,10 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { SemanaScreen } from '@/components/semana/SemanaScreen';
-import { parseWeekParam, weekRange } from '@/lib/agenda/week';
-import { createSettingsRepo, loadSettingsOrDefaults } from '@/lib/db/settings';
-import { weekHeadlineMode } from '@/lib/digest/headlineCache';
-import { buildWeekDigestFor } from '@/lib/digest/server';
+import { readSemana } from '@/lib/cache/reads';
+import type { Settings } from '@/lib/db/settings';
+import { generateHeadline } from '@/lib/digest/server';
 import { createClient, requireUser } from '@/lib/supabase/server';
-import { toMadrid } from '@/lib/time';
 
 export const metadata: Metadata = { title: 'Semana' };
 
@@ -23,24 +21,21 @@ export default function SemanaPage({ searchParams }: { searchParams: SearchParam
 
 /**
  * The week of `?w=` (any day of it; default this week). Only the week the weekly push targets
- * generates the AI line; the other of this/next week reuses the cache; other weeks show counts.
+ * generates the AI line (streamed in, never holding the page); the other of this/next week
+ * reuses the cache; other weeks show counts.
  */
 async function Semana({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireUser();
-  const client = await createClient();
-  const { settings, repo } = await loadSettingsOrDefaults(createSettingsRepo(client, user.id));
-  const now = new Date();
-  const today = toMadrid(now, settings.tz).date;
-  const weekStart = parseWeekParam((await searchParams).w, today);
-  const thisWeek = weekRange(today).start;
-  const week = await buildWeekDigestFor({
-    client,
-    userId: user.id,
-    weekStart,
-    now,
-    settings,
-    settingsRepo: repo,
-    headline: weekHeadlineMode(weekStart, today, settings.weeklyDigest),
-  });
-  return <SemanaScreen week={week} thisWeek={thisWeek} />;
+  const { w } = await searchParams;
+  const { week, headlinePrompt, settings, thisWeek } = await readSemana(typeof w === 'string' ? w : undefined);
+  const headline = headlinePrompt ? (
+    <Suspense fallback={<span className="app-headline-pending" aria-hidden />}>
+      <WeekHeadline weekStart={week.weekStart} settings={settings} prompt={headlinePrompt} />
+    </Suspense>
+  ) : undefined;
+  return <SemanaScreen week={week} thisWeek={thisWeek} headline={headline} />;
+}
+
+async function WeekHeadline({ weekStart, settings, prompt }: { weekStart: string; settings: Settings; prompt: string }) {
+  const [user, client] = await Promise.all([requireUser(), createClient()]);
+  return generateHeadline({ client, userId: user.id, key: weekStart, settings, prompt, slot: 'week', fallback: null });
 }

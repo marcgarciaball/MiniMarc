@@ -8,8 +8,8 @@ import { WeeklySection } from '@/components/ajustes/WeeklySection';
 import { InsetList, LargeTitle, Row } from '@/components/ui';
 import { madridToday } from '@/lib/actions/today';
 import { listApiTokens } from '@/lib/auth/tokens';
-import { createSettingsRepo } from '@/lib/db/settings';
-import { createClient, requireUser } from '@/lib/supabase/server';
+import { readSettings } from '@/lib/cache/reads';
+import { requireUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Ajustes' };
 
@@ -89,8 +89,7 @@ async function Tokens() {
 }
 
 async function Digest() {
-  const user = await requireUser();
-  const settings = await createSettingsRepo(await createClient(), user.id).get();
+  const settings = await readSettings();
   return (
     <>
       <DigestSection hour={settings.digestHour} tz={settings.tz} />

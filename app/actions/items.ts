@@ -1,56 +1,46 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { unstable_rethrow } from 'next/navigation';
-import * as core from '@/lib/actions/items';
 import type { MovePatch } from '@/lib/actions/items';
-import { attempt, type ActionResult } from '@/lib/actions/result';
-import { getDeps } from '@/lib/actions/server';
+import { createItemActions } from '@/lib/actions/itemActions';
+import type { ActionResult } from '@/lib/actions/result';
+import { runAction } from '@/lib/actions/server';
 import type { Item, Person } from '@/lib/db/types';
 
 /*
- * Thin wrappers: authenticate, build the real repos, delegate to lib/actions/items.ts,
- * refresh every screen. They return an ActionResult and never throw at the UI (redirects
- * still pass through). Calendar sync (Tarea 7) belongs in getDeps(), not here.
+ * Thin wrappers over lib/actions/itemActions.ts: authenticate, build the real repos, delegate,
+ * then invalidate the cached data the write may change (lib/actions/run.ts). They return an
+ * ActionResult and never throw at the UI (redirects still pass through).
  */
-
-const SAVE_FAILED = 'No se ha podido guardar. Revisa la conexión e inténtalo de nuevo.';
-const ADD_FAILED = 'No se ha podido añadir. Revisa la conexión e inténtalo de nuevo.';
-
-async function run<T>(fn: (deps: Awaited<ReturnType<typeof getDeps>>) => Promise<T>, fallback = SAVE_FAILED) {
-  const result = await attempt(async () => fn(await getDeps()), fallback, unstable_rethrow);
-  if (result.ok) revalidatePath('/', 'layout');
-  return result;
-}
+const actions = createItemActions(runAction);
 
 export async function addItem(formData: FormData): Promise<ActionResult<Item>> {
-  return run((deps) => core.addItem(deps, formData), ADD_FAILED);
+  return actions.addItem(formData);
 }
 
 export async function toggleDone(id: string): Promise<ActionResult<Item>> {
-  return run((deps) => core.toggleDone(deps, id));
+  return actions.toggleDone(id);
 }
 
 export async function moveItem(id: string, patch: MovePatch): Promise<ActionResult<Item>> {
-  return run((deps) => core.moveItem(deps, id, patch));
+  return actions.moveItem(id, patch);
 }
 
 export async function deleteItem(id: string): Promise<ActionResult<void>> {
-  return run((deps) => core.deleteItem(deps, id));
+  return actions.deleteItem(id);
 }
 
 export async function undoDelete(id: string): Promise<ActionResult<Item>> {
-  return run((deps) => core.undoDelete(deps, id));
+  return actions.undoDelete(id);
 }
 
 export async function retrySync(id: string): Promise<ActionResult<Item>> {
-  return run((deps) => core.retrySync(deps, id));
+  return actions.retrySync(id);
 }
 
 export async function addPerson(formData: FormData): Promise<ActionResult<Person>> {
-  return run((deps) => core.addPerson(deps, formData), ADD_FAILED);
+  return actions.addPerson(formData);
 }
 
 export async function updatePerson(id: string, formData: FormData): Promise<ActionResult<Person>> {
-  return run((deps) => core.updatePerson(deps, id, formData));
+  return actions.updatePerson(id, formData);
 }

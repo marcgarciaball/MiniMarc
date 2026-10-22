@@ -2,9 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { TrashScreen } from '@/components/items/TrashScreen';
-import { listPapelera } from '@/lib/actions/items';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
+import { readPapelera } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Papelera' };
 
@@ -17,7 +15,6 @@ export default function PapeleraPage() {
 }
 
 async function Papelera() {
-  const deps = await getDeps();
-  const [items, people] = await Promise.all([listPapelera(deps), deps.people.listPeople()]);
-  return <TrashScreen today={madridToday()} items={items} people={people} />;
+  const { items, people, today } = await readPapelera();
+  return <TrashScreen today={today} items={items} people={people} />;
 }

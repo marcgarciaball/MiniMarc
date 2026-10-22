@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
 import { PersonasScreen } from '@/components/people/PersonasScreen';
-import { listPersonas } from '@/lib/actions/people';
-import { getDeps } from '@/lib/actions/server';
-import { madridToday } from '@/lib/actions/today';
-import { countPhotos } from '@/lib/photos/server';
+import { readPersonas } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Personas' };
 
@@ -18,6 +15,6 @@ export default function PersonasPage() {
 }
 
 async function Personas() {
-  const cards = await listPersonas(await getDeps(), madridToday(), countPhotos);
+  const cards = await readPersonas();
   return <PersonasScreen cards={cards} />;
 }
