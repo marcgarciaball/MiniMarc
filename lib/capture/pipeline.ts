@@ -171,7 +171,7 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
   const fields: NewItem = { ...fromClassification(c, origin), needsReview: !confident, sourceText: text };
   if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
   const item = await deps.items.createItem(fields);
-  out.items.push(await syncTimedTask(deps, item));
+  out.items.push(await syncDatedTask(deps, item));
 }
 
 /**
@@ -260,10 +260,11 @@ async function personId(deps: CaptureDeps, name: string): Promise<string | null>
 }
 
 /**
- * A classified, timed task gets its "Tareas" event, as the item actions do (taskSyncHook only
- * acts on such tasks). Never throws: the item is already saved.
+ * A classified task with a date gets its "Tareas" event, as the item actions do (taskSyncHook
+ * decides: a time makes it a 30 min event, no time makes it an all-day one). Never throws: the
+ * item is already saved.
  */
-async function syncTimedTask(deps: CaptureDeps, item: Item): Promise<Item> {
+async function syncDatedTask(deps: CaptureDeps, item: Item): Promise<Item> {
   let fields: Pick<Item, 'calendarEventId' | 'syncError'>;
   try {
     const r = await taskSyncHook(deps.calendar)(item);

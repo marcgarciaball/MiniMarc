@@ -2,7 +2,7 @@
  * Logic behind the Agenda (app/(app)/agenda) and its server action (app/actions/events.ts).
  * Pure: Calendar comes in through `deps`, so tests use a fake gateway.
  */
-import { calendarErrorKind, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
+import { calendarErrorKind, type CalendarGateway, type EventInput, type TimedEventInput } from '@/lib/calendar/client';
 import type { ItemsRepo } from '@/lib/db/items';
 import { toSyncError, type SyncErrorCode } from '@/lib/calendar/taskSync';
 import { isValidDate, madridToUtc } from '@/lib/time';
@@ -41,7 +41,7 @@ function field(fd: FormData, name: string): string {
 }
 
 /** Reads the "Nueva cita" form: title, date, start, end (optional), notes (optional), all in Madrid. */
-export function parseNewEvent(fd: FormData): EventInput {
+export function parseNewEvent(fd: FormData): TimedEventInput {
   const title = field(fd, 'title');
   if (!title) throw new UserError('El título no puede estar vacío');
   const date = field(fd, 'date');

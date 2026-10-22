@@ -68,6 +68,32 @@ describe('createCalendarClient: createEvent', () => {
     });
   });
 
+  it('de todo el día: fechas sueltas, fin exclusivo y un solo aviso la víspera a las 21:00', async () => {
+    const { api, calls } = fakeApi({ 'events.insert': () => ({ id: 'ev2' }) });
+    const gw = createCalendarClient(null, { api });
+    const id = await gw.createEvent('cal-tareas', { title: 'Ir a una boda', allDay: true, date: '2026-10-25' });
+    expect(id).toBe('ev2');
+    expect(calls[0].params.requestBody).toEqual({
+      summary: 'Ir a una boda',
+      start: { date: '2026-10-25' },
+      end: { date: '2026-10-26' },
+      // 180 minutos antes de la medianoche del 25 = las 21:00 del 24. Google no admite
+      // minutos negativos, así que "ese día a las 9" no se puede pedir.
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 180 }] },
+    });
+  });
+
+  it('de todo el día, varios días: el fin es el día siguiente al último', async () => {
+    const { api, calls } = fakeApi({ 'events.insert': () => ({ id: 'ev3' }) });
+    await createCalendarClient(null, { api }).createEvent('c', {
+      title: 'Viaje',
+      allDay: true,
+      date: '2026-12-30',
+      endDate: '2026-12-31',
+    });
+    expect((calls[0].params.requestBody as { end: { date: string } }).end).toEqual({ date: '2027-01-01' });
+  });
+
   it('sin endsAt el evento dura 30 minutos', async () => {
     const { api, calls } = fakeApi({ 'events.insert': () => ({ id: 'ev1' }) });
     await createCalendarClient(null, { api }).createEvent('c', {

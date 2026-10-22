@@ -49,6 +49,7 @@ function fakeGateway() {
   const created: { calendarId: string; title: string; startsAt: Date }[] = [];
   const gw: CalendarGateway = {
     async createEvent(calendarId, e) {
+      if (e.allDay) throw new Error('una cita nunca es de todo el día');
       created.push({ calendarId, title: e.title, startsAt: e.startsAt });
       return `ev-${created.length}`;
     },

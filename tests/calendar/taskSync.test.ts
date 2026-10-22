@@ -107,15 +107,29 @@ describe('syncTaskEvent', () => {
     const dueAt = madridToUtc('2026-10-25', '10:00').toISOString();
     await syncTaskEvent(task({ dueAt }), gw);
     const { e } = writes()[0] as Extract<Call, { op: 'create' }>;
+    if (e.allDay) throw new Error('esperaba un evento con hora');
     expect(e.startsAt.toISOString()).toBe('2026-10-25T09:00:00.000Z');
     expect(e.endsAt?.toISOString()).toBe('2026-10-25T09:30:00.000Z');
   });
 
-  it('sin hasTime no crea nada', async () => {
+  it('con fecha y sin hora crea un evento de todo el día', async () => {
     const { gw, writes } = fakeGateway();
+    // Medianoche del 22 en Madrid (CEST, UTC+2) son las 22:00 UTC del 21: el día es el 22.
     const r = await syncTaskEvent(task({ hasTime: false, dueAt: '2026-10-21T22:00:00.000Z' }), gw);
-    expect(r).toEqual({ eventId: null, error: null });
-    expect(writes()).toEqual([]);
+    expect(r).toEqual({ eventId: 'nuevo-ev', error: null });
+    const { e } = writes()[0] as Extract<Call, { op: 'create' }>;
+    if (!e.allDay) throw new Error('esperaba un evento de todo el día');
+    expect(e.date).toBe('2026-10-22');
+    expect(e.title).toBe('Llamar al seguro');
+  });
+
+  it('el día de todo el día se lee en Madrid, también tras el cambio de hora', async () => {
+    const { gw, writes } = fakeGateway();
+    // Medianoche del 2 de noviembre en Madrid (ya CET, UTC+1) son las 23:00 UTC del 1.
+    await syncTaskEvent(task({ hasTime: false, dueAt: '2026-11-01T23:00:00.000Z' }), gw);
+    const { e } = writes()[0] as Extract<Call, { op: 'create' }>;
+    if (!e.allDay) throw new Error('esperaba un evento de todo el día');
+    expect(e.date).toBe('2026-11-02');
   });
 
   it.each([
@@ -132,13 +146,22 @@ describe('syncTaskEvent', () => {
     ['completarla', { status: 'hecho' as const }],
     ['archivarla', { status: 'archivado' as const }],
     ['borrarla', { deletedAt: '2026-10-21T11:00:00.000Z' }],
-    ['quitarle la hora', { hasTime: false, dueAt: '2026-10-21T22:00:00.000Z' }],
     ['cambiarle el tipo', { type: 'idea' as const, dueAt: null, hasTime: false }],
   ])('al %s elimina el evento', async (_, overrides) => {
     const { gw, writes } = fakeGateway();
     const r = await syncTaskEvent(task({ calendarEventId: 'ev1', ...overrides }), gw);
     expect(r).toEqual({ eventId: null, error: null });
     expect(writes()).toEqual([{ op: 'delete', calendarId: 'tareas-id', eventId: 'ev1' }]);
+  });
+
+  it('quitarle la hora ya no borra el evento: pasa a ser de todo el día', async () => {
+    const { gw, writes } = fakeGateway();
+    const r = await syncTaskEvent(task({ calendarEventId: 'ev1', hasTime: false, dueAt: '2026-10-21T22:00:00.000Z' }), gw);
+    expect(r).toEqual({ eventId: 'ev1', error: null });
+    const write = writes()[0] as Extract<Call, { op: 'update' }>;
+    expect(write.op).toBe('update');
+    if (!write.e.allDay) throw new Error('esperaba un evento de todo el día');
+    expect(write.e.date).toBe('2026-10-22');
   });
 
   it('si el evento ya no existe al borrarlo, lo da por borrado', async () => {

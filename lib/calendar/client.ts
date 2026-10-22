@@ -8,13 +8,29 @@ import { DEFAULT_TZ, madridToUtc } from '@/lib/time';
 
 export type CalendarName = 'Tareas';
 
-export interface EventInput {
+/** Un evento con hora: el caso de siempre (citas y tareas con hora). */
+export interface TimedEventInput {
   title: string;
   startsAt: Date;
   /** Defaults to 30 minutes after `startsAt`. */
   endsAt?: Date;
   description?: string;
+  allDay?: false;
 }
+
+/**
+ * Un evento de todo el día: "YYYY-MM-DD" sueltas, sin zona horaria. `endDate` es el último día
+ * que ocupa (inclusive); Google quiere el siguiente, y de eso se encarga `eventBody`.
+ */
+export interface AllDayEventInput {
+  title: string;
+  allDay: true;
+  date: string;
+  endDate?: string;
+  description?: string;
+}
+
+export type EventInput = TimedEventInput | AllDayEventInput;
 
 export interface CalendarEvent {
   id: string;
@@ -134,6 +150,13 @@ export const REQUIRED_REMINDERS = [
   { method: 'popup', minutes: 60 },
 ] as const;
 
+/**
+ * El aviso de un evento de todo el día. Google cuenta los minutos desde el inicio, que para
+ * estos eventos es la medianoche, y no admite valores negativos (0 a 40320), así que "ese día
+ * a las 9" no se puede expresar: 180 minutos es la víspera a las 21:00, y con uno basta.
+ */
+export const ALL_DAY_REMINDERS = [{ method: 'popup', minutes: 180 }] as const;
+
 export function hasRequiredReminders(reminders: calendar_v3.Schema$Event['reminders'] | undefined): boolean {
   if (!reminders || reminders.useDefault) return false;
   const popups = (reminders.overrides ?? []).filter((o) => o.method === 'popup').map((o) => o.minutes);
@@ -148,11 +171,27 @@ function requiredReminders(): calendar_v3.Schema$Event['reminders'] {
   return { useDefault: false, overrides: REQUIRED_REMINDERS.map((r) => ({ ...r })) };
 }
 
+/** "YYYY-MM-DD" + 1 día, en aritmética de calendario (sin zona horaria de por medio). */
+function nextDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 function eventBody(e: EventInput): calendar_v3.Schema$Event {
+  const common = { summary: e.title, ...(e.description !== undefined && { description: e.description }) };
+  if (e.allDay) {
+    return {
+      ...common,
+      // Google toma el fin como exclusivo: un día suelto acaba el día siguiente.
+      start: { date: e.date },
+      end: { date: nextDay(e.endDate ?? e.date) },
+      reminders: { useDefault: false, overrides: ALL_DAY_REMINDERS.map((r) => ({ ...r })) },
+    };
+  }
   const endsAt = e.endsAt ?? new Date(e.startsAt.getTime() + DEFAULT_DURATION_MS);
   return {
-    summary: e.title,
-    ...(e.description !== undefined && { description: e.description }),
+    ...common,
     start: { dateTime: e.startsAt.toISOString(), timeZone: DEFAULT_TZ },
     end: { dateTime: endsAt.toISOString(), timeZone: DEFAULT_TZ },
     reminders: requiredReminders(),

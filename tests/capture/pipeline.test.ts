@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import type { AiProvider } from '@/lib/ai/provider';
-import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
+import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type TimedEventInput } from '@/lib/calendar/client';
 import { captureMessage } from '@/lib/capture/handler';
 import { ClassifyError } from '@/lib/ai/classify';
 import { captureText, causeMessage, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
@@ -67,11 +67,13 @@ function aiForbidden() {
 }
 
 function fakeCalendar(opts: { createError?: unknown; loadError?: unknown } = {}) {
-  const created: { calendarId: string; e: EventInput }[] = [];
+  // Las citas siempre llevan hora; un evento de todo el día aquí sería un fallo.
+  const created: { calendarId: string; e: TimedEventInput }[] = [];
   let n = 0;
   const gw: CalendarGateway = {
     async createEvent(calendarId, e) {
       if (opts.createError) throw opts.createError;
+      if (e.allDay) throw new Error('una cita nunca es de todo el día');
       created.push({ calendarId, e });
       return `ev-${++n}`;
     },

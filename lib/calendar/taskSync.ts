@@ -5,6 +5,7 @@
 import type { ItemSync, SyncResult } from '@/lib/actions/items';
 import type { Item } from '@/lib/db/types';
 import { calendarErrorKind, type CalendarGateway, type EventInput } from './client';
+import { madridDateTime } from '@/lib/time';
 
 export const APP_URL = 'https://mini-marc-personal.vercel.app';
 export const TASKS_CALENDAR = 'Tareas';
@@ -14,13 +15,13 @@ const DURATION_MS = 30 * 60_000;
 export type SyncErrorCode = 'calendar_auth' | 'calendar_unavailable';
 
 /**
- * A task gets an event only while it is a classified, pending, undeleted task with a time.
- * A date without time (Madrid midnight, hasTime=false) never gets one.
+ * A task gets an event while it is a classified, pending, undeleted task with a date. With a
+ * time it is a 30 min event with the 180/60 popups; without one, the whole day (one reminder
+ * the evening before, which is as close as Google lets a reminder get to an all-day event).
  */
 export function wantsEvent(item: Item): boolean {
   return (
     item.type === 'tarea' &&
-    item.hasTime &&
     item.dueAt !== null &&
     item.status === 'pendiente' &&
     !item.needsReview &&
@@ -31,11 +32,15 @@ export function wantsEvent(item: Item): boolean {
 function eventFor(item: Item): EventInput {
   const startsAt = new Date(item.dueAt!);
   const area = item.area ?? 'personal';
+  const description = `Recordatorio de Agente Personal\n${APP_URL}/tareas?area=${area}`;
+  // Sin hora, el día es el de Madrid: dueAt guarda su medianoche local, que en UTC cae la
+  // víspera (22:00 o 23:00 según el horario de verano).
+  if (!item.hasTime) return { title: item.title, allDay: true, date: madridDateTime(startsAt).date, description };
   return {
     title: item.title,
     startsAt,
     endsAt: new Date(startsAt.getTime() + DURATION_MS),
-    description: `Recordatorio de Agente Personal\n${APP_URL}/tareas?area=${area}`,
+    description,
   };
 }
 
