@@ -443,6 +443,22 @@ describe('runMorning · mantenimiento', () => {
     expect(rows.find((x) => x.id === keep.id)).toMatchObject({ calendar_event_id: 'ev-keep' });
   });
 
+  it('no borra el aviso de Calendar de un elemento de Sin clasificar sin evento (M-2)', async () => {
+    const t = setup({ now: AT_7 });
+    const cita = await t.create({ type: 'tarea', title: 'Dentista', dueAt: '2026-10-23T10:00:00Z', hasTime: true, needsReview: true, syncError: 'calendar_unavailable' });
+    const r = await runMorning(t.deps);
+    expect(r).toMatchObject({ synced: 0, syncFailed: 0 });
+    expect(t.db.tables.items.find((x) => x.id === cita.id)).toMatchObject({ sync_error: 'calendar_unavailable', calendar_event_id: null });
+  });
+
+  it('un elemento de Sin clasificar con evento sí se limpia (el evento se borra)', async () => {
+    const t = setup({ now: AT_7 });
+    const it = await t.create({ type: 'tarea', title: 'x', dueAt: '2026-10-23T10:00:00Z', hasTime: true, needsReview: true, calendarEventId: 'ev-r' });
+    await runMorning(t.deps);
+    expect(t.cal.deleted).toEqual(['ev-r']);
+    expect(t.db.tables.items.find((x) => x.id === it.id)).toMatchObject({ calendar_event_id: null });
+  });
+
   it('si Calendar sigue fallando, deja el error guardado y lo cuenta', async () => {
     const t = setup({ now: AT_7, calendarFail: new CalendarError('unavailable', '503') });
     await t.create({ type: 'tarea', title: 'a', dueAt: '2026-10-23T10:00:00Z', hasTime: true, syncError: 'calendar_auth' });

@@ -179,6 +179,9 @@ async function maintain(deps: MorningDeps, r: MorningResult): Promise<void> {
 
   try {
     const pending = (await deps.items.listCalendarState())
+      // Sin clasificar without an event: nothing to sync, and resyncing would wipe the visible
+      // "Calendar no respondió" badge (M-2). With an event, it is still cleaned up.
+      .filter((i) => !i.needsReview || i.calendarEventId !== null)
       .filter((i) => i.syncError !== null || !wantsEvent(i))
       .slice(0, MAINTENANCE_CAP);
     for (const item of pending) {
