@@ -37,6 +37,7 @@ describe('navigation sections', () => {
     ['/semana', 'semana', 'hoy'],
     ['/ajustes/iphone', 'ajustes', 'ajustes'],
     ['/regalos/abc', 'regalos', 'listas'],
+    ['/libros', 'libros', 'listas'],
     ['/personas', 'personas', 'listas'],
     ['/personas/abc', 'personas', 'listas'],
     ['/sin-clasificar', 'sin-clasificar', 'listas'],

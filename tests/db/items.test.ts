@@ -220,3 +220,40 @@ describe('items repo · mantenimiento del cron (Tarea 14)', () => {
     expect((await items.listDeleted(30)).map((i) => i.id)).toEqual([recent.id]);
   });
 });
+
+describe('items repo: libros', () => {
+  it('crea un libro con autor, por leer y pendiente por defecto', async () => {
+    const book = await items.createItem({ type: 'libro', title: 'Sapiens', author: 'Yuval Noah Harari' });
+    expect(book.type).toBe('libro');
+    expect(book.author).toBe('Yuval Noah Harari');
+    expect(book.readingState).toBe('por_leer');
+    expect(book.status).toBe('pendiente');
+    expect(book.link).toBeNull();
+    expect((await items.listItems({ type: 'libro' })).map((i) => i.id)).toEqual([book.id]);
+  });
+
+  it('un libro creado como leído queda hecho', async () => {
+    const book = await items.createItem({ type: 'libro', title: 'Dune', readingState: 'leido' });
+    expect(book.status).toBe('hecho');
+  });
+
+  it('cambiar el estado de lectura sigue la regla leído ⇔ hecho', async () => {
+    const book = await items.createItem({ type: 'libro', title: 'Sapiens' });
+    const reading = await items.updateItem(book.id, { readingState: 'leyendo' });
+    expect(reading).toMatchObject({ readingState: 'leyendo', status: 'pendiente' });
+    const read = await items.updateItem(book.id, { readingState: 'leido' });
+    expect(read).toMatchObject({ readingState: 'leido', status: 'hecho' });
+    const again = await items.updateItem(book.id, { readingState: 'por_leer' });
+    expect(again).toMatchObject({ readingState: 'por_leer', status: 'pendiente' });
+  });
+
+  it('los demás tipos no tienen estado de lectura ni escriben las columnas de libros', async () => {
+    const backend = createMemoryBackend({ now: () => now });
+    const repo = createItemsRepo(backend, { now: () => now });
+    const idea = await repo.createItem({ type: 'idea', title: 'Algo' });
+    expect(idea).toMatchObject({ readingState: null, author: null, link: null });
+    expect(backend.tables.items[0]).not.toHaveProperty('author');
+    expect(backend.tables.items[0]).not.toHaveProperty('reading_state');
+    expect(backend.tables.items[0]).not.toHaveProperty('link');
+  });
+});

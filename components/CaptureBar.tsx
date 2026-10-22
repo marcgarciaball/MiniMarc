@@ -29,6 +29,7 @@ const PLACEHOLDERS: Record<QuickKind, string> = {
   idea: 'Nueva idea…',
   compra: 'Qué hay que comprar…',
   regalo: 'Idea de regalo…',
+  libro: 'Título del libro…',
   cita: 'Nueva cita…',
 };
 
@@ -81,7 +82,7 @@ export function CaptureBarFallback() {
 /**
  * The always-visible capture field: above the tab bar on iPhone, at the top of the column on
  * desktop. Under it, the type chips: Auto sends the text to the AI pipeline (Trabajo files it as
- * a work task without the AI); Tarea, Idea, Compra, Regalo and Cita save it as that type
+ * a work task without the AI); Tarea, Idea, Compra, Regalo, Libro and Cita save it as that type
  * directly, no AI. Enter (or "Enviar" on the iOS keyboard, whose mic dictates) saves. On failure
  * the text stays; on success a toast says where it went and the chip goes back to the screen's.
  */
@@ -98,6 +99,7 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
   const [end, setEnd] = useState('');
   const [personId, setPersonId] = useState(screen.personId ?? '');
   const [personName, setPersonName] = useState('');
+  const [author, setAuthor] = useState('');
   const [people, setPeople] = useState<Person[] | null>(null);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -110,6 +112,7 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
     setKind(screen.kind);
     setPersonId(screen.personId ?? '');
     setPersonName('');
+    setAuthor('');
     setDueDate('');
     setDueTime('');
     setDate('');
@@ -165,6 +168,7 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
       fd.set('start', start);
       fd.set('end', end);
     }
+    if (kind === 'libro') fd.set('author', author);
     const newPerson = kind === 'regalo' && personId === NEW_PERSON;
     if (kind === 'regalo') {
       if (newPerson) fd.set('personName', personName);
@@ -270,6 +274,23 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
             <label className="app-capture__field">
               <span>Fin</span>
               <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </label>
+          </div>
+        )}
+
+        {kind === 'libro' && (
+          <div className="app-capture__row app-capture__extras">
+            <label className="app-capture__field">
+              <span>Autor</span>
+              <input
+                type="text"
+                autoComplete="off"
+                autoCapitalize="words"
+                maxLength={200}
+                placeholder="Opcional"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+              />
             </label>
           </div>
         )}

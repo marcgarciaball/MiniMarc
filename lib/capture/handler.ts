@@ -23,7 +23,9 @@ const bodySchema = z.object({
   area: z.literal('trabajo').optional(),
   origin: z.enum(['siri', 'extension']).default('siri'),
   /** A chosen type (the extension's chips): saved directly, without the AI. Absent = Auto. */
-  type: z.enum(['tarea', 'idea', 'compra', 'regalo']).optional(),
+  type: z.enum(['tarea', 'idea', 'compra', 'regalo', 'libro']).optional(),
+  /** With `type: 'libro'`: the book's author (optional). */
+  author: z.string().max(200).optional(),
 });
 
 // ---------- CORS (Task 15's Chrome extension) ----------
@@ -36,7 +38,7 @@ export function captureOptions(req: Request): Response {
 
 // ---------- POST ----------
 
-const LABELS: Record<Item['type'], string> = { tarea: 'Tareas', idea: 'Ideas', compra: 'Compras', regalo: 'Regalos' };
+const LABELS: Record<Item['type'], string> = { tarea: 'Tareas', idea: 'Ideas', compra: 'Compras', regalo: 'Regalos', libro: 'Libros' };
 
 function destination(item: Item): string {
   if (item.needsReview) return 'Sin clasificar';
@@ -91,7 +93,7 @@ export async function handleCapture(req: Request, deps: CaptureRouteDeps): Promi
 
     const captureDeps = await deps.captureDeps(owner.userId);
     const result = type
-      ? { items: [await saveTypedItem(type, text, { area }, captureDeps, origin)], eventIds: [] }
+      ? { items: [await saveTypedItem(type, text, { area, author: parsed.data.author }, captureDeps, origin)], eventIds: [] }
       : await captureText({ text, area, origin }, captureDeps);
     return reply(200, {
       items: result.items.map(({ id, type, title, area, needsReview }) => ({ id, type, title, area, needsReview })),

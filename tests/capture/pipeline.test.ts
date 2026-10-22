@@ -9,7 +9,8 @@ import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
 
 type ModelItem = {
-  kind: 'tarea' | 'idea' | 'compra' | 'regalo' | 'cita' | 'fecha';
+  kind: 'tarea' | 'idea' | 'compra' | 'regalo' | 'libro' | 'cita' | 'fecha';
+  author?: string | null;
   label?: string | null;
   yearKnown?: boolean | null;
   title: string;
@@ -633,5 +634,35 @@ describe('captureText: fechas especiales', () => {
     expect(db.tables.person_dates).toHaveLength(0);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({ needsReview: true, title: TEXT });
+  });
+});
+
+describe('captureText: libros', () => {
+  it('"quiero leer Sapiens de Harari" guarda un libro con autor, por leer, sin evento', async () => {
+    const cal = fakeCalendar();
+    const { deps } = setup(
+      aiReturning([{ kind: 'libro', title: 'Sapiens', author: 'Harari', confidence: 0.9 }]).ai,
+      cal,
+    );
+    const res = await captureText({ text: 'quiero leer Sapiens de Harari', origin: 'siri' }, deps);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0]).toMatchObject({
+      type: 'libro',
+      title: 'Sapiens',
+      author: 'Harari',
+      readingState: 'por_leer',
+      status: 'pendiente',
+      area: null,
+      needsReview: false,
+      sourceText: 'quiero leer Sapiens de Harari',
+    });
+    expect(captureMessage(res)).toBe('Guardado en Libros');
+    expect(cal.created).toHaveLength(0);
+  });
+
+  it('un libro con confianza baja va a Sin clasificar, conservando el autor', async () => {
+    const { deps } = setup(aiReturning([{ kind: 'libro', title: 'Dune', author: 'Herbert', confidence: 0.3 }]).ai);
+    const [item] = (await captureText({ text: 'dune herbert', origin: 'web' }, deps)).items;
+    expect(item).toMatchObject({ type: 'libro', author: 'Herbert', needsReview: true });
   });
 });

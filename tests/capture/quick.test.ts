@@ -120,6 +120,35 @@ describe('quickCapture', () => {
     ]);
   });
 
+  it('Libro crea un libro por leer con su autor, sin IA', async () => {
+    const ai = aiForbidden();
+    const { deps, items } = setup({ ai });
+    const res = await quickCapture(
+      form({ text: 'Sapiens', kind: 'libro', author: '  Yuval Noah Harari ', area: 'trabajo' }),
+      deps,
+    );
+    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Libros', href: '/libros' } });
+    expect(ai.calls).toBe(0);
+    expect(await items.listItems()).toMatchObject([
+      {
+        type: 'libro',
+        title: 'Sapiens',
+        author: 'Yuval Noah Harari',
+        readingState: 'por_leer',
+        status: 'pendiente',
+        area: null,
+        needsReview: false,
+        sourceText: 'Sapiens',
+      },
+    ]);
+  });
+
+  it('Libro sin autor guarda author null', async () => {
+    const { deps, items } = setup();
+    await quickCapture(form({ text: 'Dune', kind: 'libro' }), deps);
+    expect((await items.listItems())[0]).toMatchObject({ type: 'libro', author: null, readingState: 'por_leer' });
+  });
+
   it('Regalo con una persona existente la enlaza sin crear otra', async () => {
     const { deps, items, people } = setup();
     const ana = await people.upsertPersonByName('Ana');
@@ -262,7 +291,7 @@ describe('quickCapture', () => {
     expect(await items.listItems()).toMatchObject([{ type: 'tarea', area: 'trabajo' }]);
   });
 
-  it.each(['auto', 'tarea', 'idea', 'compra', 'regalo', 'cita'])(
+  it.each(['auto', 'tarea', 'idea', 'compra', 'regalo', 'libro', 'cita'])(
     'texto vacío con %s → error y no se guarda nada',
     async (kind) => {
       const ai = aiForbidden();
@@ -301,6 +330,7 @@ describe('captureDefaults', () => {
     ['/compras', null, { kind: 'compra', personId: null, area: null }],
     ['/ideas', null, { kind: 'idea', personId: null, area: null }],
     ['/regalos', null, { kind: 'regalo', personId: null, area: null }],
+    ['/libros', null, { kind: 'libro', personId: null, area: null }],
     ['/personas/p-1', null, { kind: 'regalo', personId: 'p-1', area: null }],
     ['/personas', null, { kind: 'auto', personId: null, area: null }],
     ['/agenda', null, { kind: 'cita', personId: null, area: null }],

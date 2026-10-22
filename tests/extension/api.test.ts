@@ -28,6 +28,25 @@ describe('sendCapture', () => {
     expect(JSON.parse(String(init.body))).toEqual({ text: 'una idea', origin: 'extension', type: 'idea' });
   });
 
+  it('pasa type libro y el autor (recortado); sin autor no lo envía', async () => {
+    const f = mockFetch(200, { message: 'Guardado en Libros' });
+    await sendCapture(BASE, TOKEN, 'Sapiens', undefined, 'libro', '  Harari ');
+    expect(JSON.parse(String(f.mock.calls[0][1].body))).toEqual({
+      text: 'Sapiens',
+      origin: 'extension',
+      type: 'libro',
+      author: 'Harari',
+    });
+    await sendCapture(BASE, TOKEN, 'Dune', undefined, 'libro', '   ');
+    expect(JSON.parse(String(f.mock.calls[1][1].body))).toEqual({ text: 'Dune', origin: 'extension', type: 'libro' });
+  });
+
+  it('el autor solo viaja con type libro', async () => {
+    const f = mockFetch(200, { message: 'Guardado en Ideas' });
+    await sendCapture(BASE, TOKEN, 'una idea', undefined, 'idea', 'Alguien');
+    expect(JSON.parse(String(f.mock.calls[0][1].body))).toEqual({ text: 'una idea', origin: 'extension', type: 'idea' });
+  });
+
   it('envía area trabajo y omite type si no se indica', async () => {
     const f = mockFetch(200, { message: 'Guardado en Tareas · Trabajo' });
     await sendCapture('https://x.test', TOKEN, 'informe', 'trabajo');

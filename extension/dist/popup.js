@@ -11,6 +11,7 @@ const text = $('text');
 const send = $('send');
 const status = $('status');
 const areaBox = $('area');
+const author = $('author');
 const TIME = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 const SHORT_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
 text.focus();
@@ -18,10 +19,11 @@ const settingsReady = loadSettings();
 function checked(name) {
     return form.querySelector(`input[name="${name}"]:checked`)?.value ?? '';
 }
-/** Like the web bar: only Auto and Tarea use the Personal/Trabajo switch. */
+/** Like the web bar: only Auto and Tarea use the Personal/Trabajo switch; only Libro shows "Autor". */
 function syncArea() {
     const kind = checked('kind');
     areaBox.disabled = !(kind === 'auto' || kind === 'tarea');
+    author.hidden = kind !== 'libro';
 }
 function setStatus(el, msg, error = false) {
     el.textContent = msg;
@@ -62,12 +64,14 @@ form.addEventListener('submit', async (e) => {
     const area = !areaBox.disabled && checked('area') === 'trabajo' ? 'trabajo' : undefined;
     send.disabled = true;
     setStatus(status, 'Guardando…');
-    const r = await sendCapture(settings.baseUrl, settings.token, value, area, type);
+    const r = await sendCapture(settings.baseUrl, settings.token, value, area, type, type === 'libro' ? author.value : undefined);
     send.disabled = false;
     if (r.ok) {
         // Only clear what was sent (Marc may have kept typing).
-        if (text.value === value)
+        if (text.value === value) {
             text.value = '';
+            author.value = '';
+        }
         setStatus(status, r.message ?? 'Guardado');
         void loadHoy(settings);
     }

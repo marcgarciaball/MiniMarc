@@ -4,6 +4,7 @@ import { Glass, TabBar, type TabBarItem } from '@/components/ui';
 import {
   AgendaIcon,
   BagIcon,
+  BookIcon,
   CaptureIcon,
   ClockIcon,
   GiftIcon,
@@ -50,6 +51,7 @@ const SIDEBAR: { header?: string; links: SidebarLink[] }[] = [
       { key: 'ideas', label: 'Ideas', href: '/ideas', icon: <IdeaIcon /> },
       { key: 'compras', label: 'Compras', href: '/compras', icon: <BagIcon /> },
       { key: 'regalos', label: 'Regalos', href: '/regalos', icon: <GiftIcon /> },
+      { key: 'libros', label: 'Libros', href: '/libros', icon: <BookIcon /> },
       { key: 'personas', label: 'Personas', href: '/personas', icon: <PersonIcon /> },
       { key: 'sin-clasificar', label: 'Sin clasificar', href: '/sin-clasificar', icon: <TrayIcon /> },
     ],

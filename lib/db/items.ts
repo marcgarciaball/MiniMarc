@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseBackend, type DbBackend, type Row } from './backend';
+import { statusForReading } from '@/lib/libros';
 import type { Item, ItemFilter, ItemPatch, NewItem } from './types';
 
 export interface ItemsRepo {
@@ -40,6 +41,9 @@ const COLUMNS = {
   calendarEventId: 'calendar_event_id',
   syncError: 'sync_error',
   sourceText: 'source_text',
+  author: 'author',
+  readingState: 'reading_state',
+  link: 'link',
   createdAt: 'created_at',
   deletedAt: 'deleted_at',
 } as const satisfies Record<keyof Item, string>;
@@ -63,6 +67,15 @@ export function itemToRow(item: Partial<Item>): Row {
   return row;
 }
 
+/** Columns added by 0008: left out of a write while they are null, so the app works before it. */
+const LIBRO_FIELDS = ['author', 'readingState', 'link'] as const;
+
+function withoutEmptyLibroFields(item: Partial<Item>): Partial<Item> {
+  const out = { ...item };
+  for (const k of LIBRO_FIELDS) if (out[k] == null) delete out[k];
+  return out;
+}
+
 export function createItemsRepo(
   backend: DbBackend,
   opts: { now?: () => Date } = {},
@@ -84,9 +97,18 @@ export function createItemsRepo(
         calendarEventId: null,
         syncError: null,
         sourceText: null,
+        author: null,
+        readingState: null,
+        link: null,
         ...input,
       };
-      return rowToItem(await backend.insert('items', itemToRow(full)));
+      if (full.type === 'libro') {
+        full.readingState ??= 'por_leer';
+        if (input.status === undefined) full.status = statusForReading(full.readingState);
+      } else {
+        full.readingState = null;
+      }
+      return rowToItem(await backend.insert('items', itemToRow(withoutEmptyLibroFields(full))));
     },
 
     async listItems(f = {}) {
@@ -104,7 +126,9 @@ export function createItemsRepo(
     },
 
     async updateItem(id, patch) {
-      return rowToItem(await backend.update('items', id, itemToRow(patch)));
+      const full: ItemPatch = { ...patch };
+      if (full.readingState && full.status === undefined) full.status = statusForReading(full.readingState);
+      return rowToItem(await backend.update('items', id, itemToRow(full)));
     },
 
     async softDeleteItem(id) {

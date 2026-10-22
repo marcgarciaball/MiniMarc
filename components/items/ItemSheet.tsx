@@ -25,6 +25,7 @@ const TYPE_OPTIONS: { value: ItemType; label: string }[] = [
   { value: 'idea', label: 'Ideas' },
   { value: 'compra', label: 'Compras' },
   { value: 'regalo', label: 'Regalos' },
+  { value: 'libro', label: 'Libros' },
 ];
 
 export type ItemSheetProps = {
@@ -185,6 +186,22 @@ function ItemForm(props: ItemFormProps) {
             </label>
           </InsetList>
         </>
+      )}
+
+      {type === 'libro' && (
+        <InsetList footer="El estado de lectura, el enlace y la portada se cambian en Libros.">
+          <label className="app-field">
+            <span>Autor</span>
+            <input
+              className="app-input"
+              name="author"
+              defaultValue={item?.author ?? ''}
+              placeholder="Opcional"
+              autoComplete="off"
+              maxLength={200}
+            />
+          </label>
+        </InsetList>
       )}
 
       {type === 'regalo' && (

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isValidDate } from '@/lib/time';
 
-export const CLASSIFICATION_KINDS = ['tarea', 'idea', 'compra', 'regalo', 'cita', 'fecha'] as const;
+export const CLASSIFICATION_KINDS = ['tarea', 'idea', 'compra', 'regalo', 'libro', 'cita', 'fecha'] as const;
 export type ClassificationKind = (typeof CLASSIFICATION_KINDS)[number];
 
 const optionalText = z
@@ -15,6 +15,8 @@ export const modelItemSchema = z.object({
   title: z.string(),
   notes: optionalText,
   personName: optionalText,
+  /** libro: the author, as written ("Harari"). */
+  author: optionalText,
   /** fecha: "Aniversario", "Santo", "Nos conocimos"… */
   label: optionalText,
   /** fecha: whether `date` carries the original year. */

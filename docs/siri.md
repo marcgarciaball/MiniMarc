@@ -52,6 +52,7 @@ Marca cada una tras probarla:
 - [ ] Tarea de trabajo, con "Apunta en trabajo": "Enviar presupuesto a Ana". Debe responder con "Tareas · Trabajo".
 - [ ] Cita: "el jueves a las 10 médico". Debe incluir día y hora y mencionar Calendar.
 - [ ] Regalo: "regalo para mamá: pañuelo". Debe responder "Guardado en Regalos".
+- [ ] Libro: "quiero leer Sapiens de Harari". Debe responder "Guardado en Libros" (título «Sapiens», autor «Harari»). Un atajo que envíe `"type": "libro"` (y, si quiere, `"author"`) lo guarda sin pasar por la IA.
 - [ ] Modo avión: "Apunta" → "Sin conexión, guardado en Notas", y el texto aparece en "Agente pendiente".
 
 ## 7. Solución de problemas

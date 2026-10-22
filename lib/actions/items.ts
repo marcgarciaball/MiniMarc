@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { ItemsRepo } from '@/lib/db/items';
 import type { PeopleRepo } from '@/lib/db/people';
 import type { Area, Item, ItemPatch, ItemType, NewItem, Person } from '@/lib/db/types';
+import { READING_STATES } from '@/lib/libros';
 import { isValidDate, toDue } from '@/lib/time';
 import { UserError } from './result';
 
@@ -29,7 +30,7 @@ export interface ActionDeps {
   sync?: ItemSync;
 }
 
-const ITEM_TYPES = ['tarea', 'idea', 'compra', 'regalo'] as const satisfies readonly ItemType[];
+const ITEM_TYPES = ['tarea', 'idea', 'compra', 'regalo', 'libro'] as const satisfies readonly ItemType[];
 const AREAS = ['personal', 'trabajo'] as const satisfies readonly Area[];
 
 const EMPTY_TITLE = 'El título no puede estar vacío';
@@ -39,14 +40,20 @@ function field(fd: FormData, name: string): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-/** Reads the add-item form: title, type, area, notes, personId, dueDate, dueTime. */
+/** Longest author we keep (same as a title). */
+export const AUTHOR_MAX = 200;
+
+/**
+ * Reads the add-item form: title, type, area, notes, personId, dueDate, dueTime, and for a
+ * libro also author, link and readingState (default 'por_leer').
+ */
 export function parseNewItem(fd: FormData): NewItem {
   const title = field(fd, 'title');
   if (!title) throw new UserError(EMPTY_TITLE);
   const type = z.enum(ITEM_TYPES).parse(field(fd, 'type') || 'tarea');
   const areaRaw = field(fd, 'area');
   const area = areaRaw ? z.enum(AREAS).parse(areaRaw) : type === 'tarea' ? 'personal' : null;
-  return {
+  const item: NewItem = {
     type,
     title,
     area,
@@ -55,6 +62,12 @@ export function parseNewItem(fd: FormData): NewItem {
     ...due(field(fd, 'dueDate'), field(fd, 'dueTime')),
     origin: 'web',
   };
+  if (type === 'libro') {
+    item.author = field(fd, 'author').slice(0, AUTHOR_MAX) || null;
+    item.link = field(fd, 'link') || null;
+    item.readingState = z.enum(READING_STATES).parse(field(fd, 'readingState') || 'por_leer');
+  }
+  return item;
 }
 
 function due(date: string, time: string) {
@@ -77,6 +90,9 @@ export const movePatchSchema = z
     dueAt: z.iso.datetime({ offset: true }).nullable(),
     hasTime: z.boolean(),
     needsReview: z.boolean(),
+    author: z.string().max(AUTHOR_MAX).nullable(),
+    link: z.string().nullable(),
+    readingState: z.enum(READING_STATES).nullable(),
   })
   .partial()
   .strict();
@@ -127,6 +143,11 @@ export async function saveNewItem(deps: ActionDeps, fields: NewItem): Promise<It
 
 export async function toggleDone(deps: ActionDeps, id: string): Promise<Item> {
   const item = await findItem(deps, id);
+  if (item.type === 'libro') {
+    // A book is done when it is read (the repo sets the status from the reading state).
+    const readingState = item.readingState === 'leido' ? 'por_leer' : 'leido';
+    return afterWrite(deps, await deps.items.updateItem(id, { readingState }));
+  }
   const status = item.status === 'hecho' ? 'pendiente' : 'hecho';
   return afterWrite(deps, await deps.items.updateItem(id, { status }));
 }
@@ -142,6 +163,16 @@ export async function moveItem(deps: ActionDeps, id: string, patch: MovePatch): 
   // A task always belongs to one area, so it never shows up in both Tareas views.
   if (type === 'tarea' && (clean.area ?? current.area) == null) clean.area = 'personal';
   if (type !== 'regalo' && current.personId && clean.personId === undefined) clean.personId = null;
+  // A book always has a reading state; nothing else has one.
+  if (type === 'libro') {
+    if (clean.readingState === null || (clean.readingState === undefined && !current.readingState)) {
+      clean.readingState = 'por_leer';
+    }
+  } else if (current.readingState || clean.readingState) {
+    clean.readingState = null;
+  }
+  if (clean.author !== undefined) clean.author = clean.author?.trim() || null;
+  if (clean.link !== undefined) clean.link = clean.link?.trim() || null;
   // Only tasks have a due date: leaving 'tarea' drops it (and, via sync, its Calendar event).
   if (type !== 'tarea' && (current.dueAt || current.hasTime || clean.dueAt || clean.hasTime)) {
     clean.dueAt = null;
@@ -210,6 +241,12 @@ export async function listTareas(deps: ActionDeps, area: Area): Promise<Item[]> 
 /** Pending, classified items of one type (Ideas, Compras…), newest first. */
 export async function listByType(deps: ActionDeps, type: ItemType): Promise<Item[]> {
   return deps.items.listItems({ type, status: 'pendiente', needsReview: false });
+}
+
+/** Every classified, not archived book (por leer, leyendo and leídos), newest first. */
+export async function listLibros(deps: ActionDeps): Promise<Item[]> {
+  const all = await deps.items.listItems({ type: 'libro', needsReview: false });
+  return all.filter((i) => i.status !== 'archivado');
 }
 
 /**

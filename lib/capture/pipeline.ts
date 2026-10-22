@@ -175,16 +175,19 @@ function fromClassification(c: Classification, origin: Origin): NewItem & { type
   // goes to Sin clasificar as a task too.
   const type: ItemType = c.kind === 'cita' || c.kind === 'fecha' ? 'tarea' : c.kind;
   const { title, notes } = textFields(c.title);
-  return {
+  const item: NewItem & { type: ItemType } = {
     type,
     title,
     notes: c.notes ?? notes,
     area: type === 'tarea' ? 'personal' : null,
-    dueAt: c.startsAt ?? null,
-    hasTime: c.hasTime,
+    dueAt: type === 'libro' ? null : (c.startsAt ?? null),
+    hasTime: type === 'libro' ? false : c.hasTime,
     confidence: c.confidence,
     origin,
   };
+  // A book starts as "por leer" (the repo's default); its author is kept for the future search.
+  if (type === 'libro' && c.author) item.author = c.author.slice(0, TITLE_MAX);
+  return item;
 }
 
 /**

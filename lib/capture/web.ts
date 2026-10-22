@@ -71,7 +71,11 @@ export async function captureFromWeb(fd: FormData, deps: WebCaptureDeps): Promis
 /** `href` is where the toast's "Ver" goes. */
 export type QuickCapture = { message: string; href: string };
 
-const ITEM_HREF: Record<Exclude<ItemType, 'tarea' | 'regalo'>, string> = { idea: '/ideas', compra: '/compras' };
+const ITEM_HREF: Record<Exclude<ItemType, 'tarea' | 'regalo'>, string> = {
+  idea: '/ideas',
+  compra: '/compras',
+  libro: '/libros',
+};
 
 function itemHref(item: Item): string {
   if (item.type === 'tarea') return `/tareas?area=${item.area ?? 'personal'}`;
@@ -83,7 +87,7 @@ function itemHref(item: Item): string {
  * The CaptureBar with a chip chosen. Fields: `text`, `kind` (QUICK_KINDS, default 'auto'),
  * `area` ('trabajo' or anything else = Personal; only Auto and Tarea use it), Tarea's
  * `dueDate`/`dueTime`, Regalo's `personId` or `personName` (new person), Cita's `date`,
- * `start`, `end`. Auto is `captureFromWeb`; every other chip never calls the AI and reuses
+ * `start`, `end`, Libro's `author`. Auto is `captureFromWeb`; every other chip never calls the AI and reuses
  * the item actions (Tarea syncs to Calendar like any timed task) or `createCita` (180/60).
  * Same guarantees: empty text saves nothing, failures come back as `{ ok: false }`.
  */
@@ -113,6 +117,7 @@ async function saveItem(type: ItemType, text: string, fd: FormData, deps: Captur
     dueTime: str(fd, 'dueTime'),
     personId: str(fd, 'personId'),
     personName: str(fd, 'personName'),
+    author: str(fd, 'author'),
   };
   const item = await saveTypedItem(type, text, fields, deps, 'web');
   return { message: captureMessage({ items: [item], eventIds: [] }), href: itemHref(item) };

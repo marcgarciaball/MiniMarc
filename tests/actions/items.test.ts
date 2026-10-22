@@ -257,3 +257,49 @@ describe('Bandeja y Papelera (Tarea 11)', () => {
     expect((await actions.listByType(deps, 'compra')).map((i) => i.title)).toEqual(['Leche']);
   });
 });
+
+describe('libros', () => {
+  it('addItem crea un libro con autor, enlace y estado', async () => {
+    const book = await actions.addItem(
+      deps,
+      form({ type: 'libro', title: 'Sapiens', author: ' Harari ', link: ' https://example.com/sapiens ', readingState: 'leyendo' }),
+    );
+    expect(book).toMatchObject({
+      type: 'libro',
+      author: 'Harari',
+      link: 'https://example.com/sapiens',
+      readingState: 'leyendo',
+      status: 'pendiente',
+      area: null,
+    });
+  });
+
+  it('rechaza un estado de lectura desconocido', async () => {
+    await expect(actions.addItem(deps, form({ type: 'libro', title: 'X', readingState: 'abandonado' }))).rejects.toThrow();
+  });
+
+  it('listLibros devuelve los tres estados y no los archivados ni los de revisión', async () => {
+    const a = await deps.items.createItem({ type: 'libro', title: 'A' });
+    const b = await deps.items.createItem({ type: 'libro', title: 'B', readingState: 'leido' });
+    const c = await deps.items.createItem({ type: 'libro', title: 'C' });
+    await deps.items.createItem({ type: 'libro', title: 'D', needsReview: true });
+    await actions.moveItem(deps, c.id, { status: 'archivado' });
+    expect((await actions.listLibros(deps)).map((i) => i.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
+  it('toggleDone en un libro lo marca leído y al revés vuelve a por leer', async () => {
+    const book = await deps.items.createItem({ type: 'libro', title: 'A' });
+    expect(await actions.toggleDone(deps, book.id)).toMatchObject({ readingState: 'leido', status: 'hecho' });
+    expect(await actions.toggleDone(deps, book.id)).toMatchObject({ readingState: 'por_leer', status: 'pendiente' });
+  });
+
+  it('mover una idea a Libros la deja por leer; sacarla de Libros quita el estado', async () => {
+    const idea = await deps.items.createItem({ type: 'idea', title: 'Leer Dune' });
+    expect(await actions.moveItem(deps, idea.id, { type: 'libro', author: ' Herbert ' })).toMatchObject({
+      type: 'libro',
+      readingState: 'por_leer',
+      author: 'Herbert',
+    });
+    expect(await actions.moveItem(deps, idea.id, { type: 'idea' })).toMatchObject({ type: 'idea', readingState: null });
+  });
+});

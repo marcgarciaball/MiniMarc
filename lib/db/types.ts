@@ -1,7 +1,9 @@
-export type ItemType = 'tarea' | 'idea' | 'compra' | 'regalo';
+export type ItemType = 'tarea' | 'idea' | 'compra' | 'regalo' | 'libro';
 export type Area = 'personal' | 'trabajo';
 export type ItemStatus = 'pendiente' | 'hecho' | 'archivado';
 export type Origin = 'web' | 'siri' | 'extension';
+/** Only libros have one; every other item has null. */
+export type ReadingState = 'por_leer' | 'leyendo' | 'leido';
 
 export interface Item {
   id: string;
@@ -21,6 +23,12 @@ export interface Item {
   syncError: string | null;
   /** The whole captured text (Siri, extension, web) this item came from; null if made by hand. */
   sourceText: string | null;
+  /** Libro: its author (kept on the item so a future search finds it). */
+  author: string | null;
+  /** Libro: 'por_leer' (default), 'leyendo' or 'leido'. 'leido' ⇔ status 'hecho'. Null otherwise. */
+  readingState: ReadingState | null;
+  /** Libro: an optional link (ficha, tienda, reseña…). */
+  link: string | null;
   createdAt: string;
   deletedAt: string | null;
 }

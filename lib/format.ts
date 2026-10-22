@@ -44,6 +44,7 @@ export const TYPE_LABELS: Record<Item['type'], string> = {
   idea: 'Idea',
   compra: 'Compra',
   regalo: 'Regalo',
+  libro: 'Libro',
 };
 
 /**
@@ -64,6 +65,8 @@ export function destinationLabel(
       return 'Compras';
     case 'regalo':
       return personName ? `Regalo · ${personName}` : 'Regalos';
+    case 'libro':
+      return 'Libros';
   }
 }
 

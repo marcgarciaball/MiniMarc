@@ -22,8 +22,8 @@ async function readMessage(res) {
 function fallbackMessage(status) {
     return status === 401 ? 'Token no válido o revocado' : `Error del servidor (${status})`;
 }
-/** Saves `text`. Empty text (or no token) never reaches the network. */
-export async function sendCapture(baseUrl, token, text, area, type) {
+/** Saves `text`. Empty text (or no token) never reaches the network. `author` only goes with a libro. */
+export async function sendCapture(baseUrl, token, text, area, type, author) {
     if (!text.trim())
         return { ok: false, message: 'El texto está vacío' };
     if (!token.trim())
@@ -33,6 +33,8 @@ export async function sendCapture(baseUrl, token, text, area, type) {
         body.area = area;
     if (type)
         body.type = type;
+    if (type === 'libro' && author?.trim())
+        body.author = author.trim();
     let res;
     try {
         res = await fetch(apiUrl(baseUrl, '/api/capture'), {

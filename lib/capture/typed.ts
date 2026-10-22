@@ -16,6 +16,8 @@ export type TypedFields = {
   /** Regalo: an existing person, or `personName` to create (or reuse) one. */
   personId?: string;
   personName?: string;
+  /** Libro: its author (optional). */
+  author?: string;
 };
 
 export async function saveTypedItem(
@@ -38,6 +40,7 @@ export async function saveTypedItem(
     form.set('dueTime', dueTime);
   }
   const actionDeps: ActionDeps = { items: deps.items, people: deps.people, sync: taskSyncHook(deps.calendar) };
+  if (type === 'libro') form.set('author', fields.author ?? '');
   if (type === 'regalo') {
     const newName = (fields.personName ?? '').trim();
     const personId = newName ? (await deps.people.upsertPersonByName(newName)).id : (fields.personId ?? '').trim();

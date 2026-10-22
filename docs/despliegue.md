@@ -202,6 +202,13 @@ Cada hora (minuto 0), Supabase llama a `POST /api/cron/morning` con `pg_cron` + 
 2. Compruébalo en el SQL Editor: `select weekly_digest, last_weekly_date from public.settings;` debe devolver `lunes` y vacío.
 3. Elige el momento en **Ajustes → Resumen semanal**: **Lunes 08:00** (la semana que empieza), **Domingo 20:00** (la semana siguiente) o **Desactivado**. Lo envía el mismo cron horario de la sección 7; no hace falta programar nada más. El lunes a las 08:00 llegan dos avisos: el de la mañana («Hoy») y el semanal («Tu semana»). Este abre **/semana**, también accesible desde **Hoy → Ver la semana**.
 
+## 11. Libros
+
+1. Aplica la migración `0008_libros.sql` (`npx supabase db push`, o pégala en el SQL Editor). Amplía la restricción de `items.type` con `libro` y añade a `items` las columnas `author`, `reading_state` (`por_leer`, `leyendo` o `leido`) y `link`. RLS no cambia. Se puede ejecutar otra vez sin problema. Hasta aplicarla, todo lo demás funciona; solo falla guardar un libro.
+2. Compruébalo en el SQL Editor: `select pg_get_constraintdef(oid) from pg_constraint where conname = 'items_type_check';` debe incluir `'libro'`.
+3. **Listas → Libros** tiene tres pestañas: **Por leer · Leyendo · Leídos**. Desliza a la derecha (o pulsa «Empezar», «Terminado», «Releer») para pasar el libro al siguiente estado; a la izquierda, para archivarlo. La primera foto es la portada. Un libro leído cuenta como hecho.
+4. **Extensión de Chrome:** recárgala en `chrome://extensions` para ver el chip **Libro** con su campo «Autor».
+
 ## Verificación
 
 Marc ejecuta esta lista cuando la guía esté terminada. Todas las casillas deben estar marcadas.

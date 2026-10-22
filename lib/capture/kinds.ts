@@ -5,7 +5,7 @@
 import type { Area } from '@/lib/db/types';
 
 /** Auto runs the AI pipeline; the others save that type straight away, without the AI. */
-export const QUICK_KINDS = ['auto', 'tarea', 'idea', 'compra', 'regalo', 'cita'] as const;
+export const QUICK_KINDS = ['auto', 'tarea', 'idea', 'compra', 'regalo', 'libro', 'cita'] as const;
 export type QuickKind = (typeof QUICK_KINDS)[number];
 
 export const QUICK_KIND_LABELS: Record<QuickKind, string> = {
@@ -14,6 +14,7 @@ export const QUICK_KIND_LABELS: Record<QuickKind, string> = {
   idea: 'Idea',
   compra: 'Compra',
   regalo: 'Regalo',
+  libro: 'Libro',
   cita: 'Cita',
 };
 
@@ -40,6 +41,8 @@ export function captureDefaults(pathname: string, areaParam: string | null): Cap
       return { kind: 'idea', personId: null, area: null };
     case 'regalos':
       return { kind: 'regalo', personId: null, area: null };
+    case 'libros':
+      return { kind: 'libro', personId: null, area: null };
     case 'personas':
       // A person's page: gift ideas for them. The list itself: Auto ("el 14 de febrero es…").
       return sub ? { kind: 'regalo', personId: decodeURIComponent(sub), area: null } : { kind: 'auto', personId: null, area: null };

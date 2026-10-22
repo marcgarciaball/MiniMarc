@@ -333,6 +333,76 @@
   display: flex;
 }
 
+/* ---------- Libros ---------- */
+.app-book {
+  gap: 0;
+}
+
+.app-book__body {
+  gap: 12px;
+  padding-right: 8px;
+}
+
+.app-book__body:active {
+  background: var(--fill-pressed);
+}
+
+/* The cover (first photo), portrait like a book; without one, a quiet book glyph. */
+.app-book .app-item__thumb,
+.app-book__placeholder {
+  width: 36px;
+  height: 52px;
+  margin-left: 0;
+  border-radius: 4px;
+}
+
+.app-book__placeholder {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: var(--accent-tint);
+}
+
+.app-book__placeholder svg {
+  width: 20px;
+  height: 20px;
+}
+
+.app-book__note {
+  color: var(--label-tertiary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+/* "Empezar" / "Terminado" / "Releer": moves the book on; 44pt target. */
+.app-book__next {
+  flex: none;
+  align-self: stretch;
+  min-width: var(--touch-target);
+  padding: 0 16px 0 8px;
+  color: var(--accent);
+  font-size: 15px;
+  letter-spacing: -0.24px;
+}
+
+.ui-inset-list__group > li + li .app-book__next {
+  border-top: 0.5px solid var(--hairline);
+}
+
+.app-book__next:active {
+  opacity: 0.5;
+}
+
+.app-input--below {
+  border-top: 0.5px solid var(--hairline);
+}
+
+.ui-inset-list__group > li:first-child .app-input--notes.app-input--alone {
+  border-top: 0;
+}
+
 /* ---------- Sheet forms ---------- */
 .app-form {
   padding-bottom: 12px;

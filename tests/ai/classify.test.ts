@@ -173,3 +173,25 @@ describe('classify', () => {
     expect(out.map((o) => o.confidence)).toEqual([0, 0, 0]);
   });
 });
+
+describe('classify: libros', () => {
+  it('"quiero leer Sapiens de Harari" → libro con título y autor', async () => {
+    const { ai, prompts } = fakeAi({
+      items: [{ kind: 'libro', title: ' Sapiens ', author: ' Harari ', notes: null, date: null, time: null, confidence: 0.9 }],
+    });
+    const out = await classify('quiero leer Sapiens de Harari', ctx, ai);
+    expect(out).toEqual([{ kind: 'libro', title: 'Sapiens', author: 'Harari', hasTime: false, confidence: 0.9 }]);
+    expect(prompts[0]).toContain('- libro:');
+    expect(prompts[0]).toContain('"author"');
+  });
+
+  it('un libro sin autor no lleva author', async () => {
+    const { ai } = fakeAi({ items: [{ kind: 'libro', title: 'Dune', author: null, confidence: 0.8 }] });
+    expect(await classify('leer Dune', ctx, ai)).toEqual([{ kind: 'libro', title: 'Dune', hasTime: false, confidence: 0.8 }]);
+  });
+
+  it('el autor solo se conserva en los libros', async () => {
+    const { ai } = fakeAi({ items: [{ kind: 'idea', title: 'Algo', author: 'Alguien', confidence: 0.8 }] });
+    expect(await classify('algo', ctx, ai)).toEqual([{ kind: 'idea', title: 'Algo', hasTime: false, confidence: 0.8 }]);
+  });
+});

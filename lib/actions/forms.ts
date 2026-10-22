@@ -3,6 +3,7 @@
  * Validation errors come back as results: the sheet shows them and keeps the typed text.
  */
 import type { Area, ItemType } from '@/lib/db/types';
+import { isReadingState } from '@/lib/libros';
 import { isValidDate, toDue } from '@/lib/time';
 import type { MovePatch } from './items';
 import { fail, ok, type ActionResult } from './result';
@@ -41,6 +42,12 @@ export function editPatchFromForm(
     }
   }
   patch.personId = opts.type === 'regalo' ? text(fd, 'personId') || null : null;
+  if (opts.type === 'libro') {
+    patch.author = text(fd, 'author') || null;
+    if (fd.has('link')) patch.link = text(fd, 'link') || null;
+    const state = text(fd, 'readingState');
+    if (isReadingState(state)) patch.readingState = state;
+  }
   if (opts.reviewMode) patch.needsReview = false;
   return ok(patch);
 }

@@ -7,7 +7,7 @@
 export const DEFAULT_BASE_URL = 'https://mini-marc-personal.vercel.app';
 
 /** The chips other than Auto: saved with that type, without the AI. */
-export type CaptureType = 'tarea' | 'idea' | 'compra' | 'regalo';
+export type CaptureType = 'tarea' | 'idea' | 'compra' | 'regalo' | 'libro';
 
 export type CaptureResult = { ok: boolean; message?: string };
 
@@ -46,19 +46,21 @@ function fallbackMessage(status: number): string {
   return status === 401 ? 'Token no válido o revocado' : `Error del servidor (${status})`;
 }
 
-/** Saves `text`. Empty text (or no token) never reaches the network. */
+/** Saves `text`. Empty text (or no token) never reaches the network. `author` only goes with a libro. */
 export async function sendCapture(
   baseUrl: string,
   token: string,
   text: string,
   area?: 'trabajo',
   type?: CaptureType,
+  author?: string,
 ): Promise<CaptureResult> {
   if (!text.trim()) return { ok: false, message: 'El texto está vacío' };
   if (!token.trim()) return { ok: false, message: NO_TOKEN };
   const body: Record<string, string> = { text, origin: 'extension' };
   if (area) body.area = area;
   if (type) body.type = type;
+  if (type === 'libro' && author?.trim()) body.author = author.trim();
   let res: Response;
   try {
     res = await fetch(apiUrl(baseUrl, '/api/capture'), {

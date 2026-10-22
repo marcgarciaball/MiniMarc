@@ -139,6 +139,15 @@ export function GiftIcon() {
   );
 }
 
+export function BookIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden {...line}>
+      <path d="M12 6.4C10.3 5 8 4.4 4.6 4.5v13.9c3.4-.1 5.7.5 7.4 1.9 1.7-1.4 4-2 7.4-1.9V4.5C16 4.4 13.7 5 12 6.4z" />
+      <path d="M12 6.4v13.9" />
+    </svg>
+  );
+}
+
 export function PersonIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden {...line}>
