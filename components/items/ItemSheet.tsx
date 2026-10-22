@@ -138,7 +138,7 @@ function ItemForm(props: ItemFormProps) {
           defaultValue={item?.notes ?? ''}
           placeholder="Notas"
           aria-label="Notas"
-          rows={2}
+          rows={4}
         />
       </InsetList>
 

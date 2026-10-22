@@ -361,6 +361,12 @@
   border-top: 0.5px solid var(--hairline);
   font-size: 15px;
   letter-spacing: -0.24px;
+  /* Grows with its content; browsers without field-sizing keep the rows height and scroll. */
+  field-sizing: content;
+  min-height: calc(4lh + 16px);
+  max-height: 50vh;
+  resize: none;
+  overflow-y: auto;
 }
 
 /* Read-only "Texto original" in the edit sheet: the whole captured text. */

@@ -82,7 +82,7 @@ export function EventSheet({ open, date, onClose }: EventSheetProps) {
             autoComplete="off"
             enterKeyHint="done"
           />
-          <textarea className="app-input app-input--notes" name="notes" placeholder="Notas" aria-label="Notas" rows={2} />
+          <textarea className="app-input app-input--notes" name="notes" placeholder="Notas" aria-label="Notas" rows={4} />
         </InsetList>
         <InsetList footer="Avisa 3 horas y 1 hora antes.">
           <label className="app-field">
