@@ -48,7 +48,7 @@ describe('usesArea', () => {
 });
 
 describe('kindForShortcut', () => {
-  it('Alt/Opción + 1…7 elige el tipo en el orden del menú', () => {
+  it('Alt/Opción + 1…7 elige el tipo en el orden de la fila', () => {
     expect(QUICK_KINDS.map((_, i) => kindForShortcut(key(`Digit${i + 1}`)))).toEqual([...QUICK_KINDS]);
     expect(kindForShortcut(key('Numpad3'))).toBe('idea');
   });
@@ -63,7 +63,7 @@ describe('kindForShortcut', () => {
     expect(kindForShortcut(key('Digit1', { shiftKey: true }))).toBeNull();
   });
 
-  it('la pista del menú usa ⌥ en Apple y Alt+ en el resto', () => {
+  it('la pista del tooltip usa ⌥ en Apple y Alt+ en el resto', () => {
     expect(shortcutHint('auto', true)).toBe('⌥1');
     expect(shortcutHint('cita', true)).toBe('⌥7');
     expect(shortcutHint('compra', false)).toBe('Alt+4');

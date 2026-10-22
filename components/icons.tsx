@@ -297,11 +297,3 @@ export function BriefcaseIcon() {
     </svg>
   );
 }
-
-export function ChevronDownIcon() {
-  return (
-    <svg viewBox="0 0 20 12" aria-hidden {...line} strokeWidth={2.2}>
-      <path d="M3 3l7 6.5L17 3" />
-    </svg>
-  );
-}

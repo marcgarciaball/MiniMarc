@@ -148,13 +148,12 @@ button {
   padding: 7px 16px;
 }
 
-/* The capture's row: the type (quiet text + chevron, opens a small glass menu), the Trabajo briefcase, Guardar. */
+/* The capture's types: one quiet row of icon + label (no pills), the Trabajo briefcase, Guardar. */
 .capture {
   position: relative;
 }
 
 .capture-row {
-  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -164,7 +163,21 @@ button {
   margin-left: auto;
 }
 
-.type,
+.kinds {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* The popup is narrow: icons only, the label of the chosen type next to its icon (tooltip and aria-label on all). */
+.kind:not([aria-pressed="true"]) .kind-label {
+  display: none;
+}
+
+.kind,
 .work {
   display: inline-flex;
   align-items: center;
@@ -175,31 +188,31 @@ button {
   color: var(--label-secondary);
 }
 
-.type {
-  gap: 6px;
-  padding: 0 8px 0 4px;
+.kind {
+  flex: none;
+  gap: 5px;
+  padding: 0 7px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
-.type-icon,
-.type-icon svg,
-.work svg,
-.option svg {
+.kind svg,
+.work svg {
   display: block;
+  flex: none;
   width: 17px;
   height: 17px;
 }
 
-.chevron {
-  width: 9px;
-  height: 6px;
-  color: var(--label-tertiary);
-}
-
-.type[aria-expanded="true"],
-.type:hover,
+.kind:hover,
 .work:hover {
   background: var(--fill);
+}
+
+.kind[aria-pressed="true"] {
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .work {
@@ -211,59 +224,6 @@ button {
 .work[aria-pressed="true"] {
   background: var(--accent-tint);
   color: var(--accent);
-}
-
-.menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  width: 200px;
-  padding: 5px;
-  border-radius: 12px;
-  background: var(--glass-fill-menu);
-  backdrop-filter: blur(30px) saturate(180%);
-  box-shadow: var(--glass-rim), var(--glass-shadow);
-}
-
-.option {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 30px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--label);
-  text-align: left;
-}
-
-.option svg {
-  color: var(--label-secondary);
-}
-
-.option[data-active] {
-  background: var(--fill);
-}
-
-.option[aria-selected="true"],
-.option[aria-selected="true"] svg {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.option-label {
-  flex: 1;
-}
-
-.hint {
-  color: var(--label-tertiary);
-  font-size: 11px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
 }
 
 .status {

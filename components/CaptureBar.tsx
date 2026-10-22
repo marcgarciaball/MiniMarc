@@ -3,11 +3,10 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   useEffect,
-  useId,
   useRef,
   useState,
+  useSyncExternalStore,
   useTransition,
-  type CSSProperties,
   type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
@@ -21,8 +20,6 @@ import {
   BagIcon,
   BookIcon,
   BriefcaseIcon,
-  CheckIcon,
-  ChevronDownIcon,
   GiftIcon,
   IdeaIcon,
   SendIcon,
@@ -51,9 +48,6 @@ const OFFLINE = 'No se ha podido guardar. Revisa la conexión e inténtalo de nu
 const NEW_PERSON = '__nueva__';
 const AUTO: CaptureDefaults = { kind: 'auto', personId: null, area: null };
 const WORK_HINT = 'Trabajo · no pasa por la IA';
-/** Room the type menu wants (7 rows of 44 + padding); with less below the button, it opens above. */
-const MENU_HEIGHT = 7 * 44 + 12;
-
 const KIND_ICONS: Record<QuickKind, ReactNode> = {
   auto: <AutoIcon />,
   tarea: <TasksIcon />,
@@ -64,13 +58,14 @@ const KIND_ICONS: Record<QuickKind, ReactNode> = {
   cita: <AgendaIcon />,
 };
 
-type MenuPlacement = { above: boolean; style: CSSProperties };
-
 /** Buttons in the card keep the focus on the text (and the iPhone keyboard up) when tapped. */
 function keepFocus(e: MouseEvent) {
   e.preventDefault();
 }
 
+const noSubscribe = () => () => {};
+
+/** ⌥ on Apple keyboards, Alt+ elsewhere in the tooltips (known only on the client). */
 function isApple(): boolean {
   return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 }
@@ -125,11 +120,11 @@ export function CaptureBarFallback() {
  * The always-visible capture field: above the tab bar on iPhone, at the top of the column on
  * desktop. At rest it is just the field ("Apunta algo…", or the screen's type: "Apunta una
  * compra…"), with a small briefcase when Trabajo is on. Focused, it opens into a card with the
- * type menu (Auto sends the text to the AI pipeline; Tarea, Idea, Compra, Regalo, Libro and Cita
+ * row of types (Auto sends the text to the AI pipeline; Tarea, Idea, Compra, Regalo, Libro and Cita
  * save it as that type directly, no AI), the Trabajo briefcase (Auto and Tarea only; Auto +
  * Trabajo files a work task without the AI) and the type's small fields.
  * Enter (or "Enviar" on the iOS keyboard, whose mic dictates) saves; Alt/Option + 1…7 picks the
- * type; Esc closes the menu, then the card. On failure the text stays; on success a toast says
+ * type; Esc closes the card. On failure the text stays; on success a toast says
  * where it went, the type goes back to the screen's and the card stays open while focused.
  */
 function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screenKey: string }) {
@@ -137,12 +132,8 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
   const formRef = useRef<HTMLFormElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const typeRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuId = useId();
   const [open, setOpen] = useState(false);
-  const [menu, setMenu] = useState<MenuPlacement | null>(null);
-  const [active, setActive] = useState(0);
+  const apple = useSyncExternalStore(noSubscribe, isApple, () => false);
   const [text, setText] = useState('');
   const [kind, setKind] = useState<QuickKind>(screen.kind);
   const [area, setArea] = useState<Area>(screen.area ?? 'personal');
@@ -176,7 +167,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
   if (shownFor !== screenKey) {
     setShownFor(screenKey);
     resetToScreen();
-    setMenu(null);
     if (screen.area) setArea(screen.area);
   }
 
@@ -193,19 +183,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
     };
   }, [needPeople]);
 
-  // A tap or click outside the menu (and its button) closes it.
-  const menuOpen = menu !== null;
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: PointerEvent) => {
-      const target = e.target as Node;
-      if (menuRef.current?.contains(target) || typeRef.current?.contains(target)) return;
-      setMenu(null);
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [menuOpen]);
-
   function showToast(message: string, href: string | null) {
     toastId.current += 1;
     setToast({
@@ -216,28 +193,8 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
     });
   }
 
-  /** Opens the menu below the type button, or above it when there is no room (the iPhone bar). */
-  function openMenu() {
-    const card = cardRef.current?.getBoundingClientRect();
-    const button = typeRef.current?.getBoundingClientRect();
-    if (!card || !button) return;
-    const vv = window.visualViewport;
-    const viewTop = vv?.offsetTop ?? 0;
-    const viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-    const roomBelow = viewBottom - button.bottom - 12;
-    const roomAbove = button.top - viewTop - 12;
-    const above = roomBelow < MENU_HEIGHT && roomAbove > roomBelow;
-    const maxHeight = Math.max(132, Math.floor(above ? roomAbove : roomBelow));
-    const style: CSSProperties = above
-      ? { bottom: card.bottom - button.top + 4, maxHeight }
-      : { top: button.bottom - card.top + 4, maxHeight };
-    setActive(QUICK_KINDS.indexOf(kind));
-    setMenu({ above, style });
-  }
-
   function chooseKind(k: QuickKind) {
     setKind(k);
-    setMenu(null);
     inputRef.current?.focus();
   }
 
@@ -250,7 +207,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
     const next = e.relatedTarget as Node | null;
     if (next && formRef.current?.contains(next)) return;
     setOpen(false);
-    setMenu(null);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLFormElement>) {
@@ -261,32 +217,7 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
       chooseKind(shortcut);
       return;
     }
-    if (menu) {
-      const last = QUICK_KINDS.length - 1;
-      const move: Record<string, number> = {
-        ArrowDown: active === last ? 0 : active + 1,
-        ArrowUp: active === 0 ? last : active - 1,
-        Home: 0,
-        End: last,
-      };
-      if (e.key in move) {
-        e.preventDefault();
-        setActive(move[e.key]);
-      } else if (e.key === 'Enter' || (e.key === ' ' && e.target === typeRef.current)) {
-        e.preventDefault();
-        chooseKind(QUICK_KINDS[active]);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        setMenu(null);
-      } else if (e.key === 'Tab') {
-        setMenu(null);
-      }
-      return;
-    }
-    if (e.target === typeRef.current && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-      e.preventDefault();
-      openMenu();
-    } else if (e.key === 'Escape') {
+    if (e.key === 'Escape') {
       e.preventDefault();
       (document.activeElement as HTMLElement | null)?.blur();
       setOpen(false);
@@ -342,8 +273,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
   const work = showArea && area === 'trabajo';
   const extras = captureExtras(kind);
   const cita = kind === 'cita';
-  const optionId = (k: QuickKind) => `${menuId}-${k}`;
-  const activeOption = menu ? optionId(QUICK_KINDS[active]) : undefined;
 
   return (
     <>
@@ -377,7 +306,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
               autoCapitalize="sentences"
               placeholder={capturePlaceholder(kind)}
               aria-label="Apunta algo"
-              aria-activedescendant={activeOption}
               value={text}
               onChange={(e) => setText(e.target.value)}
               // readOnly, not disabled: the keyboard (and its dictation) stays up while it saves.
@@ -401,26 +329,23 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
           <div className="app-capture__more" inert={!open}>
             <div className="app-capture__more-inner">
               <div className="app-capture__options">
-                <button
-                  ref={typeRef}
-                  type="button"
-                  className="app-capture__type"
-                  // A select-only combobox (WAI-ARIA APG): the list is driven from here or from the text.
-                  role="combobox"
-                  aria-haspopup="listbox"
-                  aria-expanded={menuOpen}
-                  aria-controls={menuOpen ? menuId : undefined}
-                  aria-activedescendant={activeOption}
-                  aria-label="Tipo"
-                  onMouseDown={keepFocus}
-                  onClick={() => (menu ? setMenu(null) : openMenu())}
-                >
-                  {KIND_ICONS[kind]}
-                  <span>{QUICK_KIND_LABELS[kind]}</span>
-                  <span className="app-capture__chevron" aria-hidden>
-                    <ChevronDownIcon />
-                  </span>
-                </button>
+                <div className="app-capture__kinds" role="group" aria-label="Tipo">
+                  {QUICK_KINDS.map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className="app-capture__kind"
+                      aria-pressed={k === kind}
+                      aria-label={QUICK_KIND_LABELS[k]}
+                      title={`${QUICK_KIND_LABELS[k]} (${shortcutHint(k, apple)})`}
+                      onMouseDown={keepFocus}
+                      onClick={() => chooseKind(k)}
+                    >
+                      {KIND_ICONS[k]}
+                      <span className="app-capture__kind-label">{QUICK_KIND_LABELS[k]}</span>
+                    </button>
+                  ))}
+                </div>
                 {showArea && (
                   <button
                     type="button"
@@ -431,7 +356,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
                     onMouseDown={keepFocus}
                     onClick={() => setArea((a) => (a === 'trabajo' ? 'personal' : 'trabajo'))}
                   >
-                    {area === 'trabajo' && <span aria-hidden>{WORK_HINT}</span>}
                     <BriefcaseIcon />
                   </button>
                 )}
@@ -502,42 +426,6 @@ function CaptureBarView({ screen, screenKey }: { screen: CaptureDefaults; screen
             </div>
           </div>
 
-          {menu && (
-            <div
-              ref={menuRef}
-              id={menuId}
-              className="app-capture__menu"
-              role="listbox"
-              aria-label="Tipo"
-              data-placement={menu.above ? 'above' : 'below'}
-              style={menu.style}
-            >
-              {QUICK_KINDS.map((k, i) => (
-                <button
-                  key={k}
-                  id={optionId(k)}
-                  type="button"
-                  role="option"
-                  tabIndex={-1}
-                  aria-selected={k === kind}
-                  data-active={i === active ? '' : undefined}
-                  className="app-capture__option"
-                  onMouseDown={keepFocus}
-                  onPointerMove={() => setActive(i)}
-                  onClick={() => chooseKind(k)}
-                >
-                  {KIND_ICONS[k]}
-                  <span className="app-capture__option-label">{QUICK_KIND_LABELS[k]}</span>
-                  <span className="app-capture__hint" aria-hidden>
-                    {shortcutHint(k, isApple())}
-                  </span>
-                  <span className="app-capture__check" aria-hidden>
-                    {k === kind && <CheckIcon />}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </form>
       <Toast toast={toast} onDismiss={() => setToast(null)} />

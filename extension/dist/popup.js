@@ -1,6 +1,6 @@
 /**
  * The popup: quick capture (autofocused; Intro sends, Mayús+Intro breaks the line) with the
- * web bar's type menu (Alt/Opción + 1…6, arrows, Intro, Esc) and Trabajo briefcase, then a
+ * web bar's row of types (one tap, or Alt/Opción + 1…6) and Trabajo briefcase, then a
  * compact "Hoy". Text only via textContent, never innerHTML.
  */
 import { apiUrl, fetchHoy, sendCapture } from './lib/api.js';
@@ -11,10 +11,8 @@ const text = $('text');
 const send = $('send');
 const status = $('status');
 const author = $('author');
-const typeButton = $('type');
-const menu = $('type-menu');
 const work = $('work');
-const options = [...menu.querySelectorAll('[role="option"]')];
+const kindButtons = [...document.querySelectorAll('#kinds .kind')];
 const TIME = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' });
 const SHORT_DATE = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' });
 const KINDS = ['auto', 'tarea', 'idea', 'compra', 'regalo', 'libro'];
@@ -28,46 +26,25 @@ const PLACEHOLDERS = {
 };
 let kind = 'auto';
 let trabajo = false;
-let active = 0;
 text.focus();
 const settingsReady = loadSettings();
-// The shortcut hints: ⌥ on a Mac, Alt+ elsewhere.
+// The shortcut hints in the tooltips: ⌥ on a Mac, Alt+ elsewhere.
 if (!/Mac/.test(navigator.platform || navigator.userAgent)) {
-    for (const hint of menu.querySelectorAll('.hint'))
-        hint.textContent = `Alt+${hint.dataset.n}`;
+    for (const b of kindButtons)
+        b.title = `${b.getAttribute('aria-label')} (Alt+${b.dataset.n})`;
 }
 /** Like the web bar: only Auto and Tarea have the Trabajo briefcase; only Libro shows "Autor". */
 function render() {
-    const i = KINDS.indexOf(kind);
-    const option = options[i];
-    $('type-label').textContent = option.querySelector('.option-label')?.textContent ?? '';
-    const icon = option.querySelector('svg');
-    $('type-icon').replaceChildren(...(icon ? [icon.cloneNode(true)] : []));
-    options.forEach((o, j) => o.setAttribute('aria-selected', String(j === i)));
+    for (const b of kindButtons)
+        b.setAttribute('aria-pressed', String(b.dataset.kind === kind));
     text.placeholder = PLACEHOLDERS[kind];
     work.hidden = !(kind === 'auto' || kind === 'tarea');
     work.setAttribute('aria-pressed', String(trabajo));
     author.hidden = kind !== 'libro';
 }
 render();
-function setActive(i) {
-    active = i;
-    options.forEach((o, j) => o.toggleAttribute('data-active', j === i));
-    typeButton.setAttribute('aria-activedescendant', options[i].id);
-}
-function openMenu() {
-    menu.hidden = false;
-    typeButton.setAttribute('aria-expanded', 'true');
-    setActive(KINDS.indexOf(kind));
-}
-function closeMenu() {
-    menu.hidden = true;
-    typeButton.setAttribute('aria-expanded', 'false');
-    typeButton.removeAttribute('aria-activedescendant');
-}
 function choose(k) {
     kind = k;
-    closeMenu();
     render();
     text.focus();
 }
@@ -78,16 +55,11 @@ function shortcutKind(e) {
     const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
     return m ? (KINDS[Number(m[1]) - 1] ?? null) : null;
 }
-typeButton.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
-for (const [i, o] of options.entries()) {
-    o.addEventListener('click', () => choose(KINDS[i]));
-    o.addEventListener('pointermove', () => setActive(i));
+for (const b of kindButtons) {
+    // mousedown keeps the focus (and the caret) in the text.
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => choose(b.dataset.kind));
 }
-document.addEventListener('pointerdown', (e) => {
-    const t = e.target;
-    if (!menu.hidden && !menu.contains(t) && !typeButton.contains(t))
-        closeMenu();
-});
 work.addEventListener('click', () => {
     trabajo = !trabajo;
     render();
@@ -102,31 +74,6 @@ form.addEventListener('keydown', (e) => {
         choose(k);
         return;
     }
-    if (!menu.hidden) {
-        const last = KINDS.length - 1;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
-            e.preventDefault();
-            const next = { ArrowDown: active === last ? 0 : active + 1, ArrowUp: active === 0 ? last : active - 1, Home: 0, End: last };
-            setActive(next[e.key]);
-        }
-        else if (e.key === 'Enter' || (e.key === ' ' && e.target === typeButton)) {
-            e.preventDefault();
-            choose(KINDS[active]);
-        }
-        else if (e.key === 'Escape') {
-            // Only the menu: Esc would otherwise close the popup.
-            e.preventDefault();
-            closeMenu();
-        }
-        else if (e.key === 'Tab') {
-            closeMenu();
-        }
-        return;
-    }
-    if (e.target === typeButton && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-        e.preventDefault();
-        openMenu();
-    }
 });
 function setStatus(el, msg, error = false) {
     el.textContent = msg;
@@ -139,7 +86,7 @@ function openOptions(e) {
 $('options-link').addEventListener('click', openOptions);
 $('setup-link').addEventListener('click', openOptions);
 text.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && menu.hidden) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         form.requestSubmit();
     }

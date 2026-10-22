@@ -70,7 +70,7 @@ export function kindForShortcut(e: {
   return QUICK_KINDS[Number(m[1]) - 1] ?? null;
 }
 
-/** The hint shown in the type menu: "⌥1" on Apple keyboards, "Alt+1" elsewhere. */
+/** The hint shown in the type tooltips: "⌥1" on Apple keyboards, "Alt+1" elsewhere. */
 export function shortcutHint(kind: QuickKind, apple: boolean): string {
   const n = QUICK_KINDS.indexOf(kind) + 1;
   return apple ? `⌥${n}` : `Alt+${n}`;
