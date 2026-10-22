@@ -106,16 +106,26 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
     return { items: [item], eventIds: [] };
   }
 
+  // Fuera del try de la IA: si la base de datos no da las personas, la captura sigue (sin la
+  // lista de nombres) y, sobre todo, el fallo no se cuenta como si fuera de la IA.
+  let people: string[] = [];
+  try {
+    people = (await deps.people.listPeople()).map((p) => p.name);
+  } catch (err) {
+    console.error('listPeople failed:', err instanceof Error ? err.name : 'unknown error');
+  }
+
   let classified: Classification[] = [];
   let aiError: string | undefined;
   try {
-    const people = (await deps.people.listPeople()).map((p) => p.name);
     classified = await classify(text, { now: deps.now, tz: deps.tz ?? DEFAULT_TZ, people }, deps.ai);
   } catch (err) {
     aiError = causeMessage(err);
     // ClassifyError (timeout, daily cap, invalid JSON) or anything else: fall through to "Sin clasificar".
-    // Logged (never the text) so a capture that lands in Sin clasificar says why.
-    console.error('classify failed:', aiError);
+    // Logged (never the text) so a capture that lands in Sin clasificar says why. Con una causa
+    // desconocida se añade el nombre del error, que no lleva datos dentro: los que sí podrían
+    // llevarlos (JSON, esquema) ya salen clasificados como invalid_output.
+    console.error('classify failed:', aiError, aiError === 'unknown' ? `(${errorName(err)})` : '');
   }
   const unclassified = (): NewItem => ({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text });
   if (classified.length === 0) {
@@ -172,6 +182,18 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
   if (c.kind === 'regalo' && c.personName) fields.personId = await personId(deps, c.personName);
   const item = await deps.items.createItem(fields);
   out.items.push(await syncDatedTask(deps, item));
+}
+
+/** El nombre del error más profundo de la cadena: TypeError, PostgrestError, CalendarError… */
+function errorName(err: unknown): string {
+  let name = 'desconocido';
+  const seen = new Set<unknown>();
+  for (let e: unknown = err; e && typeof e === 'object' && !seen.has(e); e = (e as { cause?: unknown }).cause) {
+    seen.add(e);
+    const n = (e as { name?: unknown }).name;
+    if (typeof n === 'string' && n) name = n;
+  }
+  return name;
 }
 
 /**

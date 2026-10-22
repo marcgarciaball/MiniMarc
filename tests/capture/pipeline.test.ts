@@ -729,3 +729,17 @@ describe('cuando la IA falla, la captura dice por qué', () => {
     expect(captureMessage(res)).toBe('Guardado en Tareas · Trabajo');
   });
 });
+
+describe('un fallo de la base de datos no se le echa a la IA', () => {
+  it('si no se pueden leer las personas, la IA clasifica igual (sin lista) y nadie miente', async () => {
+    const { ai, prompts } = aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]);
+    const { deps } = setup(ai);
+    deps.people = { ...deps.people, listPeople: async () => { throw new Error('db down'); } };
+
+    const res = await captureText({ text: 'comprar leche', origin: 'web' }, deps);
+
+    expect(res.aiError).toBeUndefined();
+    expect(res.items[0]).toMatchObject({ type: 'compra', title: 'Leche', needsReview: false });
+    expect(prompts[0]).toContain('(ninguna)');
+  });
+});
