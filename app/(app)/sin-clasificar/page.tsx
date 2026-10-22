@@ -12,7 +12,7 @@ type SearchParams = Promise<{ area?: string | string[] }>;
 
 export default function SinClasificarPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<ScreenFallback title="Sin clasificar" />}>
+    <Suspense fallback={<ScreenFallback title="Sin clasificar" segmented check />}>
       <SinClasificar searchParams={searchParams} />
     </Suspense>
   );

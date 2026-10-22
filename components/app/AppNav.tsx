@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Glass, TabBar, type TabBarItem } from '@/components/ui';
+import { Glass, LinkPending, TabBar, type TabBarItem } from '@/components/ui';
 import {
   AgendaIcon,
   BagIcon,
@@ -85,6 +85,7 @@ export function AppNav({ active }: { active: Section | null }) {
             <SearchIcon />
           </span>
           Buscar
+          <LinkPending />
         </Link>
         {SIDEBAR.map((group, i) => (
           <div key={i} className="app-sidebar__group">
@@ -94,6 +95,7 @@ export function AppNav({ active }: { active: Section | null }) {
                 <li key={link.key}>
                   <Link
                     href={link.href}
+                    prefetch
                     className="app-sidebar__link"
                     aria-current={link.key === active ? 'page' : undefined}
                   >
@@ -101,6 +103,7 @@ export function AppNav({ active }: { active: Section | null }) {
                       {link.icon}
                     </span>
                     {link.label}
+                    <LinkPending />
                   </Link>
                 </li>
               ))}

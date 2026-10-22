@@ -17,16 +17,18 @@ export type ItemRowProps = {
   notice?: ReactNode;
   /** Signed URL of the item's first photo, shown small at the end of the row. */
   thumb?: string;
+  /** Not saved yet (optimistic add): dimmed, not interactive. */
+  pending?: boolean;
 };
 
 /**
  * A list row with a completion circle (44pt target) and a tappable body that opens the edit
  * sheet. URLs in the title and subtitle are links; the item's link shows as a preview card below.
  */
-export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, notice, thumb }: ItemRowProps) {
+export function ItemRow({ item, subtitle, detail, checked, onToggle, onOpen, notice, thumb, pending }: ItemRowProps) {
   return (
     <>
-      <div className="ui-row app-item">
+      <div className="ui-row app-item" data-pending={pending || undefined} aria-busy={pending || undefined}>
         <button
           type="button"
           className="app-item__check"

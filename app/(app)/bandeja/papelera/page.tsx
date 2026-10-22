@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Papelera' };
 
 export default function PapeleraPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Papelera" />}>
+    <Suspense fallback={<ScreenFallback title="Papelera" rows={4} />}>
       <Papelera />
     </Suspense>
   );

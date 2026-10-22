@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { InboxScreen } from '@/components/items/InboxScreen';
-import { ScreenFallback } from '@/components/items/ScreenFallback';
+import { InboxFallback } from '@/components/items/ScreenFallback';
 import { readRecent } from '@/lib/cache/reads';
 
 export const metadata: Metadata = { title: 'Recién añadido' };
@@ -10,7 +10,7 @@ type SearchParams = Promise<{ guardado?: string | string[] }>;
 
 export default function BandejaPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<ScreenFallback title="Recién añadido" />}>
+    <Suspense fallback={<InboxFallback />}>
       <Bandeja searchParams={searchParams} />
     </Suspense>
   );

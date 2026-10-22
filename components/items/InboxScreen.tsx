@@ -6,6 +6,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react
 import { deleteItem, moveItem, undoDelete } from '@/app/actions/items';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
 import type { MovePatch } from '@/lib/actions/items';
+import { applyListOps, type ListOp } from '@/lib/actions/optimistic';
 import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, ItemStatus, Person } from '@/lib/db/types';
 import { destinationLabel, formatDay } from '@/lib/format';
@@ -46,7 +47,8 @@ function createdLabel(item: Item, today: string): string {
  */
 export function InboxScreen({ today, personal, trabajo, people, photos = {}, notice }: InboxScreenProps) {
   const [, startTransition] = useTransition();
-  const [removed, removeOptimistic] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
+  // Pending writes over the server's lists: a row changes (or leaves) at once and comes back if the write fails.
+  const [ops, addOp] = useOptimistic<ListOp[], ListOp>([], (list, op) => [...list, op]);
   const [sheet, setSheet] = useState<{ open: boolean; item: Item | null }>({ open: false, item: null });
   const [toast, setToast] = useState<ToastState | null>(() => (notice ? { id: 0, message: notice } : null));
   const toastId = useRef(0);
@@ -61,8 +63,8 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
 
   const names = new Map(people.map((p) => [p.id, p.name]));
   const sections = [
-    { key: 'personal', header: 'Personal', items: personal.filter((i) => !removed.includes(i.id)) },
-    { key: 'trabajo', header: 'Trabajo', items: trabajo.filter((i) => !removed.includes(i.id)) },
+    { key: 'personal', header: 'Personal', items: applyListOps(personal, ops, false) },
+    { key: 'trabajo', header: 'Trabajo', items: applyListOps(trabajo, ops, false) },
   ];
   const isEmpty = sections.every((s) => s.items.length === 0);
 
@@ -88,6 +90,7 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
   function setStatus(item: Item, status: ItemStatus, message: string) {
     closeSheet();
     startTransition(async () => {
+      addOp({ kind: 'patch', id: item.id, patch: { status } });
       if (await run(() => moveItem(item.id, { status }))) {
         showToast(message, () => moveItem(item.id, { status: item.status }));
       }
@@ -97,9 +100,18 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
   function remove(item: Item) {
     closeSheet();
     startTransition(async () => {
-      removeOptimistic(item.id);
+      addOp({ kind: 'remove', id: item.id });
       if (await run(() => deleteItem(item.id))) showToast('Eliminado', () => undoDelete(item.id));
     });
+  }
+
+  /** "Mover": the row shows its new destination at once (it stays: this is a log of arrivals). */
+  function save(item: Item, patch: MovePatch): Promise<ActionResult<null>> {
+    startTransition(async () => {
+      addOp({ kind: 'patch', id: item.id, patch });
+      await run(() => moveItem(item.id, patch));
+    });
+    return Promise.resolve({ ok: true, value: null });
   }
 
   function subtitle(item: Item): string {
@@ -168,7 +180,7 @@ export function InboxScreen({ today, personal, trabajo, people, photos = {}, not
         reviewMode={sheet.item?.needsReview}
         onClose={closeSheet}
         onCreate={async () => ({ ok: false, error: OFFLINE })}
-        onSave={(item: Item, patch: MovePatch) => settle(() => moveItem(item.id, patch), OFFLINE)}
+        onSave={save}
         onComplete={(item) => setStatus(item, 'hecho', 'Marcado como hecho')}
         onArchive={(item) => setStatus(item, 'archivado', 'Archivado')}
         onDelete={remove}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { LinkPending } from './LinkPending';
 
 export type RowProps = {
   title: string;
@@ -45,6 +46,7 @@ export function Row({ title, subtitle, detail, leading, trailing, href, onClick,
     return (
       <Link href={href} className="ui-row">
         {content}
+        <LinkPending />
       </Link>
     );
   }

@@ -5,6 +5,7 @@ import { addItem, deleteItem, moveItem, retrySync, toggleDone, undoDelete } from
 import { PlusIcon } from '@/components/icons';
 import { InsetList, LargeTitle, Toast, type ToastProps } from '@/components/ui';
 import type { MovePatch } from '@/lib/actions/items';
+import { applyListOps, draftItem, fitsNewList, isDraft, staysInList, type ListOp } from '@/lib/actions/optimistic';
 import { settle, type ActionResult } from '@/lib/actions/result';
 import type { Item, Person } from '@/lib/db/types';
 import { formatDue, TYPE_LABELS } from '@/lib/format';
@@ -46,6 +47,7 @@ const CHECK_DELAY_MS = 450;
 
 /** The server action call itself failed (no connection, server down). */
 const OFFLINE = 'No se ha podido guardar. Revisa la conexión e inténtalo de nuevo.';
+const ADD_OFFLINE = 'No se ha podido añadir. Revisa la conexión e inténtalo de nuevo.';
 
 /** A list screen: large title, grouped item rows with swipe, add/edit sheet and an undo toast. */
 export function ItemsScreen({
@@ -63,7 +65,10 @@ export function ItemsScreen({
   photos = {},
 }: ItemsScreenProps) {
   const [, startTransition] = useTransition();
-  const [removed, removeOptimistic] = useOptimistic<string[], string>([], (ids, id) => [...ids, id]);
+  // Pending writes, applied over the server's lists: rows change at once and React drops these
+  // when the action ends (the refreshed lists take over, or the row comes back on failure).
+  const [ops, addOp] = useOptimistic<ListOp[], ListOp>([], (list, op) => [...list, op]);
+  const drafts = useRef(0);
   const [checked, setChecked] = useState<string[]>([]);
   const [sheet, setSheet] = useState<{ open: boolean; mode: SheetMode }>({
     open: false,
@@ -74,15 +79,16 @@ export function ItemsScreen({
   const toastId = useRef(0);
 
   const peopleById = new Map(people.map((p) => [p.id, p.name]));
-  const visible = sections.map((s) => ({ ...s, items: s.items.filter((i) => !removed.includes(i.id)) }));
+  // New rows go to the first section (the screen's own list); the server then sorts them.
+  const visible = sections.map((s, i) => ({ ...s, items: applyListOps(s.items, ops, i === 0) }));
   const isEmpty = visible.every((s) => s.items.length === 0);
 
-  function showToast(message: string, undo?: () => Promise<ActionResult<unknown>>) {
+  function showToast(message: string, undo?: () => Promise<ActionResult<unknown>>, actionLabel = 'Deshacer') {
     toastId.current += 1;
     setToast({
       id: toastId.current,
       message,
-      actionLabel: undo ? 'Deshacer' : undefined,
+      actionLabel: undo ? actionLabel : undefined,
       onAction: undo ? () => startTransition(async () => void (await run(undo))) : undefined,
     });
   }
@@ -101,7 +107,7 @@ export function ItemsScreen({
     undo: () => Promise<ActionResult<unknown>>,
   ) {
     startTransition(async () => {
-      removeOptimistic(item.id);
+      addOp({ kind: 'remove', id: item.id });
       if (await run(action)) showToast(message, undo);
     });
   }
@@ -141,6 +147,7 @@ export function ItemsScreen({
   }
 
   function openEdit(item: Item) {
+    if (isDraft(item)) return;
     setSheet({ open: true, mode: { kind: 'edit', item } });
   }
 
@@ -149,9 +156,31 @@ export function ItemsScreen({
     then(item);
   }
 
-  // The sheet keeps the typed text, shows the error and closes itself only on success.
-  const create = (fd: FormData) => settle(() => addItem(fd), OFFLINE);
-  const save = (item: Item, patch: MovePatch) => settle(() => moveItem(item.id, patch), OFFLINE);
+  /**
+   * Optimistic add: the sheet closes and the row shows (dimmed) at once. If the save fails the
+   * row goes away and the toast offers to try again with what was typed.
+   */
+  function create(fd: FormData): Promise<ActionResult<null>> {
+    drafts.current += 1;
+    const draft = draftItem(fd, drafts.current, new Date());
+    startTransition(async () => {
+      if (draft && newItem && fitsNewList(draft, newItem)) addOp({ kind: 'add', item: draft });
+      const result = await settle(() => addItem(fd), ADD_OFFLINE);
+      if (!result.ok) showToast(result.error, () => addItem(fd), 'Reintentar');
+    });
+    return Promise.resolve({ ok: true, value: null });
+  }
+
+  /** Optimistic edit ("Mover a…" included): the row updates, or leaves the list, at once. */
+  function save(item: Item, patch: MovePatch): Promise<ActionResult<null>> {
+    const stays = staysInList(item, patch, { reviewMode, personId: newItem?.personId });
+    startTransition(async () => {
+      addOp(stays ? { kind: 'patch', id: item.id, patch } : { kind: 'remove', id: item.id });
+      const result = await settle(() => moveItem(item.id, patch), OFFLINE);
+      if (!result.ok) showToast(result.error);
+    });
+    return Promise.resolve({ ok: true, value: null });
+  }
 
   function subtitleFor(item: Item): { subtitle?: string; detail?: string } {
     const parts: string[] = [];
@@ -188,13 +217,14 @@ export function ItemsScreen({
                 {section.items.map((item) => (
                   <SwipeRow
                     key={item.id}
-                    onCommit={(outcome) => (outcome === 'complete' ? complete(item) : archive(item))}
+                    onCommit={(outcome) => !isDraft(item) && (outcome === 'complete' ? complete(item) : archive(item))}
                   >
                     <ItemRow
                       item={item}
                       {...subtitleFor(item)}
+                      pending={isDraft(item)}
                       checked={checked.includes(item.id)}
-                      onToggle={() => tick(item)}
+                      onToggle={() => !isDraft(item) && tick(item)}
                       onOpen={() => openEdit(item)}
                       thumb={photos[item.id]?.[0]?.url}
                       notice={

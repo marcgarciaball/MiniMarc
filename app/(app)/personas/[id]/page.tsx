@@ -21,7 +21,7 @@ const back = (
 
 export default function PersonaPage({ params }: { params: Params }) {
   return (
-    <Suspense fallback={<ScreenFallback title="" leading={back} />}>
+    <Suspense fallback={<ScreenFallback title="" leading={back} rows={4} check />}>
       <Persona params={params} />
     </Suspense>
   );

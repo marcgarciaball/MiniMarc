@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Libros' };
 
 export default function LibrosPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Libros" />}>
+    <Suspense fallback={<ScreenFallback title="Libros" segmented tile />}>
       <Libros />
     </Suspense>
   );

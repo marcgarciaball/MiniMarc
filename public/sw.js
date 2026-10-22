@@ -6,12 +6,17 @@
  *     WebP/JPEG 0.8, like lib/photos/resize.ts); title, text, url and images are kept in
  *     IndexedDB under a random id (lib/share/stash.ts reads it), then a 303 to
  *     /compartir?id=…, where Marc confirms with «Guardar» or drops it with «Descartar».
- *   - Page navigations: network first; offline, the last cached copy of that page.
+ *   - Page navigations: stale-while-revalidate. A screen visited before paints at once from its
+ *     last copy while the network fetches a fresh one, which replaces the copy; then the page is
+ *     told (`page-updated`) and refreshes its data in place. First visits wait for the network.
+ *     Never cached: /api/*, /auth/*, /login, /compartir (share confirm) and redirects (e.g. to
+ *     /login: the stale copy is dropped). Any Server Action (a write) drops every cached page, so
+ *     a reload after Marc's own change never paints the old copy. Logout empties every cache.
  *   - Static assets (/_next/static, /icons, manifest): cache first.
  * Push (morning digest, weekly summary): shows the notification; a tap focuses an open window
  * and opens its url (/hoy by default).
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const PAGES = `pages-${VERSION}`;
 const STATIC = `static-${VERSION}`;
 
@@ -43,12 +48,19 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(stashShare(request));
     return;
   }
+  // A Server Action (a write, usually): the cached pages may now be stale, so drop them all;
+  // the next visit to each waits for the network once. The action itself is not touched.
+  if (request.method === 'POST' && url.origin === self.location.origin && request.headers.has('Next-Action')) {
+    event.waitUntil(caches.delete(PAGES));
+    return;
+  }
   if (request.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request));
+    if (isUncachedPage(url)) return;
+    event.respondWith(staleWhileRevalidate(event));
   } else if (isStatic(url)) {
     event.respondWith(cacheFirst(request));
   }
@@ -142,18 +154,45 @@ async function stashShare(request) {
   }
 }
 
-async function networkFirst(request) {
-  const cache = await caches.open(PAGES);
-  try {
-    const response = await fetch(request);
-    // Only real pages: not redirects (e.g. to /login) nor errors.
-    if (response.ok && !response.redirected) cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request, { ignoreSearch: false });
-    if (cached) return cached;
-    throw error;
+/** Pages that always go to the network: sign-in, the OAuth return and the share confirm step. */
+function isUncachedPage(url) {
+  return url.pathname === '/login' || url.pathname === '/compartir' || url.pathname.startsWith('/compartir/');
+}
+
+/** Tells the page that was painted from cache that a fresh copy is in (it refreshes in place). */
+async function notifyUpdated(clientId, url) {
+  // The navigated page's client may not exist yet when the network answers: retry briefly.
+  for (let i = 0; i < 10 && clientId; i++) {
+    const client = await self.clients.get(clientId);
+    if (client) {
+      client.postMessage({ type: 'page-updated', url });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
+}
+
+async function staleWhileRevalidate(event) {
+  const { request } = event;
+  const cache = await caches.open(PAGES);
+  const cached = await cache.match(request, { ignoreSearch: false });
+  const fresh = fetch(request).then(async (response) => {
+    // Only real pages: not redirects (e.g. to /login) nor errors.
+    if (response.ok && !response.redirected) {
+      await cache.put(request, response.clone());
+    } else if (cached) {
+      // The copy is no longer what the server would show (signed out, gone): drop it.
+      await cache.delete(request);
+    }
+    if (cached) await notifyUpdated(event.resultingClientId || event.clientId, request.url);
+    return response;
+  });
+  if (cached) {
+    // Paint the last copy now; the fetch above finishes in the background.
+    event.waitUntil(fresh.catch(() => {}));
+    return cached;
+  }
+  return fresh;
 }
 
 async function cacheFirst(request) {

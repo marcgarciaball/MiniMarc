@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { HoyScreen } from '@/components/hoy/HoyScreen';
-import { ScreenFallback } from '@/components/items/ScreenFallback';
+import { HoyFallback } from '@/components/items/ScreenFallback';
 import { readHoy } from '@/lib/cache/reads';
 import type { Settings } from '@/lib/db/settings';
 import { FALLBACK_HEADLINE, generateHeadline } from '@/lib/digest/server';
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Hoy' };
 
 export default function HoyPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Hoy" />}>
+    <Suspense fallback={<HoyFallback />}>
       <Hoy />
     </Suspense>
   );

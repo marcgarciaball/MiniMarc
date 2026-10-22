@@ -96,6 +96,7 @@
   }
 
   .app-sidebar__link {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1952,4 +1953,21 @@
   .app-link-card {
     transition: none;
   }
+}
+
+/* ---------- Agenda skeleton (timeline while the week loads) ---------- */
+.app-skeleton-timeline {
+  margin-top: 8px;
+}
+
+.app-skeleton-timeline__hour {
+  min-height: 56px;
+  padding: 6px 0 6px var(--agenda-label);
+  border-top: var(--hairline-width) solid var(--hairline);
+}
+
+/* A row not saved yet (optimistic add): shown at once, dimmed until the server confirms it. */
+.app-item[data-pending] {
+  opacity: 0.55;
+  pointer-events: none;
 }

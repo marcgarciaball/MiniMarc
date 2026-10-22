@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Compras' };
 
 export default function ComprasPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Compras" />}>
+    <Suspense fallback={<ScreenFallback title="Compras" check subtitle={false} />}>
       <Compras />
     </Suspense>
   );

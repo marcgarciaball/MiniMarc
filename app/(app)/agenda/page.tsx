@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
 import { AgendaScreen } from '@/components/agenda/AgendaScreen';
-import { ScreenFallback } from '@/components/items/ScreenFallback';
+import { AgendaFallback } from '@/components/items/ScreenFallback';
 import { madridToday } from '@/lib/actions/today';
 import { parseDayParam, toAgendaItems, weekRange, type AgendaItem } from '@/lib/agenda/week';
 import { toSyncError, type SyncErrorCode } from '@/lib/calendar/taskSync';
@@ -14,7 +14,7 @@ type SearchParams = Promise<{ d?: string | string[] }>;
 
 export default function AgendaPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<ScreenFallback title="Agenda" />}>
+    <Suspense fallback={<AgendaFallback />}>
       <Agenda searchParams={searchParams} />
     </Suspense>
   );

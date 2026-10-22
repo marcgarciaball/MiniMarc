@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Glass } from './Glass';
+import { LinkPending } from './LinkPending';
 
 export type TabBarItem = {
   key: string;
@@ -36,6 +37,8 @@ export function TabBar({ items, active }: TabBarProps) {
         <Link
           key={item.key}
           href={item.href}
+          // Per-link prefetch: the screen's data (cached per session) is ready before the tap.
+          prefetch
           className="ui-tabbar__item"
           aria-current={item.key === active ? 'page' : undefined}
         >
@@ -43,6 +46,7 @@ export function TabBar({ items, active }: TabBarProps) {
             {item.icon}
           </span>
           {item.label}
+          <LinkPending />
         </Link>
         ),
       )}

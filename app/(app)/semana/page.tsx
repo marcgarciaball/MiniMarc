@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { ScreenFallback } from '@/components/items/ScreenFallback';
+import { SemanaFallback } from '@/components/items/ScreenFallback';
 import { SemanaScreen } from '@/components/semana/SemanaScreen';
 import { readSemana } from '@/lib/cache/reads';
 import type { Settings } from '@/lib/db/settings';
@@ -13,7 +13,7 @@ type SearchParams = Promise<{ w?: string | string[] }>;
 
 export default function SemanaPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<ScreenFallback title="Semana" />}>
+    <Suspense fallback={<SemanaFallback />}>
       <Semana searchParams={searchParams} />
     </Suspense>
   );

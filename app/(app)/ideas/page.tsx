@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Ideas' };
 
 export default function IdeasPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Ideas" />}>
+    <Suspense fallback={<ScreenFallback title="Ideas" check />}>
       <Ideas />
     </Suspense>
   );

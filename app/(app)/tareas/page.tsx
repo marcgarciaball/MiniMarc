@@ -12,7 +12,7 @@ type SearchParams = Promise<{ area?: string | string[] }>;
 
 export default function TareasPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<ScreenFallback title="Tareas" />}>
+    <Suspense fallback={<ScreenFallback title="Tareas" segmented check detail />}>
       <Tareas searchParams={searchParams} />
     </Suspense>
   );

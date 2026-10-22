@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { ScreenFallback } from '@/components/items/ScreenFallback';
+import { PersonasFallback } from '@/components/items/ScreenFallback';
 import { PersonasScreen } from '@/components/people/PersonasScreen';
 import { readPersonas } from '@/lib/cache/reads';
 
@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Personas' };
 
 export default function PersonasPage() {
   return (
-    <Suspense fallback={<ScreenFallback title="Personas" />}>
+    <Suspense fallback={<PersonasFallback />}>
       <Personas />
     </Suspense>
   );
