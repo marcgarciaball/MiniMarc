@@ -98,6 +98,44 @@ describe('createCalendarClient: updateEvent / deleteEvent', () => {
     });
   });
 
+  it('setRequiredReminders parchea solo los avisos: popup 180 y 60, sin los de por defecto', async () => {
+    const { api, calls } = fakeApi();
+    await createCalendarClient(null, { api }).setRequiredReminders('primary', 'ev1');
+    expect(calls).toEqual([
+      {
+        method: 'events.patch',
+        params: {
+          calendarId: 'primary',
+          eventId: 'ev1',
+          requestBody: {
+            reminders: {
+              useDefault: false,
+              overrides: [
+                { method: 'popup', minutes: 180 },
+                { method: 'popup', minutes: 60 },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+  });
+
+  it('setRequiredReminders traduce los errores de Google', async () => {
+    const api = {
+      events: {
+        patch: async () => {
+          throw httpError(404);
+        },
+      },
+    } as unknown as CalendarApi;
+    const e = await createCalendarClient(null, { api })
+      .setRequiredReminders('primary', 'x')
+      .catch((x: unknown) => x);
+    expect(e).toBeInstanceOf(CalendarError);
+    expect((e as CalendarError).kind).toBe('not_found');
+  });
+
   it('deleteEvent borra en el calendario indicado', async () => {
     const { api, calls } = fakeApi();
     await createCalendarClient(null, { api }).deleteEvent('c', 'ev1');
@@ -166,6 +204,7 @@ describe('createCalendarClient: tiempo de espera (M-2)', () => {
   it.each([
     ['createEvent', (gw: CalendarGateway) => gw.createEvent('c', { title: 't', startsAt: new Date() })],
     ['updateEvent', (gw: CalendarGateway) => gw.updateEvent('c', 'e', { title: 't', startsAt: new Date() })],
+    ['setRequiredReminders', (gw: CalendarGateway) => gw.setRequiredReminders('c', 'e')],
     ['deleteEvent', (gw: CalendarGateway) => gw.deleteEvent('c', 'e')],
     ['listEvents', (gw: CalendarGateway) => gw.listEvents({ from: new Date(), to: new Date() })],
     ['ensureCalendar', (gw: CalendarGateway) => gw.ensureCalendar('Tareas')],
@@ -251,6 +290,7 @@ describe('createCalendarClient: listEvents', () => {
                 {
                   id: 'b',
                   summary: 'Dentista',
+                  location: 'Calle Mayor 3',
                   start: { dateTime: '2026-10-22T10:00:00+02:00' },
                   end: { dateTime: '2026-10-22T11:00:00+02:00' },
                   reminders: {
@@ -296,6 +336,8 @@ describe('createCalendarClient: listEvents', () => {
         startsAt: new Date('2026-10-22T08:00:00Z'),
         endsAt: new Date('2026-10-22T09:00:00Z'),
         calendarId: 'primary-id',
+        primary: true,
+        location: 'Calle Mayor 3',
         hasRequiredReminders: true,
       },
     ]);
@@ -359,6 +401,7 @@ describe('withCachedCalendar', () => {
       async updateEvent(calendarId) {
         calls.push(`update:${calendarId}`);
       },
+      async setRequiredReminders() {},
       async deleteEvent(calendarId) {
         calls.push(`delete:${calendarId}`);
       },

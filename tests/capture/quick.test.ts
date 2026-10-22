@@ -53,6 +53,7 @@ function fakeGateway() {
       return `ev-${created.length}`;
     },
     async updateEvent() {},
+    async setRequiredReminders() {},
     async deleteEvent() {},
     async listEvents() {
       return [];

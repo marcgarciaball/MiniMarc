@@ -22,6 +22,10 @@ export interface CalendarEvent {
   startsAt: Date;
   endsAt: Date;
   calendarId: string;
+  /** Set (true) only for events of Marc's primary calendar. */
+  primary?: true;
+  /** Only when the event has one. */
+  location?: string;
   /** True only with popup reminders at exactly 180 and 60 minutes (others may exist too). */
   hasRequiredReminders: boolean;
 }
@@ -29,6 +33,8 @@ export interface CalendarEvent {
 export interface CalendarGateway {
   createEvent(calendarId: string, e: EventInput): Promise<string>;
   updateEvent(calendarId: string, eventId: string, e: EventInput): Promise<void>;
+  /** Replaces the event's reminders with the 180/60 popups (nothing else changes). */
+  setRequiredReminders(calendarId: string, eventId: string): Promise<void>;
   deleteEvent(calendarId: string, eventId: string): Promise<void>;
   /** Events from every calendar shown in Google Calendar (plus Marc's own "Tareas"), sorted by start. */
   listEvents(range: { from: Date; to: Date }): Promise<CalendarEvent[]>;
@@ -138,6 +144,10 @@ export function hasRequiredReminders(reminders: calendar_v3.Schema$Event['remind
 
 const DEFAULT_DURATION_MS = 30 * 60_000;
 
+function requiredReminders(): calendar_v3.Schema$Event['reminders'] {
+  return { useDefault: false, overrides: REQUIRED_REMINDERS.map((r) => ({ ...r })) };
+}
+
 function eventBody(e: EventInput): calendar_v3.Schema$Event {
   const endsAt = e.endsAt ?? new Date(e.startsAt.getTime() + DEFAULT_DURATION_MS);
   return {
@@ -145,7 +155,7 @@ function eventBody(e: EventInput): calendar_v3.Schema$Event {
     ...(e.description !== undefined && { description: e.description }),
     start: { dateTime: e.startsAt.toISOString(), timeZone: DEFAULT_TZ },
     end: { dateTime: endsAt.toISOString(), timeZone: DEFAULT_TZ },
-    reminders: { useDefault: false, overrides: REQUIRED_REMINDERS.map((r) => ({ ...r })) },
+    reminders: requiredReminders(),
   };
 }
 
@@ -184,7 +194,7 @@ export function createCalendarClient(
     return items;
   }
 
-  async function listCalendarEvents(calendarId: string, from: Date, to: Date): Promise<CalendarEvent[]> {
+  async function listCalendarEvents(calendarId: string, primary: boolean, from: Date, to: Date): Promise<CalendarEvent[]> {
     const out: CalendarEvent[] = [];
     let pageToken: string | undefined;
     do {
@@ -208,6 +218,8 @@ export function createCalendarClient(
           startsAt,
           endsAt: eventTime(ev.end) ?? startsAt,
           calendarId,
+          ...(primary && { primary: true as const }),
+          ...(ev.location && { location: ev.location }),
           hasRequiredReminders: hasRequiredReminders(ev.reminders),
         });
       }
@@ -229,6 +241,11 @@ export function createCalendarClient(
         await timed(api.events.patch({ calendarId, eventId, requestBody: eventBody(e) }));
       }),
 
+    setRequiredReminders: (calendarId, eventId) =>
+      call(async () => {
+        await timed(api.events.patch({ calendarId, eventId, requestBody: { reminders: requiredReminders() } }));
+      }),
+
     deleteEvent: (calendarId, eventId) =>
       call(async () => {
         await timed(api.events.delete({ calendarId, eventId }));
@@ -239,7 +256,7 @@ export function createCalendarClient(
         const calendars = (await listCalendars()).filter(
           (c) => c.id && (c.selected || c.primary || isOwned(c, 'Tareas')),
         );
-        const lists = await Promise.all(calendars.map((c) => listCalendarEvents(c.id!, from, to)));
+        const lists = await Promise.all(calendars.map((c) => listCalendarEvents(c.id!, Boolean(c.primary), from, to)));
         return lists.flat().sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
       }),
 

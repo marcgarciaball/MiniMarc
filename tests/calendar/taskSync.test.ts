@@ -34,6 +34,7 @@ function fakeGateway(fail: Partial<Record<'create' | 'update' | 'delete', unknow
       calls.push({ op: 'update', calendarId, eventId, e });
       maybeFail('update');
     },
+    async setRequiredReminders() {},
     async deleteEvent(calendarId, eventId) {
       calls.push({ op: 'delete', calendarId, eventId });
       maybeFail('delete');

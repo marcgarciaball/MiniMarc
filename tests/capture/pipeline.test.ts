@@ -71,6 +71,7 @@ function fakeCalendar(opts: { createError?: unknown; loadError?: unknown } = {})
       return `ev-${++n}`;
     },
     async updateEvent() {},
+    async setRequiredReminders() {},
     async deleteEvent() {},
     async listEvents() {
       return [];

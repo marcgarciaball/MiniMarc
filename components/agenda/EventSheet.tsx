@@ -14,13 +14,13 @@ const OFFLINE = 'No se ha podido guardar la cita. Revisa la conexión e inténta
 
 export type EventSheetProps = {
   open: boolean;
-  /** Madrid "YYYY-MM-DD", the default date. */
-  today: string;
+  /** Madrid "YYYY-MM-DD" the date field starts on (the day shown in the Agenda). */
+  date: string;
   onClose: () => void;
 };
 
 /** "Nueva cita": title, date, start, optional end and notes. Goes to the primary calendar with 3 h and 1 h popups. */
-export function EventSheet({ open, today, onClose }: EventSheetProps) {
+export function EventSheet({ open, date, onClose }: EventSheetProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<Extract<EventActionResult, { ok: false }> | null>(null);
   // Blocks a second submit (double tap, Enter) before `pending` re-renders the button.
@@ -72,7 +72,7 @@ export function EventSheet({ open, today, onClose }: EventSheetProps) {
       }
     >
       {/* Fresh fields each time the sheet opens after a success; on failure they stay as typed. */}
-      <form key={`new-${String(open)}`} id={FORM_ID} onSubmit={handleSubmit} className="app-form">
+      <form key={`new-${String(open)}-${date}`} id={FORM_ID} onSubmit={handleSubmit} className="app-form">
         <InsetList>
           <input
             className="app-input app-input--title"
@@ -87,7 +87,7 @@ export function EventSheet({ open, today, onClose }: EventSheetProps) {
         <InsetList footer="Avisa 3 horas y 1 hora antes.">
           <label className="app-field">
             <span>Fecha</span>
-            <input className="app-input" type="date" name="date" defaultValue={today} required />
+            <input className="app-input" type="date" name="date" defaultValue={date} required />
           </label>
           <label className="app-field">
             <span>Empieza</span>

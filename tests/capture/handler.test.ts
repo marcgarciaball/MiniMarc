@@ -27,6 +27,7 @@ const gw: CalendarGateway = {
     return 'ev-1';
   },
   async updateEvent() {},
+  async setRequiredReminders() {},
   async deleteEvent() {},
   async listEvents() {
     return [];

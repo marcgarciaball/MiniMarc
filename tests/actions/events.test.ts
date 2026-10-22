@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addEvent, agendaRange, groupAgenda, PRIMARY_CALENDAR, type EventDeps } from '@/lib/actions/events';
+import { addEvent, addReminders, PRIMARY_CALENDAR, type EventDeps } from '@/lib/actions/events';
 import { UserError } from '@/lib/actions/result';
-import { CalendarError, createCalendarClient, type CalendarApi, type CalendarEvent, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
+import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type EventInput } from '@/lib/calendar/client';
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -20,6 +20,7 @@ function fakeGateway(createError?: unknown) {
       return 'ev-1';
     },
     async updateEvent() {},
+    async setRequiredReminders() {},
     async deleteEvent() {},
     async listEvents() {
       return [];
@@ -123,93 +124,77 @@ describe('addEvent', () => {
   });
 });
 
-describe('agendaRange', () => {
-  it('hoy y los 7 días siguientes, de medianoche a medianoche en Madrid (con cambio de hora)', () => {
-    const r = agendaRange('2026-10-21');
-    expect(r.days).toEqual([
-      '2026-10-21',
-      '2026-10-22',
-      '2026-10-23',
-      '2026-10-24',
-      '2026-10-25',
-      '2026-10-26',
-      '2026-10-27',
-      '2026-10-28',
+describe('addReminders', () => {
+  function gateway(error?: unknown) {
+    const patched: { calendarId: string; eventId: string }[] = [];
+    const { deps } = fakeGateway();
+    const withPatch: EventDeps = {
+      calendar: async () => ({
+        ...(await deps.calendar()),
+        async setRequiredReminders(calendarId: string, eventId: string) {
+          patched.push({ calendarId, eventId });
+          if (error) throw error;
+        },
+      }),
+    };
+    return { deps: withPatch, patched };
+  }
+
+  it('pone los avisos de 3 h y 1 h al evento, solo en el calendario principal', async () => {
+    const { deps, patched } = gateway();
+    expect(await addReminders(deps, 'ev-9')).toEqual({ ok: true });
+    expect(patched).toEqual([{ calendarId: PRIMARY_CALENDAR, eventId: 'ev-9' }]);
+  });
+
+  it('sin id de evento → no llama a Calendar', async () => {
+    const { deps, patched } = gateway();
+    await expect(addReminders(deps, '  ')).rejects.toThrow(UserError);
+    expect(patched).toHaveLength(0);
+  });
+
+  it('Calendar sin acceso o caído → código de error, sin lanzar', async () => {
+    expect(await addReminders(gateway(Object.assign(new Error('x'), { status: 401 })).deps, 'ev')).toEqual({
+      ok: false,
+      error: 'calendar_auth',
+    });
+    expect(await addReminders(gateway(Object.assign(new Error('x'), { status: 503 })).deps, 'ev')).toEqual({
+      ok: false,
+      error: 'calendar_unavailable',
+    });
+    const noToken: EventDeps = {
+      calendar: async () => {
+        throw new CalendarError('auth', 'No refresh token stored');
+      },
+    };
+    expect(await addReminders(noToken, 'ev')).toEqual({ ok: false, error: 'calendar_auth' });
+  });
+
+  it('llega a Google como un parche solo de avisos, en el calendario principal', async () => {
+    const patches: Record<string, unknown>[] = [];
+    const api = {
+      events: {
+        patch: async (params: Record<string, unknown>) => {
+          patches.push(params);
+          return { data: {} };
+        },
+      },
+    } as unknown as CalendarApi;
+    const deps: EventDeps = { calendar: async () => createCalendarClient(null, { api }) };
+    expect(await addReminders(deps, 'g-7')).toEqual({ ok: true });
+    expect(patches).toEqual([
+      {
+        calendarId: 'primary',
+        eventId: 'g-7',
+        requestBody: {
+          reminders: {
+            useDefault: false,
+            overrides: [
+              { method: 'popup', minutes: 180 },
+              { method: 'popup', minutes: 60 },
+            ],
+          },
+        },
+      },
     ]);
-    expect(r.from).toEqual(new Date('2026-10-20T22:00:00.000Z'));
-    expect(r.to).toEqual(new Date('2026-10-28T23:00:00.000Z'));
-  });
-
-  it('cruza fin de mes y de año', () => {
-    expect(agendaRange('2026-12-28').days.slice(-2)).toEqual(['2027-01-03', '2027-01-04']);
-  });
-});
-
-describe('groupAgenda', () => {
-  const ev = (over: Partial<CalendarEvent>): CalendarEvent => ({
-    id: 'e',
-    title: 'Cita',
-    startsAt: new Date('2026-10-21T08:00:00.000Z'),
-    endsAt: new Date('2026-10-21T09:00:00.000Z'),
-    calendarId: 'marc@gmail.com',
-    hasRequiredReminders: true,
-    ...over,
-  });
-
-  it('agrupa por día de Madrid, en orden, y omite los días vacíos', () => {
-    const days = groupAgenda(
-      [
-        ev({ id: 'a', startsAt: new Date('2026-10-21T08:00:00Z'), endsAt: new Date('2026-10-21T09:00:00Z') }),
-        // 23:30 UTC on the 22nd is 01:30 on the 23rd in Madrid.
-        ev({ id: 'b', startsAt: new Date('2026-10-22T23:30:00Z'), endsAt: new Date('2026-10-23T00:30:00Z') }),
-        ev({ id: 'c', startsAt: new Date('2026-10-21T16:00:00Z'), endsAt: new Date('2026-10-21T17:00:00Z') }),
-      ],
-      { today: '2026-10-21', tasksCalendarId: 'tareas-id' },
-    );
-    expect(days.map((d) => [d.date, d.events.map((e) => e.id)])).toEqual([
-      ['2026-10-21', ['a', 'c']],
-      ['2026-10-23', ['b']],
-    ]);
-    expect(days[0].events[0]).toMatchObject({ time: '10:00 – 11:00', allDay: false, isTask: false });
-  });
-
-  it('un evento empezado antes de hoy aparece en Hoy', () => {
-    const [day] = groupAgenda(
-      [ev({ startsAt: new Date('2026-10-19T08:00:00Z'), endsAt: new Date('2026-10-22T08:00:00Z') })],
-      { today: '2026-10-21', tasksCalendarId: null },
-    );
-    expect(day.date).toBe('2026-10-21');
-  });
-
-  it('marca las tareas y los eventos de día completo', () => {
-    const [day] = groupAgenda(
-      [
-        ev({ id: 'fiesta', startsAt: new Date('2026-10-20T22:00:00Z'), endsAt: new Date('2026-10-21T22:00:00Z') }),
-        ev({ id: 'tarea', calendarId: 'tareas-id', endsAt: new Date('2026-10-21T08:30:00Z') }),
-      ],
-      { today: '2026-10-21', tasksCalendarId: 'tareas-id' },
-    );
-    expect(day.events).toMatchObject([
-      { id: 'fiesta', allDay: true, time: 'Todo el día', isTask: false },
-      { id: 'tarea', allDay: false, time: '10:00', isTask: true },
-    ]);
-  });
-
-  it('avisa (discretamente) solo de eventos con hora sin los avisos de 3 h y 1 h', () => {
-    const [day] = groupAgenda(
-      [
-        ev({ id: 'sin', hasRequiredReminders: false }),
-        ev({ id: 'con', hasRequiredReminders: true }),
-        ev({
-          id: 'diaCompleto',
-          hasRequiredReminders: false,
-          startsAt: new Date('2026-10-20T22:00:00Z'),
-          endsAt: new Date('2026-10-21T22:00:00Z'),
-        }),
-      ],
-      { today: '2026-10-21', tasksCalendarId: null },
-    );
-    const missing = Object.fromEntries(day.events.map((e) => [e.id, e.missingReminders]));
-    expect(missing).toEqual({ sin: true, con: false, diaCompleto: false });
   });
 });

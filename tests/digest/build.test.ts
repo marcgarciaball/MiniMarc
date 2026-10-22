@@ -40,6 +40,7 @@ function fakeCalendar(events: CalendarEvent[] | Error) {
       throw new Error('not used');
     },
     async updateEvent() {},
+    async setRequiredReminders() {},
     async deleteEvent() {},
     async listEvents(range) {
       ranges.push(range);

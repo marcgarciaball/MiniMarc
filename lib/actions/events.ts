@@ -2,9 +2,9 @@
  * Logic behind the Agenda (app/(app)/agenda) and its server action (app/actions/events.ts).
  * Pure: Calendar comes in through `deps`, so tests use a fake gateway.
  */
-import type { CalendarEvent, CalendarGateway, EventInput } from '@/lib/calendar/client';
+import type { CalendarGateway, EventInput } from '@/lib/calendar/client';
 import { toSyncError, type SyncErrorCode } from '@/lib/calendar/taskSync';
-import { isValidDate, madridDateTime, madridToUtc } from '@/lib/time';
+import { isValidDate, madridToUtc } from '@/lib/time';
 import { UserError } from './result';
 
 /** Google's alias for the signed-in user's main calendar: citas go there, tasks go to "Tareas". */
@@ -76,64 +76,28 @@ export async function createCita(deps: EventDeps, input: EventInput): Promise<Ad
   }
 }
 
-// ---------- Agenda (read side) ----------
+// ---------- "Añadir avisos" ----------
 
-export const AGENDA_DAYS = 8;
+export type AddRemindersResult = { ok: true } | { ok: false; error: SyncErrorCode };
 
-/** "YYYY-MM-DD" + n days (calendar arithmetic, no time zone involved). */
-function addDays(date: string, n: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+export const REMINDER_ERROR_MESSAGES: Record<SyncErrorCode, string> = {
+  calendar_auth: 'Google Calendar necesita que vuelvas a entrar para añadir los avisos.',
+  calendar_unavailable: 'Google Calendar no responde. Los avisos no se han añadido; inténtalo en un rato.',
+};
 
-/** Today and the next 7 days, from Madrid midnight to Madrid midnight. */
-export function agendaRange(today: string): { days: string[]; from: Date; to: Date } {
-  const days = Array.from({ length: AGENDA_DAYS }, (_, i) => addDays(today, i));
-  return { days, from: madridToUtc(today, '00:00'), to: madridToUtc(addDays(today, AGENDA_DAYS), '00:00') };
-}
-
-export interface AgendaEvent {
-  id: string;
-  title: string;
-  /** "10:00 – 11:00", "10:00" (tasks) or "Todo el día". */
-  time: string;
-  allDay: boolean;
-  /** From the "Tareas" calendar (timed tasks synced by the app). */
-  isTask: boolean;
-  /** A timed event without the 180/60 popup reminders. */
-  missingReminders: boolean;
-}
-
-export interface AgendaDay {
-  date: string;
-  events: AgendaEvent[];
-}
-
-/** Groups the listed events by Madrid day (anything already running counts as today); empty days are left out. */
-export function groupAgenda(
-  events: CalendarEvent[],
-  opts: { today: string; tasksCalendarId: string | null },
-): AgendaDay[] {
-  const byDay = new Map<string, AgendaEvent[]>();
-  const sorted = [...events].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
-  for (const ev of sorted) {
-    const start = madridDateTime(ev.startsAt);
-    const end = madridDateTime(ev.endsAt);
-    const allDay = start.time === '00:00' && end.time === '00:00' && ev.endsAt > ev.startsAt;
-    const isTask = ev.calendarId === opts.tasksCalendarId;
-    const showEnd = !isTask && ev.endsAt > ev.startsAt;
-    const date = start.date < opts.today ? opts.today : start.date;
-    const list = byDay.get(date) ?? [];
-    list.push({
-      id: ev.id,
-      title: ev.title || '(Sin título)',
-      time: allDay ? 'Todo el día' : showEnd ? `${start.time} – ${end.time}` : start.time,
-      allDay,
-      isTask,
-      missingReminders: !allDay && !ev.hasRequiredReminders,
-    });
-    byDay.set(date, list);
+/**
+ * Gives an existing cita of the primary calendar the 180/60 popup reminders (and nothing else).
+ * Always patches PRIMARY_CALENDAR, so an id from any other calendar cannot be touched.
+ * Throws UserError without an id; Calendar failures come back as `{ ok: false, error }`.
+ */
+export async function addReminders(deps: EventDeps, eventId: string): Promise<AddRemindersResult> {
+  const id = eventId.trim();
+  if (!id) throw new UserError('Falta la cita.');
+  try {
+    const gw = await deps.calendar();
+    await gw.setRequiredReminders(PRIMARY_CALENDAR, id);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: toSyncError(err) };
   }
-  return [...byDay.keys()].sort().map((date) => ({ date, events: byDay.get(date)! }));
 }

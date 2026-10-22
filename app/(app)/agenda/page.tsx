@@ -3,38 +3,53 @@ import { unstable_rethrow } from 'next/navigation';
 import { Suspense } from 'react';
 import { AgendaScreen } from '@/components/agenda/AgendaScreen';
 import { ScreenFallback } from '@/components/items/ScreenFallback';
-import { agendaRange, groupAgenda, type AgendaDay } from '@/lib/actions/events';
 import { madridToday } from '@/lib/actions/today';
+import { parseDayParam, toAgendaItems, weekRange, type AgendaItem } from '@/lib/agenda/week';
 import { calendarGatewayFor } from '@/lib/calendar/server';
 import { toSyncError, type SyncErrorCode } from '@/lib/calendar/taskSync';
 import { requireUser } from '@/lib/supabase/server';
 
 export const metadata: Metadata = { title: 'Agenda' };
 
-export default function AgendaPage() {
+type SearchParams = Promise<{ d?: string | string[] }>;
+
+export default function AgendaPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <Suspense fallback={<ScreenFallback title="Agenda" />}>
-      <Agenda />
+      <Agenda searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Agenda() {
+/** The week of `?d=` (default today), read from Google Calendar Monday 00:00 → Monday 00:00 in Madrid. */
+async function Agenda({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireUser();
   const today = madridToday();
-  let days: AgendaDay[] | null = null;
+  const selected = parseDayParam((await searchParams).d, today);
+  const week = weekRange(selected);
+  let items: AgendaItem[] = [];
   let error: SyncErrorCode | null = null;
   try {
     const gw = await calendarGatewayFor(user.id);
     const [events, tasksCalendarId] = await Promise.all([
-      gw.listEvents(agendaRange(today)),
+      gw.listEvents({ from: week.from, to: week.to }),
       // Only to mark tasks; the agenda still shows if this lookup fails.
       gw.ensureCalendar('Tareas').catch(() => null),
     ]);
-    days = groupAgenda(events, { today, tasksCalendarId });
+    items = toAgendaItems(events, tasksCalendarId);
   } catch (err) {
     unstable_rethrow(err);
     error = toSyncError(err);
   }
-  return <AgendaScreen today={today} days={days} error={error} />;
+  // Keyed by week: a new week starts with fresh client state (selected day, opened event).
+  return (
+    <AgendaScreen
+      key={week.start}
+      today={today}
+      selected={selected}
+      days={week.days}
+      items={items}
+      error={error}
+    />
+  );
 }

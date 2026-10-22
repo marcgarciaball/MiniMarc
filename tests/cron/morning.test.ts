@@ -84,6 +84,7 @@ function fakeCalendar(fail?: Error) {
     async updateEvent() {
       if (fail) throw fail;
     },
+    async setRequiredReminders() {},
     async deleteEvent(_c, id) {
       if (fail) throw fail;
       deleted.push(id);
