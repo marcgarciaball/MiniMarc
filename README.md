@@ -18,8 +18,11 @@ Despliegue paso a paso en `docs/despliegue.md`.
 npm install
 cp .env.example .env.local   # rellenar valores
 npm run dev                  # http://localhost:3000
-npm test                     # vitest run
+npm test                     # vitest run: toda la suite
+npm run test:screens         # solo las pantallas (Testing Library sobre jsdom)
 ```
+
+Los tests de pantalla (`tests/screens`) montan los componentes con Testing Library y sustituyen las Server Actions por dobles (`tests/screens/setup.ts`); no necesitan servidor ni base de datos. Quedan fuera lo que jsdom no puede comprobar: los gestos de deslizar reales, la física de las hojas, el desenfoque del vidrio y el aspecto visual.
 
 ## Diseño
 
