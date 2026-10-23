@@ -16,7 +16,9 @@ const screenUi = () => (
 
 async function openRow(user: ReturnType<typeof renderScreen>['user']) {
   await user.click(screen.getByRole('button', { name: 'Abrir «Llamar al dentista»' }));
-  return screen.findByRole('dialog', { name: 'Editar' });
+  const dialog = await screen.findByRole('dialog', { name: 'Editar' });
+  expect(dialog.getAttribute('data-open')).toBe('true');
+  return dialog;
 }
 
 test('abrir una fila carga sus datos en la hoja', async () => {
@@ -49,9 +51,11 @@ test('guardar manda el patch con el título y la fecha editados', async () => {
 
 test('cerrar sin guardar no llama a ninguna acción', async () => {
   const { user } = renderScreen(screenUi());
-  await openRow(user);
+  const dialog = await openRow(user);
   await user.type(screen.getByLabelText('Título'), ' (editado)');
   await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+  await waitFor(() => expect(dialog.getAttribute('data-open')).toBe('false'));
 
   expect(itemsActions.addItem).not.toHaveBeenCalled();
   expect(itemsActions.moveItem).not.toHaveBeenCalled();

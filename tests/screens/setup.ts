@@ -16,17 +16,18 @@ import { cleanup, render, type RenderResult } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import type * as itemsModule from '@/app/actions/items';
 import { ok } from '@/lib/actions/result';
 import type { Item } from '@/lib/db/types';
 
 /** Doubles for `app/actions/items.ts`; each resolves `ok` until a test says otherwise. */
 export const itemsActions = {
-  addItem: vi.fn(),
-  deleteItem: vi.fn(),
-  moveItem: vi.fn(),
-  retrySync: vi.fn(),
-  toggleDone: vi.fn(),
-  undoDelete: vi.fn(),
+  addItem: vi.fn<typeof itemsModule.addItem>(),
+  deleteItem: vi.fn<typeof itemsModule.deleteItem>(),
+  moveItem: vi.fn<typeof itemsModule.moveItem>(),
+  retrySync: vi.fn<typeof itemsModule.retrySync>(),
+  toggleDone: vi.fn<typeof itemsModule.toggleDone>(),
+  undoDelete: vi.fn<typeof itemsModule.undoDelete>(),
 };
 
 /** Doubles for `app/actions/capture.ts`. */
@@ -39,18 +40,26 @@ export const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back:
 
 export const itemsActionsModule = { ...itemsActions };
 export const captureActionsModule = { ...captureActions };
+/** Current route seen by `next/navigation`; set per test (reset to these defaults before each one). */
+export const navigation = { pathname: '/tareas', search: '' };
+
 export const navigationModule = {
   useRouter: () => router,
-  usePathname: () => '/tareas',
-  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => navigation.pathname,
+  useSearchParams: () => new URLSearchParams(navigation.search),
 };
 
 function resetDoubles() {
   for (const fn of [...Object.values(itemsActions), ...Object.values(captureActions), ...Object.values(router)]) {
     fn.mockReset();
   }
-  for (const fn of Object.values(itemsActions)) fn.mockResolvedValue(ok(null));
-  itemsActions.retrySync.mockResolvedValue(ok({ syncError: null }));
+  navigation.pathname = '/tareas';
+  navigation.search = '';
+  // Same value shapes as the real actions: they hand back the saved Item (deleteItem: void).
+  for (const [name, fn] of Object.entries(itemsActions)) {
+    if (name === 'deleteItem') itemsActions.deleteItem.mockResolvedValue(ok(undefined));
+    else (fn as typeof itemsActions.toggleDone).mockImplementation(async () => ok(makeItem()));
+  }
   captureActions.quickCapture.mockResolvedValue(ok({ message: 'Guardado', href: null }));
   captureActions.listCapturePeople.mockResolvedValue(ok([]));
 }
