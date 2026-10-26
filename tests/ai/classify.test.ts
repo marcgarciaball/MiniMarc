@@ -208,6 +208,12 @@ describe('classify: ubicación', () => {
     expect(c.title).toBe('Renovar carnet de conducir');
   });
 
+  it('la lista de claves del contrato JSON incluye location', async () => {
+    const { ai, prompts } = fakeAi({ items: [] });
+    await classify('algo', ctx, ai);
+    expect(prompts[0]).toMatch(/\{"items":\[\{"kind".*"location".*\}\]\}/);
+  });
+
   it('no inventa ubicación cuando no se dice ninguna', async () => {
     const { ai } = fakeAi({ items: [{ kind: 'compra', title: 'leche', confidence: 0.9 }] });
     expect((await classify('comprar leche', ctx, ai))[0].location).toBeUndefined();

@@ -35,7 +35,7 @@ export class ClassifyError extends Error {
 export function buildPrompt(text: string, ctx: ClassifyContext): string {
   const { date, time } = madridDateTime(ctx.now, ctx.tz);
   const people = ctx.people.length ? ctx.people.join(', ') : '(ninguna)';
-  return `Clasifica la nota de Marc. Responde solo JSON: {"items":[{"kind","title","notes","personName","author","label","date","yearKnown","time","confidence"}]}.
+  return `Clasifica la nota de Marc. Responde solo JSON: {"items":[{"kind","title","notes","personName","author","label","date","yearKnown","time","location","confidence"}]}.
 Ahora: ${formatLongDate(ctx.now, ctx.tz)}, ${date} ${time} (hora local).
 Tipos (kind):
 - tarea: algo que Marc hace él solo.
