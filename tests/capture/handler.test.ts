@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
 import type { CalendarGateway } from '@/lib/calendar/client';
 import { captureMessage, captureOptions, handleCapture, type CaptureRouteDeps } from '@/lib/capture/handler';
@@ -116,11 +116,10 @@ describe('POST /api/capture', () => {
     const res = await handleCapture(post({ text: 'llamar a mamá' }), deps);
     expect(res.status).toBe(200);
     const body = await res.json();
-    // La captura responde con el provisional: la IA aún no ha pasado por el texto.
     expect(body).toEqual({
-      items: [{ id: expect.any(String), type: 'tarea', title: 'llamar a mamá', area: null, needsReview: true }],
+      items: [{ id: expect.any(String), type: 'tarea', title: 'Llamar a mamá', area: 'personal', needsReview: false }],
       eventIds: [],
-      message: 'Guardado en Sin clasificar',
+      message: 'Guardado en Tareas · Personal',
     });
     expect(built).toEqual(['user-marc']);
     expect(db.tables.items[0].origin).toBe('siri');
@@ -134,12 +133,17 @@ describe('POST /api/capture', () => {
     expect(db.tables.items[0]).toMatchObject({ origin: 'extension', area: 'trabajo' });
   });
 
-  it('la IA no se llama durante la captura: responde 200 con el texto guardado', async () => {
-    const generateJson = vi.fn();
-    const { deps } = setup({ generateJson, generateText: vi.fn() } as unknown as AiProvider);
+  it('si la IA falla responde 200 y el mensaje dice por qué (Siri lo lee)', async () => {
+    const { deps } = setup({
+      async generateJson() {
+        throw new Error('timeout');
+      },
+      async generateText() {
+        return '';
+      },
+    });
     const body = await (await handleCapture(post({ text: 'algo' }), deps)).json();
-    expect(generateJson).not.toHaveBeenCalled();
-    expect(body.message).toBe('Guardado en Sin clasificar');
+    expect(body.message).toBe('Guardado en Sin clasificar: la IA no ha respondido');
     expect(body.items[0]).toMatchObject({ title: 'algo', needsReview: true, area: null });
   });
 
@@ -155,6 +159,32 @@ describe('POST /api/capture', () => {
     const res = await handleCapture(post({ text: 'algo' }), broken);
     expect(res.status).toBe(500);
     expect((await res.json()).message).toBe('No se ha podido guardar. Inténtalo de nuevo.');
+  });
+
+  it('200 si falla un elemento de varios: guarda el resto y el texto en Sin clasificar', async () => {
+    const ai = aiReturning([
+      { kind: 'compra', title: 'Leche', confidence: 0.9 },
+      { kind: 'idea', title: 'App de recetas', confidence: 0.9 },
+    ]);
+    const { db, deps } = setup(ai);
+    const partial: CaptureRouteDeps = {
+      ...deps,
+      async captureDeps(u) {
+        const d = await deps.captureDeps(u);
+        let n = 0;
+        const createItem: typeof d.items.createItem = async (input) => {
+          if (++n === 2) throw new Error('db down');
+          return d.items.createItem(input);
+        };
+        return { ...d, items: { ...d.items, createItem } };
+      },
+    };
+    const res = await handleCapture(post({ text: 'comprar leche e idea: app de recetas' }), partial);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items.map((i: Item) => i.title)).toEqual(['Leche', 'comprar leche e idea: app de recetas']);
+    expect(body.message).toBe('Guardado en Compras y Sin clasificar');
+    expect(db.tables.items).toHaveLength(2);
   });
 
   it.each(['Siri trabajo', 'TRABAJO', 'Atajo Trabajo iPhone'])(
@@ -179,8 +209,7 @@ describe('POST /api/capture', () => {
   it('un token sin "trabajo" en el nombre respeta el cuerpo', async () => {
     const { db, deps } = setup(undefined, 'Siri personal');
     await handleCapture(post({ text: 'llamar a mamá' }), deps);
-    // No es Trabajo: queda pendiente de la IA en vez de guardarse como tarea de Trabajo.
-    expect(db.tables.items[0]).toMatchObject({ area: null, ai_state: 'pendiente' });
+    expect(db.tables.items[0].area).toBe('personal');
   });
 
   it('500 (no 401) si no se puede comprobar el token', async () => {

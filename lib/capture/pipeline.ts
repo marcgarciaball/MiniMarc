@@ -1,10 +1,9 @@
 /**
  * Capture pipeline: whatever Marc dictates (Siri, extension, web) becomes items or citas.
- * Rule zero: the text is never lost. La captura guarda el texto entero en un provisional
- * (`aiState: 'pendiente'`) y responde; la IA pasa después, en `classifyPending`, que solo
- * retira el provisional cuando lo clasificado ya está guardado. Any AI failure leaves it as
- * "Sin clasificar"; a Calendar failure saves the cita as an item with `syncError`; if one of
- * several items fails to save, the provisional stays. Trabajo text never reaches the AI.
+ * Rule zero: the text is never lost. Every item keeps the whole text in `sourceText`; any AI
+ * failure saves it as "Sin clasificar"; a Calendar failure saves the cita as an item with
+ * `syncError`; if one of several items fails to save, the whole text is also saved as
+ * "Sin clasificar". Trabajo text never reaches the AI.
  * Pure: everything comes in through `deps` (tests use the memory backend and fakes).
  */
 import { createCita } from '@/lib/actions/events';
@@ -31,8 +30,6 @@ export type CaptureResult = {
   dates?: CapturedDate[];
   /** Por qué no se clasificó (causeMessage). Solo cuando la IA falló: el aviso lo cuenta. */
   aiError?: string;
-  /** El texto está guardado pero la IA aún no lo ha visto (classifyPending viene después). */
-  pending?: true;
 };
 
 export interface CaptureDeps {
@@ -95,11 +92,7 @@ export async function captureText(input: CaptureInput, deps: CaptureDeps): Promi
   if (!text) throw new EmptyCaptureError();
 
   const existing = await recentDuplicate(text, input, deps);
-  if (existing.length > 0) {
-    // Un reintento de Siri a los 5 s devuelve el provisional, que sigue esperando a la IA.
-    const pending = existing.some((i) => i.aiState === 'pendiente');
-    return { items: existing, eventIds: [], ...(pending && { pending: true as const }) };
-  }
+  if (existing.length > 0) return { items: existing, eventIds: [] };
 
   return run(text, input, deps);
 }
@@ -113,31 +106,7 @@ async function run(text: string, input: CaptureInput, deps: CaptureDeps): Promis
     return { items: [item], eventIds: [] };
   }
 
-  // Personal: el texto se guarda entero y la captura ya responde. La IA tarda entre 2 y 60 s,
-  // así que pasa después (classifyPending), desde after() o desde el cron.
-  const item = await deps.items.createItem({ ...unclassified(text, origin), aiState: 'pendiente' });
-  return { items: [item], eventIds: [], pending: true };
-}
-
-/** El item provisional: el texto entero, sin clasificar, a la espera de la IA. */
-function unclassified(text: string, origin: Origin): NewItem {
-  return { ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text };
-}
-
-/**
- * La IA, ya fuera de la captura: clasifica el texto de un provisional y guarda lo clasificado.
- * El orden es la regla cero: primero se crea todo lo clasificado y solo después se borra (en
- * blando, recuperable en la Papelera) el provisional. Si la IA falla, o si no se pudo guardar
- * nada, el provisional se queda donde estaba con `aiState: 'fallo'`.
- */
-export async function classifyPending(itemId: string, deps: CaptureDeps): Promise<CaptureResult> {
-  // Relee el item. listItems ya descarta los borrados y los que ya no están pendientes, así que
-  // un provisional que el usuario tocó antes que la IA sencillamente no aparece.
-  const pending = (await deps.items.listItems({ aiState: 'pendiente' })).find((i) => i.id === itemId);
-  if (!pending?.sourceText) return { items: [], eventIds: [] };
-  const { sourceText: text, origin } = pending;
-
-  // Fuera del try de la IA: si la base de datos no da las personas, se clasifica igual (sin la
+  // Fuera del try de la IA: si la base de datos no da las personas, la captura sigue (sin la
   // lista de nombres) y, sobre todo, el fallo no se cuenta como si fuera de la IA.
   let people: string[] = [];
   try {
@@ -152,56 +121,42 @@ export async function classifyPending(itemId: string, deps: CaptureDeps): Promis
     classified = await classify(text, { now: deps.now, tz: deps.tz ?? DEFAULT_TZ, people }, deps.ai);
   } catch (err) {
     aiError = causeMessage(err);
-    // ClassifyError (timeout, daily cap, invalid JSON) or anything else: the provisional stays.
+    // ClassifyError (timeout, daily cap, invalid JSON) or anything else: fall through to "Sin clasificar".
     // Logged (never the text) so a capture that lands in Sin clasificar says why. Con una causa
     // desconocida se añade el nombre del error, que no lleva datos dentro: los que sí podrían
     // llevarlos (JSON, esquema) ya salen clasificados como invalid_output.
     console.error('classify failed:', aiError, aiError === 'unknown' ? `(${errorName(err)})` : '');
   }
-  if (classified.length === 0) return keepProvisional(deps, pending, aiError);
+  const unclassified = (): NewItem => ({ ...textFields(text), type: 'tarea', area: null, needsReview: true, origin, sourceText: text });
+  if (classified.length === 0) {
+    return { items: [await deps.items.createItem(unclassified())], eventIds: [], ...(aiError && { aiError }) };
+  }
 
   // Each element is saved on its own: one failure does not undo or block the others.
   const out: CaptureResult = { items: [], eventIds: [] };
   let failure: unknown = null;
   for (const c of classified) {
     try {
-      await saveClassified(c, text, origin, deps, out);
+      await saveClassified(c, text, input, deps, out);
     } catch (err) {
       failure ??= err;
     }
   }
+  if (failure === null) return out;
 
-  // Something was not saved: the provisional stays, so the whole text is still there.
-  if (failure !== null) {
-    out.items.push(...(await keepProvisional(deps, pending)).items);
-    return out;
-  }
-
-  // Lo clasificado ya existe: solo ahora se retira el provisional.
+  // Something was not saved: the whole text also goes to "Sin clasificar", so nothing is lost.
   try {
-    await deps.items.softDeleteItem(itemId);
-  } catch (err) {
-    // Peor un duplicado que una pérdida: lo clasificado se queda y el provisional también.
-    console.error('softDeleteItem failed:', err instanceof Error ? err.name : 'unknown error');
+    out.items.push(await deps.items.createItem(unclassified()));
+  } catch {
+    // Keep whatever was saved; only a capture that saved nothing at all fails.
   }
+  if (out.items.length === 0 && out.eventIds.length === 0 && !out.dates?.length) throw failure;
   return out;
 }
 
-/** El provisional se queda con el texto entero, marcado como fallo para la Bandeja y el cron. */
-async function keepProvisional(deps: CaptureDeps, item: Item, aiError?: string): Promise<CaptureResult> {
-  const failed: Pick<Item, 'aiState' | 'needsReview'> = { aiState: 'fallo', needsReview: true };
-  let kept: Item;
-  try {
-    kept = await deps.items.updateItem(item.id, failed);
-  } catch (err) {
-    console.error('updateItem failed:', err instanceof Error ? err.name : 'unknown error');
-    kept = { ...item, ...failed };
-  }
-  return { items: [kept], eventIds: [], ...(aiError && { aiError }) };
-}
-
 /** Saves one classified element into `out`: a cita in Calendar, or an item. Throws if the item insert fails. */
-async function saveClassified(c: Classification, text: string, origin: Origin, deps: CaptureDeps, out: CaptureResult) {
+async function saveClassified(c: Classification, text: string, input: CaptureInput, deps: CaptureDeps, out: CaptureResult) {
+  const { origin } = input;
   const confident = c.confidence >= MIN_CONFIDENCE;
 
   if (c.kind === 'cita' && confident && c.startsAt && c.hasTime) {
