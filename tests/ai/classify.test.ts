@@ -197,6 +197,23 @@ describe('classify', () => {
   });
 });
 
+describe('classify: ubicación', () => {
+  it('saca la ubicación de una nota que la trae escrita', async () => {
+    const { ai } = fakeAi({
+      items: [{ kind: 'cita', title: 'Renovar carnet de conducir', location: 'Avinguda del Cardenal Benlloch, 4, Valencia',
+                date: '2026-11-04', time: '17:40', confidence: 0.95 }],
+    });
+    const [c] = await classify('Renovar carnet de conducir Fecha: 04-11-2026 17:40 Ubicación: Avinguda del Cardenal Benlloch, 4, Valencia', ctx, ai);
+    expect(c.location).toBe('Avinguda del Cardenal Benlloch, 4, Valencia');
+    expect(c.title).toBe('Renovar carnet de conducir');
+  });
+
+  it('no inventa ubicación cuando no se dice ninguna', async () => {
+    const { ai } = fakeAi({ items: [{ kind: 'compra', title: 'leche', confidence: 0.9 }] });
+    expect((await classify('comprar leche', ctx, ai))[0].location).toBeUndefined();
+  });
+});
+
 describe('classify: libros', () => {
   it('"quiero leer Sapiens de Harari" → libro con título y autor', async () => {
     const { ai, prompts } = fakeAi({

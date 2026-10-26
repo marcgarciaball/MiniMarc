@@ -15,6 +15,8 @@ export const modelItemSchema = z.object({
   title: z.string(),
   notes: optionalText,
   personName: optionalText,
+  /** The address or place, as said ("Avinguda del Cardenal Benlloch, 4, Valencia"). */
+  location: optionalText,
   /** libro: the author, as written ("Harari"). */
   author: optionalText,
   /** fecha: "Aniversario", "Santo", "Nos conocimos"… */
