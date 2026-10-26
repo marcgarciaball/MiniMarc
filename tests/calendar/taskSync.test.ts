@@ -70,6 +70,8 @@ function task(overrides: Partial<Item> = {}): Item {
     linkTitle: null,
     linkImage: null,
     linkSite: null,
+    location: null,
+    aiState: null,
     createdAt: '2026-10-21T10:00:00.000Z',
     deletedAt: null,
     ...overrides,

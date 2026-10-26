@@ -41,6 +41,8 @@ function item(over: Partial<Item>): Item {
     linkTitle: null,
     linkImage: null,
     linkSite: null,
+    location: null,
+    aiState: null,
     createdAt: '2026-10-01T00:00:00Z',
     deletedAt: null,
     ...over,

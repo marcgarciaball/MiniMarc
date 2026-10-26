@@ -257,3 +257,17 @@ describe('items repo: libros', () => {
     expect(backend.tables.items[0]).not.toHaveProperty('link');
   });
 });
+
+describe('items repo: ubicación y clasificación diferida', () => {
+  it('guarda la ubicación y el estado de la IA, y sin ellos no escribe las columnas', async () => {
+    const backend = createMemoryBackend({ now: () => now });
+    const repo = createItemsRepo(backend, { now: () => now });
+    const plain = await repo.createItem({ type: 'tarea', title: 'Algo' });
+    expect(plain).toMatchObject({ location: null, aiState: null });
+    expect(backend.tables.items[0]).not.toHaveProperty('location');
+    expect(backend.tables.items[0]).not.toHaveProperty('ai_state');
+    const placed = await repo.createItem({ type: 'tarea', title: 'Cita', location: 'Calle Mayor 5', aiState: 'pendiente' });
+    expect(placed).toMatchObject({ location: 'Calle Mayor 5', aiState: 'pendiente' });
+    expect(backend.tables.items[1]).toMatchObject({ location: 'Calle Mayor 5', ai_state: 'pendiente' });
+  });
+});

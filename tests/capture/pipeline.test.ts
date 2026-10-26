@@ -4,7 +4,7 @@ import type { AiProvider } from '@/lib/ai/provider';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type TimedEventInput } from '@/lib/calendar/client';
 import { captureMessage } from '@/lib/capture/handler';
 import { ClassifyError } from '@/lib/ai/classify';
-import { captureText, causeMessage, EmptyCaptureError, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
+import { captureText, causeMessage, EmptyCaptureError, locationField, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
 import { createItemsRepo, type ItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
@@ -16,6 +16,7 @@ type ModelItem = {
   yearKnown?: boolean | null;
   title: string;
   notes?: string | null;
+  location?: string | null;
   personName?: string | null;
   date?: string | null;
   time?: string | null;
@@ -741,5 +742,22 @@ describe('un fallo de la base de datos no se le echa a la IA', () => {
     expect(res.aiError).toBeUndefined();
     expect(res.items[0]).toMatchObject({ type: 'compra', title: 'Leche', needsReview: false });
     expect(prompts[0]).toContain('(ninguna)');
+  });
+});
+
+describe('captureText: ubicación', () => {
+  it('guarda la ubicación clasificada en el item', async () => {
+    const { deps } = setup(
+      aiReturning([{ kind: 'tarea', title: 'Revisión del coche', location: 'Taller Pérez, Calle Mayor 5', confidence: 0.9 }]).ai,
+      fakeCalendar(),
+    );
+    const res = await captureText({ text: 'revisión del coche en el Taller Pérez, Calle Mayor 5', origin: 'siri' }, deps);
+    expect(res.items[0].location).toBe('Taller Pérez, Calle Mayor 5');
+  });
+
+  it('recorta una ubicación larguísima a TITLE_MAX y aplana los saltos de línea', () => {
+    expect(locationField('a\nb')).toBe('a b');
+    expect(locationField('x'.repeat(300))!.length).toBe(TITLE_MAX);
+    expect(locationField('  \n ')).toBeNull();
   });
 });

@@ -227,6 +227,11 @@ export function textFields(text: string): Pick<NewItem, 'title' | 'notes'> {
   return { title: `${text.slice(0, TITLE_MAX - 1).trimEnd()}…`, notes: text };
 }
 
+/** Ubicación de la nota en una sola línea (max 200 chars); null si queda vacía. */
+export function locationField(s: string): string | null {
+  return s.replace(/\s+/g, ' ').trim().slice(0, TITLE_MAX).trimEnd() || null;
+}
+
 function fromClassification(c: Classification, origin: Origin): NewItem & { type: ItemType } {
   // A cita that does not end up in Calendar is kept as a task with its date; a doubtful fecha
   // goes to Sin clasificar as a task too.
@@ -244,6 +249,8 @@ function fromClassification(c: Classification, origin: Origin): NewItem & { type
   };
   // A book starts as "por leer" (the repo's default); its author is kept for the future search.
   if (type === 'libro' && c.author) item.author = c.author.slice(0, TITLE_MAX);
+  const location = c.location ? locationField(c.location) : null;
+  if (location) item.location = location;
   return item;
 }
 

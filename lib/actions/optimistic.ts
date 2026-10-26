@@ -69,6 +69,8 @@ export function draftItem(fd: FormData, n: number, now: Date): Item | null {
     linkTitle: null,
     linkImage: null,
     linkSite: null,
+    location: null,
+    aiState: null,
     createdAt: now.toISOString(),
     deletedAt: null,
     ...fields,

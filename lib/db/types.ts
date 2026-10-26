@@ -37,6 +37,10 @@ export interface Item {
   linkImage: string | null;
   /** Set on every preview attempt (the domain when the page gives no site name); null = not fetched yet. */
   linkSite: string | null;
+  /** Dirección o sitio de la nota (0010); va al campo Ubicación del evento de Calendar. */
+  location: string | null;
+  /** Clasificación diferida (0010): 'pendiente' = la IA aún no la ha visto, 'fallo' = falló; null = nada que hacer. */
+  aiState: 'pendiente' | 'fallo' | null;
   createdAt: string;
   deletedAt: string | null;
 }

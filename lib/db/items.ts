@@ -50,6 +50,8 @@ const COLUMNS = {
   linkTitle: 'link_title',
   linkImage: 'link_image',
   linkSite: 'link_site',
+  location: 'location',
+  aiState: 'ai_state',
   createdAt: 'created_at',
   deletedAt: 'deleted_at',
 } as const satisfies Record<keyof Item, string>;
@@ -74,10 +76,10 @@ export function itemToRow(item: Partial<Item>): Row {
 }
 
 /**
- * Columns added by 0008 and 0009: left out of an insert while they are null, so the app works
+ * Columns added by 0008, 0009 and 0010: left out of an insert while they are null, so the app works
  * before those migrations are applied.
  */
-const OPTIONAL_FIELDS = ['author', 'readingState', 'link', 'linkTitle', 'linkImage', 'linkSite'] as const;
+const OPTIONAL_FIELDS = ['author', 'readingState', 'link', 'linkTitle', 'linkImage', 'linkSite', 'location', 'aiState'] as const;
 
 function withoutEmptyOptionalFields(item: Partial<Item>): Partial<Item> {
   const out = { ...item };
@@ -112,6 +114,8 @@ export function createItemsRepo(
         linkTitle: null,
         linkImage: null,
         linkSite: null,
+        location: null,
+        aiState: null,
         ...input,
       };
       // No link of its own but a URL in the title or notes: that URL is the link.

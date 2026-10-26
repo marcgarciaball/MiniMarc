@@ -60,6 +60,8 @@ export const CSV_COLUMNS = [
   'linkTitle',
   'linkImage',
   'linkSite',
+  'location',
+  'aiState',
   'createdAt',
   'deletedAt',
 ] as const satisfies readonly (keyof Item)[];
