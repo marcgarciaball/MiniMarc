@@ -1,10 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ZodType } from 'zod';
 import type { AiProvider } from '@/lib/ai/provider';
 import { CalendarError, createCalendarClient, type CalendarApi, type CalendarGateway, type TimedEventInput } from '@/lib/calendar/client';
 import { captureMessage } from '@/lib/capture/handler';
 import { ClassifyError } from '@/lib/ai/classify';
-import { captureText, causeMessage, EmptyCaptureError, locationField, TITLE_MAX, type CaptureDeps } from '@/lib/capture/pipeline';
+import {
+  captureText,
+  causeMessage,
+  classifyPending,
+  EmptyCaptureError,
+  locationField,
+  TITLE_MAX,
+  type CaptureDeps,
+  type CaptureInput,
+  type CaptureResult,
+} from '@/lib/capture/pipeline';
 import { createItemsRepo, type ItemsRepo } from '@/lib/db/items';
 import { createMemoryBackend } from '@/lib/db/memory';
 import { createPeopleRepo } from '@/lib/db/people';
@@ -128,6 +138,15 @@ function failingOn(items: ItemsRepo, calls: number[]): ItemsRepo {
   };
 }
 
+/**
+ * Captura y clasifica, como hará after(): la captura guarda el provisional y responde, y la IA
+ * pasa justo después. Devuelve el resultado de la clasificación.
+ */
+async function capture(input: CaptureInput, deps: CaptureDeps): Promise<CaptureResult> {
+  const res = await captureText(input, deps);
+  return res.pending ? classifyPending(res.items[0].id, deps) : res;
+}
+
 describe('captureText: entrada vacía', () => {
   it('texto vacío o solo espacios lanza EmptyCaptureError y no guarda nada', async () => {
     const { ai, calls } = aiForbidden();
@@ -182,7 +201,7 @@ describe('captureText: fallo de la IA → Sin clasificar', () => {
     ['red', new TypeError('fetch failed')],
   ])('%s: guarda el texto original con needsReview', async (_name, err) => {
     const { db, deps } = setup(aiThrowing(err));
-    const res = await captureText({ text: 'llamar al fontanero', origin: 'siri' }, deps);
+    const res = await capture({ text: 'llamar al fontanero', origin: 'siri' }, deps);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({
       type: 'tarea',
@@ -204,13 +223,13 @@ describe('captureText: fallo de la IA → Sin clasificar', () => {
       },
     };
     const { deps } = setup(ai);
-    const res = await captureText({ text: 'algo raro', origin: 'web' }, deps);
+    const res = await capture({ text: 'algo raro', origin: 'web' }, deps);
     expect(res.items[0]).toMatchObject({ title: 'algo raro', needsReview: true, area: null, type: 'tarea' });
   });
 
   it('la IA no devuelve nada útil → Sin clasificar (nunca se pierde)', async () => {
     const { deps } = setup(aiReturning([{ kind: 'idea', title: '   ', confidence: 0.9 }]).ai);
-    const res = await captureText({ text: 'mmm', origin: 'siri' }, deps);
+    const res = await capture({ text: 'mmm', origin: 'siri' }, deps);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({ title: 'mmm', needsReview: true });
   });
@@ -221,14 +240,14 @@ describe('captureText: clasificación', () => {
     const { ai, prompts } = aiReturning([{ kind: 'idea', title: 'Algo', confidence: 0.9 }]);
     const { deps, people } = setup(ai);
     await people.upsertPersonByName('Ainhoa');
-    await captureText({ text: 'algo', origin: 'siri' }, deps);
+    await capture({ text: 'algo', origin: 'siri' }, deps);
     expect(prompts[0]).toContain('Ainhoa');
     expect(prompts[0]).toContain('2026-10-21 10:00');
   });
 
   it('confianza < 0.6 → needsReview, conservando el tipo y los campos que propuso la IA', async () => {
     const { deps } = setup(aiReturning([{ kind: 'compra', title: 'Pilas', notes: 'AA', confidence: 0.4 }]).ai);
-    const [item] = (await captureText({ text: 'pilas AA', origin: 'siri' }, deps)).items;
+    const [item] = (await capture({ text: 'pilas AA', origin: 'siri' }, deps)).items;
     expect(item).toMatchObject({ type: 'compra', title: 'Pilas', notes: 'AA', needsReview: true, confidence: 0.4 });
   });
 
@@ -240,7 +259,7 @@ describe('captureText: clasificación', () => {
         { kind: 'idea', title: 'App de recetas', confidence: 0.6 },
       ]).ai,
     );
-    const res = await captureText({ text: 'llamar a mamá, comprar leche y idea: app de recetas', origin: 'siri' }, deps);
+    const res = await capture({ text: 'llamar a mamá, comprar leche y idea: app de recetas', origin: 'siri' }, deps);
     expect(res.items.map((i) => [i.type, i.title, i.area, i.needsReview])).toEqual([
       ['tarea', 'Llamar a mamá', 'personal', false],
       ['compra', 'Leche', null, false],
@@ -252,7 +271,7 @@ describe('captureText: clasificación', () => {
   it('una tarea con fecha sin hora guarda la fecha y no crea evento', async () => {
     const cal = fakeCalendar();
     const { deps } = setup(aiReturning([{ kind: 'tarea', title: 'Pagar IBI', date: '2026-10-23', confidence: 0.9 }]).ai, cal);
-    const [item] = (await captureText({ text: 'pagar el IBI el viernes', origin: 'siri' }, deps)).items;
+    const [item] = (await capture({ text: 'pagar el IBI el viernes', origin: 'siri' }, deps)).items;
     expect(item).toMatchObject({ dueAt: '2026-10-22T22:00:00.000Z', hasTime: false, calendarEventId: null });
     expect(cal.created).toHaveLength(0);
   });
@@ -261,7 +280,7 @@ describe('captureText: clasificación', () => {
     const { deps, people } = setup(
       aiReturning([{ kind: 'regalo', title: 'Pañuelo', personName: 'mamá', confidence: 0.9 }]).ai,
     );
-    const [item] = (await captureText({ text: 'regalo para mamá: pañuelo', origin: 'siri' }, deps)).items;
+    const [item] = (await capture({ text: 'regalo para mamá: pañuelo', origin: 'siri' }, deps)).items;
     const all = await people.listPeople();
     expect(all.map((p) => p.name)).toEqual(['mamá']);
     expect(item).toMatchObject({ type: 'regalo', title: 'Pañuelo', personId: all[0].id });
@@ -272,7 +291,7 @@ describe('captureText: clasificación', () => {
       aiReturning([{ kind: 'regalo', title: 'Libro', personName: 'Mamá', confidence: 0.9 }]).ai,
     );
     const mama = await people.upsertPersonByName('mamá');
-    const [item] = (await captureText({ text: 'regalo para mamá: libro', origin: 'siri' }, deps)).items;
+    const [item] = (await capture({ text: 'regalo para mamá: libro', origin: 'siri' }, deps)).items;
     expect(await people.listPeople()).toHaveLength(1);
     expect(item.personId).toBe(mama.id);
   });
@@ -283,13 +302,14 @@ describe('captureText: citas', () => {
 
   it('crea el evento en el calendario principal y no crea fila en items', async () => {
     const cal = fakeCalendar();
-    const { db, deps } = setup(aiReturning([cita]).ai, cal);
-    const res = await captureText({ text: 'dentista mañana a las 5 de la tarde', origin: 'siri' }, deps);
+    const { deps } = setup(aiReturning([cita]).ai, cal);
+    const res = await capture({ text: 'dentista mañana a las 5 de la tarde', origin: 'siri' }, deps);
     expect(res).toEqual({ items: [], eventIds: ['ev-1'] });
     expect(cal.created).toEqual([
       { calendarId: 'primary', e: { title: 'Dentista', startsAt: new Date('2026-10-22T15:00:00.000Z') } },
     ]);
-    expect(db.tables.items).toHaveLength(0);
+    // Solo queda la cita en Calendar: el provisional se retiró al guardarla.
+    expect(await deps.items.listItems()).toEqual([]);
   });
 
   it('llega a Google con avisos popup de 180 y 60 minutos', async () => {
@@ -304,7 +324,7 @@ describe('captureText: citas', () => {
     } as unknown as CalendarApi;
     const { deps } = setup(aiReturning([cita]).ai);
     deps.calendar = async () => createCalendarClient(null, { api });
-    expect((await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, deps)).eventIds).toEqual(['g-1']);
+    expect((await capture({ text: 'dentista mañana a las 5', origin: 'siri' }, deps)).eventIds).toEqual(['g-1']);
     expect(inserts[0].calendarId).toBe('primary');
     expect((inserts[0].requestBody as { reminders: unknown }).reminders).toEqual({
       useDefault: false,
@@ -320,8 +340,8 @@ describe('captureText: citas', () => {
     ['sin refresh token', { loadError: new CalendarError('auth', 'No refresh token stored') }, 'calendar_auth'],
     ['Calendar caído', { createError: Object.assign(new Error('Backend Error'), { status: 503 }) }, 'calendar_unavailable'],
   ])('%s → guarda el elemento con syncError y no pierde el texto', async (_n, opts, code) => {
-    const { db, deps } = setup(aiReturning([{ ...cita, notes: 'Llevar informe' }]).ai, fakeCalendar(opts));
-    const res = await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, deps);
+    const { deps } = setup(aiReturning([{ ...cita, notes: 'Llevar informe' }]).ai, fakeCalendar(opts));
+    const res = await capture({ text: 'dentista mañana a las 5', origin: 'siri' }, deps);
     expect(res.eventIds).toEqual([]);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({
@@ -333,13 +353,13 @@ describe('captureText: citas', () => {
       hasTime: true,
       syncError: code,
     });
-    expect(db.tables.items).toHaveLength(1);
+    expect(await deps.items.listItems()).toHaveLength(1);
   });
 
   it('una cita con confianza baja no va a Calendar: queda en Sin clasificar con su fecha', async () => {
     const cal = fakeCalendar();
     const { deps } = setup(aiReturning([{ ...cita, confidence: 0.5 }]).ai, cal);
-    const res = await captureText({ text: 'dentista mañana a las 5?', origin: 'siri' }, deps);
+    const res = await capture({ text: 'dentista mañana a las 5?', origin: 'siri' }, deps);
     expect(cal.created).toHaveLength(0);
     expect(res.eventIds).toEqual([]);
     expect(res.items[0]).toMatchObject({
@@ -360,7 +380,7 @@ describe('captureText: citas', () => {
       cal,
       sat,
     );
-    await captureText({ text: 'pádel mañana a las 9', origin: 'siri' }, deps);
+    await capture({ text: 'pádel mañana a las 9', origin: 'siri' }, deps);
     expect(cal.created[0].e.startsAt).toEqual(new Date('2026-10-25T08:00:00.000Z'));
   });
 
@@ -372,7 +392,7 @@ describe('captureText: citas', () => {
       cal,
       sun10,
     );
-    const res = await captureText({ text: 'pádel hoy a las 9', origin: 'siri' }, deps);
+    const res = await capture({ text: 'pádel hoy a las 9', origin: 'siri' }, deps);
     expect(cal.created).toHaveLength(0);
     expect(res.items[0]).toMatchObject({ needsReview: true, confidence: 0, dueAt: '2026-10-25T08:00:00.000Z' });
   });
@@ -385,7 +405,7 @@ describe('captureText: tareas con hora', () => {
       aiReturning([{ kind: 'tarea', title: 'Llamar al gestor', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
       cal,
     );
-    const res = await captureText({ text: 'llamar al gestor mañana a las 5', origin: 'siri' }, deps);
+    const res = await capture({ text: 'llamar al gestor mañana a las 5', origin: 'siri' }, deps);
     expect(cal.created).toEqual([
       expect.objectContaining({ calendarId: 'tareas-id', e: expect.objectContaining({ title: 'Llamar al gestor' }) }),
     ]);
@@ -400,7 +420,7 @@ describe('captureText: tareas con hora', () => {
       aiReturning([{ kind: 'tarea', title: 'Llamar al gestor', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
       cal,
     );
-    const res = await captureText({ text: 'llamar al gestor mañana a las 5', origin: 'siri' }, deps);
+    const res = await capture({ text: 'llamar al gestor mañana a las 5', origin: 'siri' }, deps);
     expect(res.items[0]).toMatchObject({ needsReview: false, calendarEventId: null, syncError: 'calendar_auth' });
   });
 });
@@ -415,17 +435,17 @@ describe('captureText: texto original (I-2)', () => {
         { kind: 'idea', title: 'App de recetas', confidence: 0.4 },
       ]).ai,
     );
-    const res = await captureText({ text: `  ${text} `, origin: 'siri' }, deps);
+    const res = await capture({ text: `  ${text} `, origin: 'siri' }, deps);
     expect(res.items.map((i) => i.sourceText)).toEqual([text, text, text]);
   });
 
   it('también en Trabajo, en Sin clasificar y en una cita que Calendar no aceptó', async () => {
     const work = setup(aiForbidden().ai);
-    const [w] = (await captureText({ text: 'informe Acme', area: 'trabajo', origin: 'siri' }, work.deps)).items;
+    const [w] = (await capture({ text: 'informe Acme', area: 'trabajo', origin: 'siri' }, work.deps)).items;
     expect(w.sourceText).toBe('informe Acme');
 
     const failed = setup(aiThrowing());
-    const [f] = (await captureText({ text: 'algo raro', origin: 'siri' }, failed.deps)).items;
+    const [f] = (await capture({ text: 'algo raro', origin: 'siri' }, failed.deps)).items;
     expect(f.sourceText).toBe('algo raro');
 
     const cal = fakeCalendar({ createError: Object.assign(new Error('Backend Error'), { status: 503 }) });
@@ -433,7 +453,7 @@ describe('captureText: texto original (I-2)', () => {
       aiReturning([{ kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
       cal,
     );
-    const [c] = (await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, cita.deps)).items;
+    const [c] = (await capture({ text: 'dentista mañana a las 5', origin: 'siri' }, cita.deps)).items;
     expect(c.sourceText).toBe('dentista mañana a las 5');
   });
 });
@@ -446,15 +466,16 @@ describe('captureText: fallo parcial (I-1)', () => {
   ];
   const text = 'comprar leche, llamar a mamá e idea: app de recetas';
 
-  it('si falla un elemento, guarda los demás y además el texto entero en Sin clasificar', async () => {
+  it('si falla un elemento, guarda los demás y el provisional se queda con el texto entero', async () => {
     const { db, deps } = setup(aiReturning(three).ai);
-    const res = await captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [2]) });
+    // La 1ª creación es el provisional; falla la de "Llamar a mamá".
+    const res = await capture({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [3]) });
     expect(res.items.map((i) => [i.type, i.title, i.needsReview])).toEqual([
       ['compra', 'Leche', false],
       ['idea', 'App de recetas', false],
       ['tarea', text, true],
     ]);
-    expect(res.items[2]).toMatchObject({ area: null, sourceText: text, origin: 'siri' });
+    expect(res.items[2]).toMatchObject({ area: null, sourceText: text, origin: 'siri', aiState: 'fallo' });
     expect(db.tables.items).toHaveLength(3);
   });
 
@@ -467,9 +488,9 @@ describe('captureText: fallo parcial (I-1)', () => {
       ]).ai,
       cal,
     );
-    const res = await captureText({ text: 'dentista mañana a las 5 y comprar leche', origin: 'siri' }, {
+    const res = await capture({ text: 'dentista mañana a las 5 y comprar leche', origin: 'siri' }, {
       ...deps,
-      items: failingOn(deps.items, [1]),
+      items: failingOn(deps.items, [2]),
     });
     expect(res.eventIds).toEqual(['ev-1']);
     expect(res.items).toHaveLength(1);
@@ -487,37 +508,42 @@ describe('captureText: fallo parcial (I-1)', () => {
       cal,
     );
     const input = { text: 'dentista mañana a las 5, comprar leche e idea: app', origin: 'siri' as const };
-    const first = await captureText(input, { ...deps, items: failingOn(deps.items, [2]) });
+    const first = await capture(input, { ...deps, items: failingOn(deps.items, [2]) });
     expect(first.items).toHaveLength(2);
-    const retry = await captureText(input, at(20_000));
+    const retry = await capture(input, at(20_000));
     expect(cal.created).toHaveLength(1);
     expect(db.tables.items).toHaveLength(2);
     expect(retry.items.map((i) => i.id).sort()).toEqual(first.items.map((i) => i.id).sort());
   });
 
-  it('si no se guarda nada en absoluto, lanza (el endpoint responde 500)', async () => {
+  it('si ni siquiera se puede guardar el texto, lanza (el endpoint responde 500)', async () => {
     const { db, deps } = setup(aiReturning(three).ai);
     await expect(
-      captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [1, 2, 3, 4]) }),
+      captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [1]) }),
     ).rejects.toThrow('db down');
     expect(db.tables.items).toHaveLength(0);
   });
 
-  it('si falla un elemento y también el Sin clasificar, devuelve lo que sí se guardó', async () => {
+  it('si falla un elemento y además marcar el provisional, devuelve lo que sí se guardó', async () => {
     const { deps } = setup(aiReturning(three).ai);
-    const res = await captureText({ text, origin: 'siri' }, { ...deps, items: failingOn(deps.items, [2, 4]) });
-    expect(res.items.map((i) => i.title)).toEqual(['Leche', 'App de recetas']);
+    const items: ItemsRepo = {
+      ...failingOn(deps.items, [3]),
+      updateItem: async () => Promise.reject(new Error('db down')),
+    };
+    const res = await capture({ text, origin: 'siri' }, { ...deps, items });
+    expect(res.items.map((i) => i.title)).toEqual(['Leche', 'App de recetas', text]);
+    expect(res.items[2]).toMatchObject({ aiState: 'fallo', needsReview: true, sourceText: text });
   });
 });
 
 describe('captureText: duplicados (en la base de datos)', () => {
   it('el mismo texto normalizado en < 30 s devuelve lo guardado y no crea nada ni llama a la IA', async () => {
     const { ai, prompts } = aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]);
-    const { db, deps, at } = setup(ai);
-    const first = await captureText({ text: 'Comprar leche', origin: 'siri' }, deps);
+    const { deps, at } = setup(ai);
+    const first = await capture({ text: 'Comprar leche', origin: 'siri' }, deps);
     const again = await captureText({ text: '  comprar   LECHE ', origin: 'siri' }, at(29_000));
     expect(again).toEqual(first);
-    expect(db.tables.items).toHaveLength(1);
+    expect(await deps.items.listItems()).toHaveLength(1);
     expect(prompts).toHaveLength(1);
   });
 
@@ -537,12 +563,12 @@ describe('captureText: duplicados (en la base de datos)', () => {
   });
 
   it('el mismo texto con otra área no es un duplicado', async () => {
-    const { db, deps } = setup(aiReturning([{ kind: 'tarea', title: 'Informe', confidence: 0.9 }]).ai);
-    await captureText({ text: 'informe', origin: 'siri' }, deps);
-    await captureText({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
-    await captureText({ text: 'informe', origin: 'siri' }, deps);
-    await captureText({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
-    expect(db.tables.items.map((r) => r.area)).toEqual(['personal', 'trabajo']);
+    const { deps } = setup(aiReturning([{ kind: 'tarea', title: 'Informe', confidence: 0.9 }]).ai);
+    await capture({ text: 'informe', origin: 'siri' }, deps);
+    await capture({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
+    await capture({ text: 'informe', origin: 'siri' }, deps);
+    await capture({ text: 'informe', area: 'trabajo', origin: 'siri' }, deps);
+    expect((await deps.items.listItems()).map((i) => i.area)).toEqual(['personal', 'trabajo']);
   });
 
   it('un elemento ya eliminado no cuenta como duplicado', async () => {
@@ -593,10 +619,10 @@ describe('captureText: fechas especiales', () => {
     const { db, deps, people } = setup(aiReturning([aniversario]).ai);
     await people.upsertPersonByName('ainhoa');
 
-    const res = await captureText({ text: TEXT, origin: 'siri' }, deps);
+    const res = await capture({ text: TEXT, origin: 'siri' }, deps);
 
     expect(res.items).toEqual([]);
-    expect(db.tables.items).toHaveLength(0);
+    expect(await deps.items.listItems()).toEqual([]);
     expect(db.tables.people).toHaveLength(1);
     const [ainhoa] = await people.listPeople();
     expect(await people.listDates(ainhoa.id)).toMatchObject([
@@ -608,8 +634,8 @@ describe('captureText: fechas especiales', () => {
 
   it('un reintento no duplica la fecha', async () => {
     const { db, deps } = setup(aiReturning([aniversario]).ai);
-    await captureText({ text: TEXT, origin: 'siri' }, deps);
-    await captureText({ text: TEXT, origin: 'siri' }, deps);
+    await capture({ text: TEXT, origin: 'siri' }, deps);
+    await capture({ text: TEXT, origin: 'siri' }, deps);
     expect(db.tables.person_dates).toHaveLength(1);
   });
 
@@ -617,14 +643,14 @@ describe('captureText: fechas especiales', () => {
     const { db, deps, people } = setup(
       aiReturning([{ kind: 'fecha', title: 'Cumple de Eva', personName: 'Eva', label: 'Cumpleaños', date: '1990-05-03', yearKnown: true, confidence: 0.9 }]).ai,
     );
-    await captureText({ text: 'Eva nació el 3 de mayo de 1990', origin: 'siri' }, deps);
+    await capture({ text: 'Eva nació el 3 de mayo de 1990', origin: 'siri' }, deps);
     expect(db.tables.person_dates).toHaveLength(0);
     expect((await people.listPeople())[0]).toMatchObject({ name: 'Eva', birthday: '1990-05-03' });
   });
 
   it('con poca confianza va a Sin clasificar y no crea persona ni fecha', async () => {
     const { db, deps } = setup(aiReturning([{ ...aniversario, confidence: 0.4 }]).ai);
-    const res = await captureText({ text: TEXT, origin: 'siri' }, deps);
+    const res = await capture({ text: TEXT, origin: 'siri' }, deps);
     expect(db.tables.person_dates).toHaveLength(0);
     expect(db.tables.people).toHaveLength(0);
     expect(res.items).toHaveLength(1);
@@ -634,7 +660,7 @@ describe('captureText: fechas especiales', () => {
   it('si guardar la fecha falla, el texto va a Sin clasificar', async () => {
     const { db, deps } = setup(aiReturning([aniversario]).ai);
     const people = { ...deps.people, addDate: async () => Promise.reject(new Error('db down')) };
-    const res = await captureText({ text: TEXT, origin: 'siri' }, { ...deps, people });
+    const res = await capture({ text: TEXT, origin: 'siri' }, { ...deps, people });
     expect(db.tables.person_dates).toHaveLength(0);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({ needsReview: true, title: TEXT });
@@ -648,7 +674,7 @@ describe('captureText: libros', () => {
       aiReturning([{ kind: 'libro', title: 'Sapiens', author: 'Harari', confidence: 0.9 }]).ai,
       cal,
     );
-    const res = await captureText({ text: 'quiero leer Sapiens de Harari', origin: 'siri' }, deps);
+    const res = await capture({ text: 'quiero leer Sapiens de Harari', origin: 'siri' }, deps);
     expect(res.items).toHaveLength(1);
     expect(res.items[0]).toMatchObject({
       type: 'libro',
@@ -666,7 +692,7 @@ describe('captureText: libros', () => {
 
   it('un libro con confianza baja va a Sin clasificar, conservando el autor', async () => {
     const { deps } = setup(aiReturning([{ kind: 'libro', title: 'Dune', author: 'Herbert', confidence: 0.3 }]).ai);
-    const [item] = (await captureText({ text: 'dune herbert', origin: 'web' }, deps)).items;
+    const [item] = (await capture({ text: 'dune herbert', origin: 'web' }, deps)).items;
     expect(item).toMatchObject({ type: 'libro', author: 'Herbert', needsReview: true });
   });
 });
@@ -711,21 +737,21 @@ describe('cuando la IA falla, la captura dice por qué', () => {
     ['cualquier otra cosa', new TypeError('fetch failed'), 'la IA no ha respondido'],
   ])('%s', async (_name, err, expected) => {
     const { deps } = setup(aiThrowing(err));
-    const res = await captureText({ text: 'llamar al fontanero', origin: 'web' }, deps);
+    const res = await capture({ text: 'llamar al fontanero', origin: 'web' }, deps);
     expect(res.items[0]).toMatchObject({ needsReview: true, title: 'llamar al fontanero' });
     expect(captureMessage(res)).toBe(`Guardado en Sin clasificar: ${expected}`);
   });
 
   it('una captura que sí se clasifica no arrastra ningún motivo', async () => {
     const { deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
-    const res = await captureText({ text: 'comprar leche', origin: 'web' }, deps);
+    const res = await capture({ text: 'comprar leche', origin: 'web' }, deps);
     expect(res.aiError).toBeUndefined();
     expect(captureMessage(res)).toBe('Guardado en Compras');
   });
 
   it('Trabajo no pasa por la IA: nunca puede traer un motivo', async () => {
     const { deps } = setup(aiThrowing(new Error('Falta GEMINI_API_KEY')));
-    const res = await captureText({ text: 'informe', area: 'trabajo', origin: 'web' }, deps);
+    const res = await capture({ text: 'informe', area: 'trabajo', origin: 'web' }, deps);
     expect(res.aiError).toBeUndefined();
     expect(captureMessage(res)).toBe('Guardado en Tareas · Trabajo');
   });
@@ -737,7 +763,7 @@ describe('un fallo de la base de datos no se le echa a la IA', () => {
     const { deps } = setup(ai);
     deps.people = { ...deps.people, listPeople: async () => { throw new Error('db down'); } };
 
-    const res = await captureText({ text: 'comprar leche', origin: 'web' }, deps);
+    const res = await capture({ text: 'comprar leche', origin: 'web' }, deps);
 
     expect(res.aiError).toBeUndefined();
     expect(res.items[0]).toMatchObject({ type: 'compra', title: 'Leche', needsReview: false });
@@ -751,7 +777,7 @@ describe('captureText: ubicación', () => {
       aiReturning([{ kind: 'tarea', title: 'Revisión del coche', location: 'Taller Pérez, Calle Mayor 5', confidence: 0.9 }]).ai,
       fakeCalendar(),
     );
-    const res = await captureText({ text: 'revisión del coche en el Taller Pérez, Calle Mayor 5', origin: 'siri' }, deps);
+    const res = await capture({ text: 'revisión del coche en el Taller Pérez, Calle Mayor 5', origin: 'siri' }, deps);
     expect(res.items[0].location).toBe('Taller Pérez, Calle Mayor 5');
   });
 
@@ -763,7 +789,7 @@ describe('captureText: ubicación', () => {
       ]).ai,
       cal,
     );
-    await captureText({ text: 'dentista mañana a las 5 en la Clínica Dental, Gran Vía 10', origin: 'siri' }, deps);
+    await capture({ text: 'dentista mañana a las 5 en la Clínica Dental, Gran Vía 10', origin: 'siri' }, deps);
     expect(cal.created[0].e.location).toBe('Clínica Dental, Gran Vía 10');
   });
 
@@ -781,7 +807,7 @@ describe('captureText: ubicación', () => {
       aiReturning([{ kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
     );
     deps.calendar = async () => createCalendarClient(null, { api });
-    await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, deps);
+    await capture({ text: 'dentista mañana a las 5', origin: 'siri' }, deps);
     expect('location' in (inserts[0].requestBody as object)).toBe(false);
   });
 
@@ -789,5 +815,99 @@ describe('captureText: ubicación', () => {
     expect(locationField('a\nb')).toBe('a b');
     expect(locationField('x'.repeat(300))!.length).toBe(TITLE_MAX);
     expect(locationField('  \n ')).toBeNull();
+  });
+});
+
+describe('captureText: la IA pasa después (classifyPending)', () => {
+  it('la captura responde sin llamar a la IA', async () => {
+    const generateJson = vi.fn();
+    const ai = { generateJson, generateText: vi.fn() } as unknown as AiProvider;
+    const { deps } = setup(ai);
+    const r = await captureText({ text: 'Renovar carnet…', origin: 'web' }, deps);
+    expect(generateJson).not.toHaveBeenCalled();
+    expect(r.pending).toBe(true);
+    expect(r.items[0].sourceText).toBe('Renovar carnet…');
+    expect(r.items[0].aiState).toBe('pendiente');
+  });
+
+  it('clasificar después sustituye el provisional por lo clasificado', async () => {
+    const { deps, items } = setup(
+      aiReturning([
+        { kind: 'compra', title: 'leche', confidence: 0.9 },
+        { kind: 'tarea', title: 'Llamar a mamá', confidence: 0.9 },
+      ]).ai,
+    );
+    const { items: captured } = await captureText({ text: 'comprar leche y llamar a mamá', origin: 'web' }, deps);
+    await classifyPending(captured[0].id, deps);
+    const left = await deps.items.listItems({ status: 'pendiente' });
+    expect(left.map((i) => i.title)).toEqual(['leche', 'Llamar a mamá']);
+    // El provisional se borra en blando: sigue recuperable en la Papelera.
+    expect((await items.listDeleted(30)).map((i) => i.id)).toEqual([captured[0].id]);
+  });
+
+  it('un fallo de la IA deja el provisional con aiState fallo y el texto entero', async () => {
+    const { deps, items } = setup(aiThrowing(new Error('Tiempo de espera agotado')));
+    const { items: captured } = await captureText({ text: 'llamar al fontanero', origin: 'web' }, deps);
+    const res = await classifyPending(captured[0].id, deps);
+
+    expect(res.aiError).toBe('timeout');
+    const left = await items.listItems();
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatchObject({
+      id: captured[0].id,
+      title: 'llamar al fontanero',
+      sourceText: 'llamar al fontanero',
+      aiState: 'fallo',
+      needsReview: true,
+    });
+  });
+
+  it('si no se pudo guardar nada, el provisional sobrevive', async () => {
+    const { deps, items } = setup(
+      aiReturning([
+        { kind: 'compra', title: 'Leche', confidence: 0.9 },
+        { kind: 'idea', title: 'App de recetas', confidence: 0.9 },
+      ]).ai,
+    );
+    // La 1ª creación es el provisional; las dos siguientes (lo clasificado) fallan.
+    const broken: CaptureDeps = { ...deps, items: failingOn(deps.items, [2, 3]) };
+    const { items: captured } = await captureText({ text: 'comprar leche e idea: app de recetas', origin: 'web' }, broken);
+    await classifyPending(captured[0].id, broken);
+
+    const left = await items.listItems();
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatchObject({
+      id: captured[0].id,
+      title: 'comprar leche e idea: app de recetas',
+      aiState: 'fallo',
+      needsReview: true,
+    });
+  });
+
+  it('una captura repetida a los 5 s devuelve el provisional, no crea otro', async () => {
+    const { db, deps, at } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const first = await captureText({ text: 'Comprar leche', origin: 'siri' }, deps);
+    const retry = await captureText({ text: '  comprar   LECHE ', origin: 'siri' }, at(5_000));
+    expect(retry.items.map((i) => i.id)).toEqual(first.items.map((i) => i.id));
+    expect(retry.pending).toBe(true);
+    expect(db.tables.items).toHaveLength(1);
+  });
+
+  it('no toca un provisional que el usuario borró o ya revisó', async () => {
+    const { deps } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]).ai);
+    const { items } = await captureText({ text: 'algo', origin: 'web' }, deps);
+    await deps.items.softDeleteItem(items[0].id);
+    await classifyPending(items[0].id, deps);
+    expect(await deps.items.listItems({ status: 'pendiente' })).toEqual([]);
+  });
+
+  it('tampoco toca un provisional que ya no está pendiente de la IA', async () => {
+    const { ai, prompts } = aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]);
+    const { deps, items } = setup(ai);
+    const { items: captured } = await captureText({ text: 'comprar leche', origin: 'web' }, deps);
+    await items.updateItem(captured[0].id, { aiState: null });
+    await classifyPending(captured[0].id, deps);
+    expect(prompts).toHaveLength(0);
+    expect((await items.listItems()).map((i) => i.id)).toEqual([captured[0].id]);
   });
 });

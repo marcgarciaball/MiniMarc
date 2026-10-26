@@ -264,14 +264,14 @@ describe('quickCapture', () => {
     ]);
   });
 
-  it('Auto pasa por captureText (la IA clasifica)', async () => {
+  it('Auto pasa por captureText (guarda el texto; la IA pasa después)', async () => {
     const { deps, items } = setup({ ai: aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]) });
     const capture = vi.fn(captureText);
     const res = await quickCapture(form({ text: 'comprar leche', kind: 'auto' }), { ...deps, capture });
     expect(capture).toHaveBeenCalledTimes(1);
     expect(capture.mock.calls[0][0]).toEqual({ text: 'comprar leche', origin: 'web' });
-    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Compras', href: '/bandeja' } });
-    expect((await items.listItems()).map((i) => i.type)).toEqual(['compra']);
+    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Sin clasificar', href: '/bandeja' } });
+    expect(await items.listItems()).toMatchObject([{ title: 'comprar leche', aiState: 'pendiente' }]);
   });
 
   it('sin tipo se comporta como Auto', async () => {

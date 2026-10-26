@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AiProvider } from '@/lib/ai/provider';
-import type { CalendarGateway } from '@/lib/calendar/client';
 import { captureText, type CaptureDeps } from '@/lib/capture/pipeline';
 import { captureFromWeb, type WebCaptureDeps } from '@/lib/capture/web';
 import { createItemsRepo } from '@/lib/db/items';
@@ -78,13 +77,13 @@ describe('captureFromWeb', () => {
     expect(saved[0]).toMatchObject({ type: 'tarea', area: 'trabajo', title: 'Llamar al cliente', origin: 'web' });
   });
 
-  it('sin el interruptor no pasa área y clasifica con la IA', async () => {
+  it('sin el interruptor no pasa área: guarda el texto y deja la IA para después', async () => {
     const { deps, items } = setup(aiReturning([{ kind: 'compra', title: 'Leche', confidence: 0.9 }]));
     const capture = vi.fn(captureText);
     const res = await captureFromWeb(form({ text: 'comprar leche' }), { ...deps, capture });
     expect(capture.mock.calls[0][0]).toEqual({ text: 'comprar leche', origin: 'web' });
-    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Compras' } });
-    expect((await items.listItems()).map((i) => i.type)).toEqual(['compra']);
+    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Sin clasificar' } });
+    expect(await items.listItems()).toMatchObject([{ title: 'comprar leche', aiState: 'pendiente' }]);
   });
 
   it('ignora un valor de área distinto de "trabajo"', async () => {
@@ -130,15 +129,4 @@ describe('captureFromWeb', () => {
     await expect(res).rejects.toBe(redirect);
   });
 
-  it('una cita confirmada en Calendar da "Guardado en Calendar"', async () => {
-    const { deps } = setup(
-      aiReturning([{ kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '09:00', confidence: 0.9 }]),
-    );
-    const gw = { createEvent: vi.fn(async () => 'ev1') } as unknown as CalendarGateway;
-    const base = await deps.captureDeps();
-    const res = await captureFromWeb(form({ text: 'dentista mañana a las 9' }), {
-      captureDeps: async () => ({ ...base, calendar: async () => gw }),
-    });
-    expect(res).toEqual({ ok: true, value: { message: 'Guardado en Calendar' } });
-  });
 });
