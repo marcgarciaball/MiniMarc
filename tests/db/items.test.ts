@@ -50,6 +50,12 @@ describe('items repo', () => {
     expect((await items.listItems({ status: 'pendiente' })).map((i) => i.title)).toEqual(['B']);
   });
 
+  it('filtra items por aiState', async () => {
+    await items.createItem({ type: 'tarea', title: 'Pendiente', aiState: 'pendiente' });
+    await items.createItem({ type: 'tarea', title: 'Clasificada' });
+    expect((await items.listItems({ aiState: 'pendiente' })).map((i) => i.title)).toEqual(['Pendiente']);
+  });
+
   it('updateItem aplica el parche en camelCase', async () => {
     const it1 = await items.createItem({ type: 'tarea', title: 'X' });
     const up = await items.updateItem(it1.id, {

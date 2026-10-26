@@ -56,6 +56,8 @@ export interface ItemFilter {
   area?: Area;
   status?: ItemStatus;
   needsReview?: boolean;
+  /** Solo los de clasificación diferida: 'pendiente' o 'fallo' (lo busca el cron). */
+  aiState?: 'pendiente' | 'fallo';
   /** Only items created at or after this ISO instant (Bandeja "Recién añadido"). */
   createdSince?: string;
 }

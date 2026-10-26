@@ -135,6 +135,7 @@ export function createItemsRepo(
         area: f.area,
         status: f.status,
         needsReview: f.needsReview,
+        aiState: f.aiState,
       });
       const gte = f.createdSince ? { created_at: f.createdSince } : undefined;
       const rows = await backend.select('items', { eq, isNull: ['deleted_at'], gte });
