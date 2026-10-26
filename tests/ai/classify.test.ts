@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import { classify, ClassifyError } from '@/lib/ai/classify';
+import { modelOutputJsonSchema } from '@/lib/ai/schema';
 import type { AiProvider } from '@/lib/ai/provider';
 import { madridToUtc } from '@/lib/time';
 
 /** Fake provider: answers with `raw` (or throws it), validated with the given schema like the real one. */
 function fakeAi(raw: unknown | (() => unknown)) {
   const prompts: string[] = [];
+  const schemas: unknown[] = [];
   const ai: AiProvider = {
-    async generateJson<T>(prompt: string, schema: ZodType<T>): Promise<T> {
+    async generateJson<T>(prompt: string, schema: ZodType<T>, opts?: { jsonSchema?: unknown }): Promise<T> {
       prompts.push(prompt);
+      schemas.push(opts?.jsonSchema);
       const value = typeof raw === 'function' ? (raw as () => unknown)() : raw;
       return schema.parse(value);
     },
@@ -17,7 +20,7 @@ function fakeAi(raw: unknown | (() => unknown)) {
       throw new Error('not used');
     },
   };
-  return { ai, prompts };
+  return { ai, prompts, schemas };
 }
 
 // Wednesday 2026-10-21, 12:00 in Madrid (CEST, UTC+2).
@@ -40,6 +43,26 @@ describe('classify', () => {
     expect(prompts[0]).toContain('comprar leche y llamar a mamá');
     expect(prompts[0]).toContain('mamá');
     expect(prompts[0]).toContain('Ainhoa');
+  });
+
+  it('asks the model for the {items: []} envelope, which prose alone does not guarantee', async () => {
+    const { ai, schemas } = fakeAi({ items: [] });
+    await classify('algo', ctx, ai);
+    expect(schemas[0]).toEqual(modelOutputJsonSchema);
+    // Only the envelope matters here; zod stays the real validator.
+    const root = modelOutputJsonSchema as { type: string; required: string[]; properties: { items: { type: string } } };
+    expect(root.type).toBe('object');
+    expect(root.required).toEqual(['items']);
+    expect(root.properties.items.type).toBe('array');
+  });
+
+  it('strips the keywords the model\'s schema dialect rejects', () => {
+    const json = JSON.stringify(modelOutputJsonSchema);
+    expect(json).not.toContain('$schema');
+    expect(json).not.toContain('pattern');
+    // The fields the app reads are still described, so the model knows what to fill in.
+    expect(json).toContain('confidence');
+    expect(json).toContain('yearKnown');
   });
 
   it('throws ClassifyError on invalid JSON', async () => {

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createGeminiProvider, type GenerateFn } from '@/lib/ai/gemini';
+import { createGeminiProvider, DEFAULT_THINKING, type GenerateFn, type GenerateRequest } from '@/lib/ai/gemini';
 
 const ROOT = path.resolve(__dirname, '../..');
 const SKIP = new Set(['node_modules', 'docs', 'tests']);
@@ -73,6 +73,44 @@ describe('GeminiProvider', () => {
     };
     await expect(provider(quota).generateText('p')).rejects.toBe(err);
     expect(calls).toBe(1);
+  });
+
+  it('asks for minimal thinking by default, so a capture fits the timeout', async () => {
+    const seen: (string | undefined)[] = [];
+    const ai = provider(async (req) => {
+      seen.push(req.thinking);
+      return 'x';
+    });
+    await ai.generateText('p');
+    expect(seen).toEqual([DEFAULT_THINKING]);
+  });
+
+  it('lets GEMINI_THINKING raise the thinking level', async () => {
+    const seen: (string | undefined)[] = [];
+    const ai = createGeminiProvider({
+      apiKey: 'test',
+      thinking: 'HIGH',
+      generate: async (req) => {
+        seen.push(req.thinking);
+        return 'x';
+      },
+    });
+    await ai.generateText('p');
+    expect(seen).toEqual(['HIGH']);
+  });
+
+  it('sends the response schema on JSON calls only, so the envelope is guaranteed', async () => {
+    const seen: GenerateRequest[] = [];
+    const ai = provider(async (req) => {
+      seen.push(req);
+      return '{"ok":true}';
+    });
+    await ai.generateJson('p', schema, { jsonSchema: { type: 'object' } });
+    await ai.generateText('p');
+    expect(seen.map((r) => [r.json, r.jsonSchema])).toEqual([
+      [true, { type: 'object' }],
+      [false, undefined],
+    ]);
   });
 
   it('enforces the daily call cap and resets the next Madrid day', async () => {

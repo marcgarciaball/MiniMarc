@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import type { ZodType } from 'zod';
 import type { AiCallOptions, AiProvider } from '@/lib/ai/provider';
 import { DEFAULT_TZ, toMadrid } from '@/lib/time';
@@ -10,7 +10,24 @@ export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash-lite';
 export const DEFAULT_TIMEOUT_MS = 8000;
 export const DEFAULT_DAILY_CAP = 200;
 
-export type GenerateRequest = { model: string; prompt: string; json: boolean };
+/**
+ * How long the model may reason before answering. 'DEFAULT' sends nothing and lets the model
+ * decide, which is what it has always done; `GEMINI_THINKING` pins a level without a deploy.
+ * Measured, not assumed: asking for MINIMAL made this model *slower*, not faster, so the knob
+ * exists to measure (scripts/probe-classify.ts) rather than to tune blindly.
+ */
+export type ThinkingLevelName = 'DEFAULT' | 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
+const THINKING_LEVELS: readonly string[] = ['DEFAULT', 'MINIMAL', 'LOW', 'MEDIUM', 'HIGH'];
+export const DEFAULT_THINKING: ThinkingLevelName = 'DEFAULT';
+
+export type GenerateRequest = {
+  model: string;
+  prompt: string;
+  json: boolean;
+  /** JSON Schema the answer must match, when the caller has one. */
+  jsonSchema?: unknown;
+  thinking: ThinkingLevelName;
+};
 /** One SDK call returning the response text. Injectable so tests never touch the network. */
 export type GenerateFn = (req: GenerateRequest, signal: AbortSignal) => Promise<string>;
 
@@ -24,6 +41,7 @@ export type GeminiOptions = {
   model?: string;
   timeoutMs?: number;
   dailyCap?: number;
+  thinking?: ThinkingLevelName;
   generate?: GenerateFn;
   counter?: DailyCounter;
   now?: () => Date;
@@ -31,13 +49,19 @@ export type GeminiOptions = {
 
 function sdkGenerate(apiKey: string | undefined): GenerateFn {
   let client: GoogleGenAI | undefined;
-  return async ({ model, prompt, json }, signal) => {
+  return async ({ model, prompt, json, jsonSchema, thinking }, signal) => {
     if (!apiKey) throw new Error('Falta GEMINI_API_KEY');
     client ??= new GoogleGenAI({ apiKey });
     const res = await client.models.generateContent({
       model,
       contents: prompt,
-      config: { abortSignal: signal, ...(json ? { responseMimeType: 'application/json' } : {}) },
+      config: {
+        abortSignal: signal,
+        // 'DEFAULT' sends nothing: the model decides, as before this option existed.
+        ...(thinking === 'DEFAULT' ? {} : { thinkingConfig: { thinkingLevel: ThinkingLevel[thinking] } }),
+        ...(json ? { responseMimeType: 'application/json' } : {}),
+        ...(json && jsonSchema ? { responseJsonSchema: jsonSchema } : {}),
+      },
     });
     const text = res.text;
     if (!text) throw new Error('Respuesta vacía de Gemini');
@@ -75,6 +99,11 @@ export function isQuotaError(err: unknown): boolean {
   return typeof e.message === 'string' && /RESOURCE_EXHAUSTED|"code"\s*:\s*429\b/.test(e.message);
 }
 
+function thinkingLevel(value: string | undefined): ThinkingLevelName | undefined {
+  const name = value?.trim().toUpperCase();
+  return name && THINKING_LEVELS.includes(name) ? (name as ThinkingLevelName) : undefined;
+}
+
 function positiveInt(value: string | undefined): number | undefined {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : undefined;
@@ -83,6 +112,7 @@ function positiveInt(value: string | undefined): number | undefined {
 export function createGeminiProvider(opts: GeminiOptions = {}): AiProvider {
   const model = opts.model ?? (process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL);
   const dailyCap = opts.dailyCap ?? positiveInt(process.env.GEMINI_DAILY_CAP) ?? DEFAULT_DAILY_CAP;
+  const thinking = opts.thinking ?? thinkingLevel(process.env.GEMINI_THINKING) ?? DEFAULT_THINKING;
   const generate = opts.generate ?? sdkGenerate(opts.apiKey ?? process.env.GEMINI_API_KEY);
   const counter = opts.counter ?? (opts.generate ? createDailyCounter() : sharedCounter);
   const now = opts.now ?? (() => new Date());
@@ -99,7 +129,7 @@ export function createGeminiProvider(opts: GeminiOptions = {}): AiProvider {
 
   async function call(prompt: string, json: boolean, callOpts?: AiCallOptions): Promise<string> {
     const timeoutMs = callOpts?.timeoutMs ?? opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const req = { model, prompt, json };
+    const req = { model, prompt, json, jsonSchema: callOpts?.jsonSchema, thinking };
     takeCall();
     try {
       return await withTimeout(generate, req, timeoutMs);

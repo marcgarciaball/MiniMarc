@@ -33,3 +33,28 @@ export const modelItemSchema = z.object({
 
 export const modelOutputSchema = z.object({ items: z.array(modelItemSchema) });
 export type ModelOutput = z.infer<typeof modelOutputSchema>;
+
+/**
+ * The same shape as JSON Schema, for the model's structured-output mode. Asking for the shape in
+ * prose is not enough: the model sometimes answers with a bare array instead of `{"items": […]}`,
+ * and zod then rejects the whole note, which lands it in "Sin clasificar". Derived from the zod
+ * schema so the two can never drift.
+ *
+ * Only the envelope is guaranteed here; zod stays the real validator. Keywords the model's schema
+ * dialect does not accept (`$schema`, `pattern`) are stripped, so a tightening of the zod schema
+ * can never turn into a rejected request.
+ */
+function forModel(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(forModel);
+  if (!node || typeof node !== 'object') return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key === '$schema' || key === 'pattern') continue;
+    out[key] = forModel(value);
+  }
+  return out;
+}
+
+export const modelOutputJsonSchema = forModel(
+  z.toJSONSchema(modelOutputSchema, { io: 'input', unrepresentable: 'any' }),
+);
