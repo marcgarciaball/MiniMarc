@@ -230,6 +230,20 @@ describe('syncTaskEvent', () => {
   });
 });
 
+describe('ubicación', () => {
+  it('la tarea con ubicación la lleva a su evento', async () => {
+    const { gw, writes } = fakeGateway();
+    await syncTaskEvent(task({ location: 'Taller Pérez, Calle Mayor 5' }), gw);
+    expect((writes()[0] as { e: EventInput }).e.location).toBe('Taller Pérez, Calle Mayor 5');
+  });
+
+  it('sin ubicación el evento no lleva el campo', async () => {
+    const { gw, writes } = fakeGateway();
+    await syncTaskEvent(task(), gw);
+    expect('location' in (writes()[0] as { e: EventInput }).e).toBe(false);
+  });
+});
+
 describe('taskSyncHook', () => {
   it('no carga el gateway para lo que no tiene ni quiere evento', async () => {
     let loads = 0;

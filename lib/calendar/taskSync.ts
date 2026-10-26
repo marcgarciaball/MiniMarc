@@ -35,12 +35,14 @@ function eventFor(item: Item): EventInput {
   const description = `Recordatorio de Agente Personal\n${APP_URL}/tareas?area=${area}`;
   // Sin hora, el día es el de Madrid: dueAt guarda su medianoche local, que en UTC cae la
   // víspera (22:00 o 23:00 según el horario de verano).
-  if (!item.hasTime) return { title: item.title, allDay: true, date: madridDateTime(startsAt).date, description };
+  const location = item.location ? { location: item.location } : {};
+  if (!item.hasTime) return { title: item.title, allDay: true, date: madridDateTime(startsAt).date, description, ...location };
   return {
     title: item.title,
     startsAt,
     endsAt: new Date(startsAt.getTime() + DURATION_MS),
     description,
+    ...location,
   };
 }
 

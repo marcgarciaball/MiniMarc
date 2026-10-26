@@ -15,6 +15,7 @@ export interface TimedEventInput {
   /** Defaults to 30 minutes after `startsAt`. */
   endsAt?: Date;
   description?: string;
+  location?: string;
   allDay?: false;
 }
 
@@ -28,6 +29,7 @@ export interface AllDayEventInput {
   date: string;
   endDate?: string;
   description?: string;
+  location?: string;
 }
 
 export type EventInput = TimedEventInput | AllDayEventInput;
@@ -179,7 +181,11 @@ function nextDay(date: string): string {
 }
 
 function eventBody(e: EventInput): calendar_v3.Schema$Event {
-  const common = { summary: e.title, ...(e.description !== undefined && { description: e.description }) };
+  const common = {
+    summary: e.title,
+    ...(e.description !== undefined && { description: e.description }),
+    ...(e.location && { location: e.location }),
+  };
   if (e.allDay) {
     return {
       ...common,

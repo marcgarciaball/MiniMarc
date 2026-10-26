@@ -160,7 +160,13 @@ async function saveClassified(c: Classification, text: string, input: CaptureInp
   const confident = c.confidence >= MIN_CONFIDENCE;
 
   if (c.kind === 'cita' && confident && c.startsAt && c.hasTime) {
-    const event = { title: c.title, startsAt: new Date(c.startsAt), ...(c.notes && { description: c.notes }) };
+    const location = c.location ? locationField(c.location) : null;
+    const event = {
+      title: c.title,
+      startsAt: new Date(c.startsAt),
+      ...(c.notes && { description: c.notes }),
+      ...(location && { location }),
+    };
     const r = await createCita({ calendar: deps.calendar }, event);
     if (r.ok) {
       out.eventIds.push(r.eventId);

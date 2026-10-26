@@ -755,6 +755,36 @@ describe('captureText: ubicación', () => {
     expect(res.items[0].location).toBe('Taller Pérez, Calle Mayor 5');
   });
 
+  it('manda la ubicación al evento de la cita', async () => {
+    const cal = fakeCalendar();
+    const { deps } = setup(
+      aiReturning([
+        { kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', location: 'Clínica Dental, Gran Vía 10', confidence: 0.9 },
+      ]).ai,
+      cal,
+    );
+    await captureText({ text: 'dentista mañana a las 5 en la Clínica Dental, Gran Vía 10', origin: 'siri' }, deps);
+    expect(cal.created[0].e.location).toBe('Clínica Dental, Gran Vía 10');
+  });
+
+  it('no manda el campo location cuando el item no tiene ubicación', async () => {
+    const inserts: Record<string, unknown>[] = [];
+    const api = {
+      events: {
+        insert: async (params: Record<string, unknown>) => {
+          inserts.push(params);
+          return { data: { id: 'g-1' } };
+        },
+      },
+    } as unknown as CalendarApi;
+    const { deps } = setup(
+      aiReturning([{ kind: 'cita', title: 'Dentista', date: '2026-10-22', time: '17:00', confidence: 0.9 }]).ai,
+    );
+    deps.calendar = async () => createCalendarClient(null, { api });
+    await captureText({ text: 'dentista mañana a las 5', origin: 'siri' }, deps);
+    expect('location' in (inserts[0].requestBody as object)).toBe(false);
+  });
+
   it('recorta una ubicación larguísima a TITLE_MAX y aplana los saltos de línea', () => {
     expect(locationField('a\nb')).toBe('a b');
     expect(locationField('x'.repeat(300))!.length).toBe(TITLE_MAX);
